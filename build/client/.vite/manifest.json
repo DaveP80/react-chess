@@ -1,0 +1,49 @@
+{
+  "/home/project/app/styles/tailwind.css": {
+    "file": "assets/tailwind-ov2LxHJ0.css",
+    "src": "/home/project/app/styles/tailwind.css"
+  },
+  "_components-DTMHp2C6.js": {
+    "file": "assets/components-DTMHp2C6.js",
+    "name": "components",
+    "imports": [
+      "_jsx-runtime-56DGgGmo.js"
+    ]
+  },
+  "_jsx-runtime-56DGgGmo.js": {
+    "file": "assets/jsx-runtime-56DGgGmo.js",
+    "name": "jsx-runtime"
+  },
+  "app/entry.client.tsx": {
+    "file": "assets/entry.client-B-v_Em5y.js",
+    "name": "entry.client",
+    "src": "app/entry.client.tsx",
+    "isEntry": true,
+    "imports": [
+      "_jsx-runtime-56DGgGmo.js",
+      "_components-DTMHp2C6.js"
+    ]
+  },
+  "app/root.tsx?__remix-build-client-route": {
+    "file": "assets/root-DZvWbhbc.js",
+    "name": "root",
+    "src": "app/root.tsx?__remix-build-client-route",
+    "isEntry": true,
+    "imports": [
+      "_jsx-runtime-56DGgGmo.js",
+      "_components-DTMHp2C6.js"
+    ],
+    "assets": [
+      "assets/tailwind-ov2LxHJ0.css"
+    ]
+  },
+  "app/routes/_index.tsx?__remix-build-client-route": {
+    "file": "assets/_index-Bw20SYwe.js",
+    "name": "_index",
+    "src": "app/routes/_index.tsx?__remix-build-client-route",
+    "isEntry": true,
+    "imports": [
+      "_jsx-runtime-56DGgGmo.js"
+    ]
+  }
+}
