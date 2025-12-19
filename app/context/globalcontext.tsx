@@ -1,16 +1,20 @@
 import { createContext, useState } from "react";
 import { User, UserContextType, Game } from "~/types";
 
-export const GlobalContext = createContext<(UserContextType & Game) | undefined>(undefined);
+export const GlobalContext = createContext<UserContextType & Game & any>(undefined);
 
 export default function GlobalContextProvider({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const [user, setUser] = useState<User>(null);
+    const [user, setUser] = useState<User>({  
+        id: -1, 
+        email: "",
+        username: "",
+        avatarUrl: ""});
     const [playingGame, setPlayingGame] = useState(false);    
-    const clearUser = () => setUser({ id: null });
+    const clearUser = () => setUser({ id: -1 });
     return (
         <GlobalContext.Provider
             value={{ user, setUser, clearUser, playingGame, setPlayingGame }}
@@ -18,4 +22,4 @@ export default function GlobalContextProvider({
             {children}
         </GlobalContext.Provider>
     );
-}
+};
