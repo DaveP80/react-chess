@@ -1,10 +1,13 @@
 import React, { useState, useContext } from 'react';
 import { Form, useNavigate } from '@remix-run/react';
 import { GlobalContext } from '~/context/globalcontext';
+import SignInButtons from './SignInButtons';
+const DOMAIN_URL = import.meta.env.VITE_SUPABASE_DOMAIN_URL!;
+const TOKEN_HASH = import.meta.env.VITE_SUPABASE_TOKEN_HASH!;
 
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
-  const { setUser } = useContext(GlobalContext);
+  const UserContext = useContext(GlobalContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -19,7 +22,9 @@ export default function Login() {
       setTimeout(() => {
         if (isSignUp) {
           // Simulate successful signup
-          resolve({ success: true, user: { id: '123', username, email, avatarUrl: 'https://via.placeholder.com/128', isPlaying: false, stats: { rating: 1200, wins: 0, losses: 0, draws: 0 } } });
+          //resolve({ success: true, user: { id: '123', username, email, avatarUrl: 'https://via.placeholder.com/128', isPlaying: false, stats: { rating: 1200, wins: 0, losses: 0, draws: 0 } } });
+          fetch(`${DOMAIN_URL}/auth/confirm?token_hash=${TOKEN_HASH}&type=email&next=${DOMAIN_URL}/myhome`);
+          
         } else {
           // Simulate successful login
           if (email === 'test@example.com' && password === 'password') {
@@ -34,7 +39,7 @@ export default function Login() {
     const response: any = await mockApiCall;
 
     if (response.success) {
-      setUser(response.user);
+      UserContext?.setUser(response.user);
       navigate(`/MyHome`);
     } else {
       alert(response.error || 'An error occurred');
@@ -42,6 +47,8 @@ export default function Login() {
   };
 
   return (
+    <div>
+      <SignInButtons/>
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
@@ -99,6 +106,7 @@ export default function Login() {
           </button>
         </div>
       </div>
+    </div>
     </div>
   );
 }

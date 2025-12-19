@@ -3,9 +3,9 @@ import { GlobalContext } from '~/context/globalcontext';
 import Login from './Login';
 
 // Mock data for demonstration purposes
-const user = {
+const Mockuser = {
   username: 'ChessMaster123',
-  avatarUrl: 'https://via.placeholder.com/128', // Placeholder avatar
+  avatarUrl: 'https://cdn3.iconfinder.com/data/icons/family-member-flat-happy-family-day/512/Uncle-64.png', // Placeholder avatar
   isPlaying: true,
   stats: {
     rating: 1500,
@@ -23,25 +23,25 @@ const gameHistory = [
 ];
 
 export default function UserProfile({context}) {
-    const {user} = useContext(GlobalContext);
+    const playingGame = useContext(GlobalContext);
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="container mx-auto max-w-4xl">
-        {user ?
+        {context?.user ?
         (
         <div className="bg-white rounded-lg shadow-lg p-6">
           {/* Profile Header */}
           <div className="flex flex-col sm:flex-row items-center sm:items-start">
             <img
               className="w-32 h-32 rounded-full border-4 border-gray-300"
-              src={user.avatarUrl}
-              alt={`${user.username}'s avatar`}
+              src={Mockuser.avatarUrl}
+              alt={`${Mockuser.username}'s avatar`}
             />
             <div className="sm:ml-6 mt-4 sm:mt-0 text-center sm:text-left">
-              <h1 className="text-3xl font-bold text-gray-800">{user.username}</h1>
+              <h1 className="text-3xl font-bold text-gray-800">{Mockuser.username}</h1>
               <div className="flex items-center justify-center sm:justify-start mt-2">
-                <span className={`h-3 w-3 rounded-full mr-2 ${user.isPlaying ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-                <span className="text-sm text-gray-600">{user.isPlaying ? 'Currently in a game' : 'Offline'}</span>
+                <span className={`h-3 w-3 rounded-full mr-2 ${playingGame ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                <span className="text-sm text-gray-600">{playingGame ? 'Currently in a game' : 'Offline'}</span>
               </div>
               <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
                 <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
@@ -58,10 +58,10 @@ export default function UserProfile({context}) {
           <div className="mt-8 border-t border-gray-200 pt-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Statistics</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-              <div className="bg-gray-50 p-4 rounded-lg"><div className="text-2xl font-bold text-blue-600">{user.stats.rating}</div><div className="text-sm text-gray-500">Rating</div></div>
-              <div className="bg-gray-50 p-4 rounded-lg"><div className="text-2xl font-bold text-green-600">{user.stats.wins}</div><div className="text-sm text-gray-500">Wins</div></div>
-              <div className="bg-gray-50 p-4 rounded-lg"><div className="text-2xl font-bold text-red-600">{user.stats.losses}</div><div className="text-sm text-gray-500">Losses</div></div>
-              <div className="bg-gray-50 p-4 rounded-lg"><div className="text-2xl font-bold text-gray-600">{user.stats.draws}</div><div className="text-sm text-gray-500">Draws</div></div>
+              <div className="bg-gray-50 p-4 rounded-lg"><div className="text-2xl font-bold text-blue-600">{Mockuser.stats.rating}</div><div className="text-sm text-gray-500">Rating</div></div>
+              <div className="bg-gray-50 p-4 rounded-lg"><div className="text-2xl font-bold text-green-600">{Mockuser.stats.wins}</div><div className="text-sm text-gray-500">Wins</div></div>
+              <div className="bg-gray-50 p-4 rounded-lg"><div className="text-2xl font-bold text-red-600">{Mockuser.stats.losses}</div><div className="text-sm text-gray-500">Losses</div></div>
+              <div className="bg-gray-50 p-4 rounded-lg"><div className="text-2xl font-bold text-gray-600">{Mockuser.stats.draws}</div><div className="text-sm text-gray-500">Draws</div></div>
             </div>
           </div>
 

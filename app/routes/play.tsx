@@ -3,7 +3,7 @@ import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import type { MetaFunction } from '@remix-run/node';
 import { RotateCcw, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FlagIcon } from 'lucide-react';
-import {checkIfRepetition} from "~/utils/helper";
+import { checkIfRepetition } from "~/utils/helper";
 
 export const meta: MetaFunction = () => {
   return [
@@ -30,13 +30,13 @@ export default function Index() {
           to: targetSquare,
           promotion: 'q',
         });
-        
+
 
         if (move === null) return false;
         setGame(gameCopy);
         setMoveHistory([...moveHistory, move.san]);
         setFenHistory([...fenHistory, gameCopy]);
-        setCurrentMoveIndex(moveHistory.length-1);
+        setCurrentMoveIndex(moveHistory.length - 1);
 
         return true;
       }
@@ -58,7 +58,7 @@ export default function Index() {
     if (game.isGameOver()) {
       return null;
     };
-    if (checkIfRepetition(fenHistory)){
+    if (checkIfRepetition(fenHistory)) {
       return null;
     }
     if (!resign && moveHistory.length > 0) {
@@ -67,15 +67,15 @@ export default function Index() {
   }
 
   const handleSetReplay = (idx: number) => {
-    if (idx != fenHistory.length-1) {
+    if (idx != fenHistory.length - 1) {
       setGame(fenHistory[idx]);
       setIsReplay(idx);
       setCurrentMoveIndex(idx);
     }
-    if (idx == fenHistory.length -1) {
+    if (idx == fenHistory.length - 1) {
       setIsReplay(null);
-      setGame(fenHistory[fenHistory.length-1]);
-      setCurrentMoveIndex(fenHistory.length-1);
+      setGame(fenHistory[fenHistory.length - 1]);
+      setCurrentMoveIndex(fenHistory.length - 1);
     }
   }
 
@@ -117,9 +117,6 @@ export default function Index() {
       setCurrentMoveIndex(newIndex);
     }
   };
-
-
-
 
   const isGameOver = game.isGameOver();
   const isCheckmate = game.isCheckmate();
@@ -210,43 +207,43 @@ export default function Index() {
                       ))}
                     </div>
                   )}
-<div className="mt-4 flex items-center justify-center gap-2 bg-slate-200 rounded-lg p-2">
-                      <button
-                        onClick={goToStart}
-                        disabled={currentMoveIndex === 0}
-                        className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Jump to start"
-                      >
-                        <ChevronsLeft size={20} className="text-slate-700" />
-                      </button>
-                      <button
-                        onClick={goToPrevious}
-                        disabled={currentMoveIndex <= 0}
-                        className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Previous move"
-                      >
-                        <ChevronLeft size={20} className="text-slate-700" />
-                      </button>
-                      <span className="px-3 py-1 text-sm font-semibold text-slate-700 min-w-[60px] text-center">
-                        {currentMoveIndex + 1} / {moveHistory.length}
-                      </span>
-                      <button
-                        onClick={goToNext}
-                        disabled={currentMoveIndex >= fenHistory.length - 1}
-                        className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Next move"
-                      >
-                        <ChevronRight size={20} className="text-slate-700" />
-                      </button>
-                      <button
-                        onClick={goToEnd}
-                        disabled={currentMoveIndex >= fenHistory.length - 1}
-                        className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        title="Jump to end"
-                      >
-                        <ChevronsRight size={20} className="text-slate-700" />
-                      </button>
-                    </div>
+                  <div className="mt-4 flex items-center justify-center gap-2 bg-slate-200 rounded-lg p-2">
+                    <button
+                      onClick={goToStart}
+                      disabled={currentMoveIndex === 0}
+                      className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Jump to start"
+                    >
+                      <ChevronsLeft size={20} className="text-slate-700" />
+                    </button>
+                    <button
+                      onClick={goToPrevious}
+                      disabled={currentMoveIndex <= 0}
+                      className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Previous move"
+                    >
+                      <ChevronLeft size={20} className="text-slate-700" />
+                    </button>
+                    <span className="px-3 py-1 text-sm font-semibold text-slate-700 min-w-[60px] text-center">
+                      {currentMoveIndex + 1} / {moveHistory.length}
+                    </span>
+                    <button
+                      onClick={goToNext}
+                      disabled={currentMoveIndex >= fenHistory.length - 1}
+                      className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Next move"
+                    >
+                      <ChevronRight size={20} className="text-slate-700" />
+                    </button>
+                    <button
+                      onClick={goToEnd}
+                      disabled={currentMoveIndex >= fenHistory.length - 1}
+                      className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Jump to end"
+                    >
+                      <ChevronsRight size={20} className="text-slate-700" />
+                    </button>
+                  </div>
                 </div>
                 {(isGameOver || isThreeFoldRepit || resign) && (
                   <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">

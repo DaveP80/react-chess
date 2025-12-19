@@ -5,64 +5,60 @@ import {
   useRevalidator
 } from "@remix-run/react";
 import { useEffect, useState } from "react";
-import { createClient } from "~/utils/supabase.server";
 import { getOrCreateSessionId } from "~/utils/auth.server";
-import "./tailwind.css"
 import MyHome from "~/components/MyHome";
 import { createBrowserClient } from "@supabase/ssr";
+import { LoaderFunction } from "@remix-run/node";
+import { createSupabaseServerClient } from "~/utils/supabase.server";
 
-export const loader = async ({ request }: any) => {
-  const env = {
-    SUPABASE_URL: process.env.SUPABASE_URL!,
-    SUPABASE_PUBLIC_KEY: process.env.SUPABASE_PUBLISHABLE_KEY!,
-  };
+export const loader: LoaderFunction = async ({ request }) => {
 
-  const response = new Response();
+  const { supabase, setCookieHeaders } = createSupabaseServerClient(request);
 
-  const supabase = createBrowserClient(    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!);
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // On the server you can access user/session safely:
 
-  const { sessionId, getHeaders } = await getOrCreateSessionId(request);
-  console.log(sessionId)
-  return Response.json({ env, session }, {
-    headers: {
-      "Set-Cookie": await getHeaders(),
+
+  const { data: { user }, error, } = await supabase.auth.getUser();
+
+  // Example: run a row-level security read as the signed in user
+
+
+  // const { data } = await supabase.from('todos').select('*');
+
+
+  const headers: HeadersInit = {};
+
+  if (setCookieHeaders.length > 0) {
+
+    headers['Set-Cookie'] = setCookieHeaders;
+  }
+
+  return Response.json(
+    {
+
+      user
+        : user ? {
+          id
+            : user.id,
+          email
+            : user.email
+        } :
+          null
+      ,
+
+      // you can also return data from DB queries
+
     },
-  });
+    { headers }
+  );
 };
 
 export default function App() {
-  const { env, session } = useLoaderData<typeof loader>();
-  const { revalidate } = useRevalidator();
 
-  const [supabase] = useState(() =>
-    createBrowserClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_DEFAULT_KEY)
-  );
-  const serverAccessToken = session?.access_token;
-
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event: any, session: any) => {
-      if (session?.access_token !== serverAccessToken) {
-        revalidate();
-      }
-    });
-    if (session?.user) {
-      const inputStor = localStorage.getItem(`${session.user.id}`);
-      if (inputStor === null) {
-        localStorage.setItem(`${session.user.id}`, "");
-      }
-    }
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabase.auth, serverAccessToken, revalidate]);
+  const
+    { user } = useLoaderData<typeof loader>();
 
   return (
-<MyHome context={{ supabase, session }} />
+    <MyHome context={{ user }} />
   );
 }
