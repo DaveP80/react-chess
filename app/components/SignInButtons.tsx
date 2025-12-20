@@ -1,10 +1,9 @@
 // app/components/SignInButtons.tsx
 import React from 'react';
-import { getSupabaseBrowserClient } from '~/utils/supabase.client';
 
 export default function SignInButtons() {
-  const supabase = getSupabaseBrowserClient();
-
+  const supabase = async() => await import("~/utils/supabase.client")
+  
   const signInWithGitHub = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'github',

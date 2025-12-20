@@ -6,7 +6,7 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAU
 
 let client: ReturnType<typeof createBrowserClient> | null = null;
 
-export function getSupabaseBrowserClient() {
+export default function getSupabaseBrowserClient() {
   if (!client) {
     client = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
   }

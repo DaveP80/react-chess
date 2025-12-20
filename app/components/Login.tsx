@@ -2,8 +2,6 @@ import React, { useState, useContext } from 'react';
 import { Form, useNavigate } from '@remix-run/react';
 import { GlobalContext } from '~/context/globalcontext';
 import SignInButtons from './SignInButtons';
-const DOMAIN_URL = import.meta.env.VITE_SUPABASE_DOMAIN_URL!;
-const TOKEN_HASH = import.meta.env.VITE_SUPABASE_TOKEN_HASH!;
 
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -23,12 +21,7 @@ export default function Login() {
         if (isSignUp) {
           // Simulate successful signup
           //resolve({ success: true, user: { id: '123', username, email, avatarUrl: 'https://via.placeholder.com/128', isPlaying: false, stats: { rating: 1200, wins: 0, losses: 0, draws: 0 } } });
-          fetch(`${DOMAIN_URL}/auth/confirm?token_hash=${TOKEN_HASH}&type=email&next=${DOMAIN_URL}/myhome`);
-<<<<<<< HEAD
-          
-=======
-
->>>>>>> dev-email
+          [];
         } else {
           // Simulate successful login
           if (email === 'test@example.com' && password === 'password') {
@@ -44,7 +37,7 @@ export default function Login() {
 
     if (response.success) {
       UserContext?.setUser(response.user);
-      navigate(`/MyHome`);
+      navigate(`/myhome`);
     } else {
       alert(response.error || 'An error occurred');
     }
@@ -63,7 +56,7 @@ export default function Login() {
           <span className="mx-4 flex-shrink text-sm text-gray-500">OR</span>
           <div className="flex-grow border-t border-gray-300"></div>
         </div>
-        <Form onSubmit={handleSubmit} className="space-y-4">
+        <Form className="space-y-4" action="/auth/loginsignup" method="post">
           {isSignUp && (
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
@@ -105,6 +98,7 @@ export default function Login() {
           <button
             type="submit"
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+             name="intent" value={isSignUp ? 'signup' : 'login'}
           >
             {isSignUp ? 'Sign Up' : 'Login'}
           </button>

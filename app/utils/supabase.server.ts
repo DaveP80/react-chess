@@ -1,7 +1,6 @@
 // app/utils/supabase.server.ts
 import { createServerClient } from '@supabase/ssr';
 import { parseCookieHeader, serializeCookieHeader } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
 const SUPABASE_PUBLISHABLE_DEFAULT_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
