@@ -25,8 +25,6 @@ export function createSupabaseServerClient(request: Request) {
         });
       },
     },
-    // Optionally pass a global fetch to ensure the client uses the same fetch as Remix
-    // global: { fetch: fetch as any },
   });
 
   return { supabase, setCookieHeaders };

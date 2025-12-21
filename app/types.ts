@@ -5,7 +5,7 @@ export type OutletContext = {
   session: Session;
 };
 export interface User  {
-  id?: string | number | null;
+  id?: string | null;
   email?: string;
   username?: string;
   avatarUrl?: string;

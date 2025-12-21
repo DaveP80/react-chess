@@ -9,12 +9,14 @@ export default function GlobalContextProvider({
     children: React.ReactNode;
 }) {
     const [user, setUser] = useState<User>({  
-        id: -1, 
+        //DB references Id as u_id;
+        id: "", 
         email: "",
         username: "",
         avatarUrl: ""});
     const [playingGame, setPlayingGame] = useState(false);    
-    const clearUser = () => setUser({ id: -1 });
+
+    const clearUser = () => setUser({ id: "" });
     return (
         <GlobalContext.Provider
             value={{ user, setUser, clearUser, playingGame, setPlayingGame }}
