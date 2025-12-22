@@ -3,7 +3,6 @@ import { useContext } from 'react';
 import { GlobalContext } from '~/context/globalcontext';
 
 export default function CreateGame() {
-  const UserContext = useContext(GlobalContext);
   const PlayContext = useContext(GlobalContext);
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4">

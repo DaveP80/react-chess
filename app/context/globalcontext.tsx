@@ -13,7 +13,9 @@ export default function GlobalContextProvider({
         id: "", 
         email: "",
         username: "",
-        avatarUrl: ""});
+        avatarUrl: "",
+        verified: false});
+        provider: ""
     const [playingGame, setPlayingGame] = useState(false);    
 
     const clearUser = () => setUser({ id: "" });

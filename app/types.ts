@@ -9,6 +9,8 @@ export interface User  {
   email?: string;
   username?: string;
   avatarUrl?: string;
+  verified?: boolean;
+  provider?: string;
 } ;
 
 export interface Game {

@@ -1,50 +1,57 @@
 import { ActionFunctionArgs, LoaderFunction } from "@remix-run/node";
-import { useNavigate, useSearchParams } from "@remix-run/react";
+import { useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
 import { useContext, useEffect } from "react";
 import { GlobalContext } from "~/context/globalcontext";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 export const loader: LoaderFunction = async ({ request }) => {
-  const { supabase, setCookieHeaders } = createSupabaseServerClient(request);
+  const { client, headers } = createSupabaseServerClient(request);
+  const supabase = client;
 
-  await supabase.auth.signOut({ scope: "global" });
-  return Response.json({});
+  const status = await supabase.auth.signOut({ scope: "global" });
+  if (status.error) {
+    return Response.json({ error: status.error, ok: false });
+  } else {
+    return Response.json({ error: null, ok: true });
+  }
 };
 export const action = async ({ request }: ActionFunctionArgs) => {
   return null;
 };
 
 export default function Index() {
+  const { error, ok } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("query");
-  const navigate = useNavigate();
   const UserContext = useContext(GlobalContext);
   const supabase = getSupabaseBrowserClient();
+  const navigate = useNavigate();
 
   useEffect(() => {
     try {
       if (query == "navbar") {
         async () => await supabase.auth.signOut({ scope: "global" });
       }
-      UserContext.setUser({
-        id: "",
-        email: "",
-        username: "",
-        avatarUrl: "",
-      });
-      const localAuth = localStorage.getItem("auth");
-      if (localAuth) {
-        localStorage.removeItem("auth");
-      }
     } catch (error) {
       console.error(error);
+    } finally {
+      if (ok === true) {
+        UserContext.setUser({
+          id: "",
+          email: "",
+          username: "",
+          avatarUrl: "",
+          verified: false,
+          provider: ""
+        });
+      }
+      navigate("/login");
     }
-    navigate("/myhome");
 
     return () => {
       true;
     };
-  }, []);
+  }, [error, ok]);
 
-  return null;
+  return <div className="div">...Logging Out</div>;
 }

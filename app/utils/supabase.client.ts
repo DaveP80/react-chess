@@ -12,7 +12,7 @@ export function getSupabaseBrowserClient() {
     throw new Error("supabase browser client can only be used in the browser");
   }
   if (!client) {
-    client = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+    client = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {isSingleton: false});
   }
   return client;
 }

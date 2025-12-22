@@ -6,6 +6,7 @@ import SignInButtons from "./SignInButtons";
 export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [btnDisable, setBtnDisable] = useState(false);
   const UserContext = useContext(GlobalContext);
   const navigate = useNavigate();
 
@@ -13,6 +14,9 @@ export default function Login() {
     const checkSignUp = localStorage.getItem("auth");
     if (checkSignUp && JSON.parse(checkSignUp).new_signup) {
       setEmailSent(true);
+    };
+    if (UserContext?.user.id) {
+      setBtnDisable(true);
     }
 
     return () => {
@@ -131,6 +135,7 @@ export default function Login() {
               className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               name="intent"
               value={isSignUp ? "signup" : "login"}
+              disabled={btnDisable}
             >
               {isSignUp ? "Sign Up" : "Login"}
             </button>

@@ -61,3 +61,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return redirect("/auth/error", { headers });
   }
 }
+
+export default function Index() {
+    return null;
+}

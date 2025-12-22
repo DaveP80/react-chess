@@ -1,7 +1,7 @@
 import {
   Form,
   NavLink,
-  useFetcher,
+  useNavigate,
   useNavigation,
 } from "@remix-run/react";
 import {  useContext, useEffect, useState } from "react";
@@ -10,8 +10,8 @@ import { GlobalContext } from "~/context/globalcontext";
 export default function Navigation() {
   const [userData, setUserData] = useState(false);
   const UserContext = useContext(GlobalContext);
-  const fetcher = useFetcher();
   const navigation = useNavigation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (navigation.state == "idle" || navigation.state == "loading") {
@@ -27,9 +27,13 @@ export default function Navigation() {
     };
   }, [navigation.state]);
 
-  async function handleLogout(): Promise<void | null> {
+  async function handleLogout(): Promise<void> {
     try {
-      fetcher.load("/logout?query=navbar");
+      const localAuth = await localStorage.getItem("auth");
+      if (localAuth) {
+        localStorage.removeItem("auth");
+      }
+      navigate("/logout?query=navbar");
     } catch (e) {
       console.error(e);
     }
@@ -60,7 +64,7 @@ export default function Navigation() {
         </li>
         <li>
           <NavLink
-            to="/myhome"
+            to={`/myhome?id=${UserContext?.user.id}&email=${UserContext?.user.email}&provider=${UserContext?.user.provider}`}
             className={({ isActive }) =>
               `text-white hover:text-gray-300 ${isActive ? "font-bold" : ""}`
             }
@@ -84,7 +88,7 @@ export default function Navigation() {
           </li>
         ) : (
           <li>
-            <Form id="loginForm" action={`/myhome`}>
+            <Form id="loginForm" action={`/login`}>
               <button
                 type="submit"
                 className="btn btn-md text-green-800 font-bold"

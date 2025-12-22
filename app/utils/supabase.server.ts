@@ -1,31 +1,26 @@
-// app/utils/supabase.server.ts
-import { createServerClient } from '@supabase/ssr';
-import { parseCookieHeader, serializeCookieHeader } from '@supabase/ssr';
+import { createServerClient, parseCookieHeader, serializeCookieHeader } from '@supabase/ssr';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
-const SUPABASE_PUBLISHABLE_DEFAULT_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!;
-
+// Create a single supabase client for interacting with your database
 export function createSupabaseServerClient(request: Request) {
-  // parse incoming cookies from the request
-  const incomingCookies = parseCookieHeader(request.headers.get('Cookie') ?? '');
-
-  // prepare a headers collector so we can return Set-Cookie headers to the caller
-  const setCookieHeaders: string[] = [];
-
-  // Build server client. The createServerClient helper expects cookies with getAll/setAll.
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_DEFAULT_KEY, {
-    cookies: {
-      getAll() {
-        return incomingCookies;
+  const headers = new Headers();
+  const supabase = {
+    headers,
+    client: createServerClient(import.meta.env.VITE_SUPABASE_URL!, import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!, {
+      cookies: {
+        getAll() {
+          return parseCookieHeader(request.headers.get('Cookie') ?? '').map(({ name, value }) => ({
+            name,
+            value: value ?? '',
+          }));
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            headers.append('Set-Cookie', serializeCookieHeader(name, value, options)),
+          );
+        },
       },
-      setAll(cookiesToSet) {
-        // collect Set-Cookie header strings for the framework to attach to the response
-        cookiesToSet.forEach(({ name, value, options }) => {
-          setCookieHeaders.push(serializeCookieHeader(name, value, options));
-        });
-      },
-    },
-  });
+    }),
+  };
 
-  return { supabase, setCookieHeaders };
+  return supabase;
 }

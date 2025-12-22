@@ -1,15 +1,18 @@
 // app/components/SignInButtons.tsx
-import { useFetcher } from '@remix-run/react';
-import React from 'react';
-import { getSupabaseBrowserClient } from '~/utils/supabase.client';
+import { useFetcher, useNavigate } from "@remix-run/react";
+import { createBrowserClient } from "@supabase/ssr";
 
 export default function SignInButtons() {
-  const supabase = getSupabaseBrowserClient(); 
-  const fetcher = useFetcher();
-  
+  const navigate = useNavigate();
+  const supabase = createBrowserClient(
+    import.meta.env.VITE_SUPABASE_URL!,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+    { isSingleton: false }
+  );
+
   const signInWithGitHub = async () => {
     const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
+      provider: "github",
       options: {
         // optional: redirectTo or scopes
         redirectTo: `${window.location.origin}/auth/callback`,
@@ -17,16 +20,18 @@ export default function SignInButtons() {
     });
 
     // When running in the browser, signInWithOAuth will redirect automatically for web flow.
-    if (error) console.error('OAuth signIn error', error);
+    if (error) console.error("OAuth signIn error", error);
   };
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut({scope: "global"});
-      fetcher.load("/logout"); 
-    } catch (error) {
-      
-    }
+      await supabase.auth.signOut({ scope: "global" });
+      const localAuth = await localStorage.getItem("auth");
+      if (localAuth) {
+        localStorage.removeItem("auth");
+      }
+      navigate("/logout");
+    } catch (error) {}
   };
 
   return (

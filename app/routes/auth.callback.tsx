@@ -1,35 +1,22 @@
 import { redirect, type LoaderFunctionArgs } from '@remix-run/node'
 import { createServerClient, parseCookieHeader, serializeCookieHeader } from '@supabase/ssr'
+import { createSupabaseServerClient } from '~/utils/supabase.server'
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') || '/myhome?intent=login'
+  const next = requestUrl.searchParams.get('next') || '/myhome?intent=login&provider=github'
   const headers = new Headers()
 
   if (code) {
-    const supabase = createServerClient(
-      import.meta.env.VITE_SUPABASE_URL!,
-      import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return parseCookieHeader(request.headers.get('Cookie') ?? '')
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              headers.append('Set-Cookie', serializeCookieHeader(name, value, options))
-            )
-          },
-        },
-      }
-    )
+    const {client, headers} = createSupabaseServerClient(request);
+    const supabase = client;
 
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
-      return redirect(next, { headers })
+      return redirect('/myhome?intent=login&provider=github', { headers })
     }
   }
   // return the user to an error page with instructions

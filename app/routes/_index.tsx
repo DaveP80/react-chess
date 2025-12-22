@@ -16,13 +16,10 @@ export const meta: MetaFunction = () => {
 };
 
 export const loader: LoaderFunction = async ({ request }) => {
-  const { supabase, setCookieHeaders } = createSupabaseServerClient(request);
-  const headers: HeadersInit = {};
+  const {client, headers} = createSupabaseServerClient(request);
+  const supabase = client;
   let SupabaseData = null;
 
-  if (setCookieHeaders.length > 0) {
-    headers["Set-Cookie"] = setCookieHeaders;
-  }
   const {
     data: { user },
     error,
@@ -36,8 +33,8 @@ export const loader: LoaderFunction = async ({ request }) => {
     {
       user: user
         ? {
-            id: user.id,
-            email: user.email,
+            id: user?.id,
+            email: user?.email,
           }
         : null,
       rowData: SupabaseData
@@ -45,28 +42,30 @@ export const loader: LoaderFunction = async ({ request }) => {
           ? SupabaseData.data[0]
           : null
         : null,
+      provider: user?.identities?.some((item) => item.provider == "github") ? "github" : "email",
     },
     { headers }
   );
 };
 
 export default function Index() {
-  const { user, rowData } = useLoaderData<typeof loader>();
+  const userData = useLoaderData<typeof loader>();
   const UserContext = useContext(GlobalContext);
   const PlayContext = useContext(GlobalContext);
 
   useEffect(() => {
-    if (user?.id) {
-      UserContext.setUser({ ...UserContext.user, id: user.id });
+    if (userData?.user?.id) {
+      console.log(userData.data)
+      UserContext.setUser({ ...UserContext.user, id: userData.user.id, provider: userData.provider, email: userData.user.email });
     }
-    if (rowData) {
-      PlayContext.setPlayingGame(rowData.isActive);
+    if (userData?.rowData) {
+      PlayContext.setPlayingGame(userData.rowData.isActive);
     }
 
     return () => {
       true;
     };
-  }, [user]);
+  }, [userData]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
