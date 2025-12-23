@@ -2,46 +2,19 @@ import React, { useState, useContext, useEffect } from "react";
 import {
   Form,
   useActionData,
-  useNavigate,
   useNavigation,
 } from "@remix-run/react";
 import { GlobalContext } from "~/context/globalcontext";
 import SignInButtons from "~/components/SignInButtons";
 import { ActionFunctionArgs, LoaderFunction, redirect } from "@remix-run/node";
-import {
-  createServerClient,
-  parseCookieHeader,
-  serializeCookieHeader,
-} from "@supabase/ssr";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   // Initialize Supabase client with cookie handling
-  const {client, headers} = createSupabaseServerClient(request);
+  const { client, headers } = createSupabaseServerClient(request);
   const supabase = client;
-//   const supabase = createServerClient(
-//     import.meta.env.VITE_SUPABASE_URL!,
-//     import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-//     {
-//       cookies: {
-//         getAll() {
-//           return parseCookieHeader(request.headers.get("Cookie") ?? "");
-//         },
-//         setAll(cookiesToSet) {
-//           // collect Set-Cookie header strings for the framework to attach to the response
-//           cookiesToSet.forEach(({ name, value, options }) => {
-//             headers.append(
-//               "Set-Cookie",
-//               serializeCookieHeader(name, value, options)
-//             );
-//           });
-//         },
-//       },
-//     }
-//   );
-  const formData = Object.fromEntries(await request.formData());
 
-  const Verified = formData?.verfied;
+  const formData = Object.fromEntries(await request.formData());
   const Intent = formData?.intent;
   const Password = formData?.password;
   const Email = formData?.email;
@@ -66,7 +39,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       );
     } else {
       return redirect(
-        `/myhome?intent=signup&username=${Username}&verified=false&id=${data?.user?.id}&email=${data?.user?.email}&provider=${data?.user?.identities?.some((item) => item.provider == "github") ? "github" : "email"}`, {headers}
+        `/myhome?intent=signup&username=${Username}&verified=false&provider=email`,
+        { headers }
       );
     }
   } else if (Intent == "login") {
@@ -78,7 +52,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       password: Password.toString() || "",
     });
     if (user?.id) {
-      return redirect(`/myhome?intent=login&id=${user?.id}&email=${user?.email}&provider=${user?.identities?.some((item) => item.provider == "github") ? "github" : "email"}`, {headers});
+      return redirect(`/myhome?intent=login&provider=email`, { headers });
     } else {
       return Response.json(
         {

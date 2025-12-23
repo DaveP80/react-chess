@@ -1,7 +1,9 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect } from "react";
 import { GlobalContext } from "~/context/globalcontext";
-import { useNavigate } from "@remix-run/react";
 import DemoUser from "./DemoUser";
+import { TbUserCog } from "react-icons/tb";
+import { useNavigate } from "@remix-run/react";
+
 
 // Mock data for demonstration purposes
 const Mockuser = {
@@ -51,7 +53,34 @@ const gameHistory = [
 export default function UserProfile() {
   const playingGame = useContext(GlobalContext);
   const UserInfo = useContext(GlobalContext);
-  
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (UserInfo.user?.id) {
+      if (UserInfo.user.provider === "github") {
+        localStorage.setItem(
+          "auth",
+          JSON.stringify({ new_signup: false, is_logged_in: true })
+        );
+      }
+      if (UserInfo.user.provider === "email") {
+        localStorage.setItem(
+          "auth",
+          JSON.stringify({ new_signup: true, is_logged_in: true })
+        );
+      }
+    }
+
+    return () => {
+      true;
+    };
+  }, [UserInfo]);
+
+
+  const handleClick = () => {
+    navigate("/settings");
+  }
+
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="container mx-auto max-w-4xl">
@@ -61,21 +90,28 @@ export default function UserProfile() {
             <div className="flex flex-col sm:flex-row items-center sm:items-start">
               <img
                 className="w-32 h-32 rounded-full border-4 border-gray-300"
-                src={Mockuser.avatarUrl}
-                alt={`${Mockuser.username}'s avatar`}
+                src={UserInfo.user.avatarUrl}
+                alt={`${UserInfo.user.username || "placeholders"}'s avatar`}
               />
               <div className="sm:ml-6 mt-4 sm:mt-0 text-center sm:text-left">
+                <div className="flex justify-evenly">
                 <h1 className="text-3xl font-bold text-gray-800">
-                  {Mockuser.username}
+                  {UserInfo.user.username || `chessplayer_`.concat(Math.floor((Math.random() * (100 - 1 + 1)) + 1).toString())}
                 </h1>
+                <button className="sm:px-4 sm:py-2 hover:shadow-sm" onClick={handleClick}>
+                  <TbUserCog size={"40px"}/>
+                </button>
+
+
+                </div>
                 <div className="flex items-center justify-center sm:justify-start mt-2">
                   <span
                     className={`h-3 w-3 rounded-full mr-2 ${
-                      playingGame ? "bg-green-500" : "bg-gray-400"
+                      playingGame.isActive ? "bg-green-500" : "bg-gray-400"
                     }`}
                   ></span>
                   <span className="text-sm text-gray-600">
-                    {playingGame ? "Currently in a game" : "Offline"}
+                    {playingGame.isActive ? "Currently in a game" : "idle"}
                   </span>
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
@@ -83,15 +119,19 @@ export default function UserProfile() {
                     Challenge
                   </button>
                 </div>
+                <div className="mt-1 flex space-x-2 justify-center sm:justify-start">
                 <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300">
                   Add Friend
                 </button>
+                </div>
                 {UserInfo?.user.verified ? (
                   <></>
                 ) : (
-                  <button className="bg-red-900 hover:bg-red-300 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                  <div className="mt-1 flex space-x-2 justify-center sm:justify-start">
+                  <button onClick={() => navigate("/settings")} className="bg-red-900 hover:bg-red-300 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
                     Confirm your email.
                   </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -166,7 +206,7 @@ export default function UserProfile() {
             </div>
           </div>
         ) : (
-          <DemoUser/>
+          <DemoUser />
         )}
       </div>
     </div>

@@ -19,22 +19,25 @@ export const loader: LoaderFunction = async ({ request }) => {
   const {client, headers} = createSupabaseServerClient(request);
   const supabase = client;
   let SupabaseData = null;
-
+  
   const {
-    data: { user },
+    data,
     error,
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getClaims();
+  
+  const userId = data?.claims?.sub;
+  const userEmail = data?.claims?.email;
 
-  if (user?.id) {
-    SupabaseData = await supabase.from("users").select("*").eq("u_id", user.id);
+  if (userId && userEmail) {
+    SupabaseData = await supabase.from("users").select("*").eq("u_id", userId);
   }
 
   return Response.json(
     {
-      user: user
+      user: userId
         ? {
-            id: user?.id,
-            email: user?.email,
+            id: userId,
+            email: userEmail,
           }
         : null,
       rowData: SupabaseData
@@ -42,7 +45,8 @@ export const loader: LoaderFunction = async ({ request }) => {
           ? SupabaseData.data[0]
           : null
         : null,
-      provider: user?.identities?.some((item) => item.provider == "github") ? "github" : "email",
+      provider: data?.claims.app_metadata?.providers?.some((item) => item == "github") ? "github" : "email",
+
     },
     { headers }
   );
@@ -56,7 +60,7 @@ export default function Index() {
   useEffect(() => {
     if (userData?.user?.id) {
       console.log(userData.data)
-      UserContext.setUser({ ...UserContext.user, id: userData.user.id, provider: userData.provider, email: userData.user.email });
+      UserContext.setUser({ ...UserContext.user, id: userData.user.id, provider: userData.provider, email: userData.user.email, username: userData.username});
     }
     if (userData?.rowData) {
       PlayContext.setPlayingGame(userData.rowData.isActive);

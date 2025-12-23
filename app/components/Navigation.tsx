@@ -1,10 +1,5 @@
-import {
-  Form,
-  NavLink,
-  useNavigate,
-  useNavigation,
-} from "@remix-run/react";
-import {  useContext, useEffect, useState } from "react";
+import { Form, NavLink, useNavigate, useNavigation } from "@remix-run/react";
+import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
 
 export default function Navigation() {
@@ -54,7 +49,7 @@ export default function Navigation() {
         </li>
         <li>
           <NavLink
-            to="/play"
+            to="/game/1"
             className={({ isActive }) =>
               `text-white hover:text-gray-300 ${isActive ? "font-bold" : ""}`
             }
@@ -64,7 +59,7 @@ export default function Navigation() {
         </li>
         <li>
           <NavLink
-            to={`/myhome?id=${UserContext?.user.id}&email=${UserContext?.user.email}&provider=${UserContext?.user.provider}`}
+            to={`/myhome?provider=${UserContext?.user.provider}`}
             className={({ isActive }) =>
               `text-white hover:text-gray-300 ${isActive ? "font-bold" : ""}`
             }

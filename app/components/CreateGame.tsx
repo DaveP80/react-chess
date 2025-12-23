@@ -13,7 +13,7 @@ export default function CreateGame() {
         Challenge yourself with an interactive chess experience built with Remix and react-chessboard.
       </p>
       <Link
-        to="/play"
+        to={PlayContext.isPlaying ? "/game/1" : "/play/online"}
         className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50"
       >
         {PlayContext.isPlaying ? "Continue Game" : "Start New Game"}
