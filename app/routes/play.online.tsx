@@ -81,7 +81,6 @@ export default function Index() {
     e
   ) => {
     setColorChange(e.target.value);
-    console.log(colorChange);
   };
 
   const handleTimeControl: ChangeEventHandler<HTMLInputElement> | undefined = (

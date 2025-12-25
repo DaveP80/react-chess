@@ -32,7 +32,7 @@ as $$
   select *
   from games where black_id != u_id and status = 'pairing';
 $$;
--- this function finds if the player is white_pieces and they find a player with black_pieces, timecontrol included. time_control within 20 seconds.
+-- get black pairing partner if user requesting is with white pieces.
 create or replace function get_black_pairing_by_id_join(u_id uuid, timeControl text)
 returns table (
   id int8,
@@ -43,17 +43,17 @@ returns table (
   created_at text,
   created_at_gt text,
   TimeControl text,
-  WhiteElo text,
-  BlackElo text
+  WhiteElo int8,
+  BlackElo int8
 )
 language sql
 security definer
 as $$
   select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g."TimeControl", g."WhiteElo", g_t."BlackElo"
-  from games g join games g_t on g.white_id != g_t.black_id and g.status = 'pairing' and g_t.status = 'pairing' and g."TimeControl" = g_t."TimeControl" where g.white_id = u_id and g."TimeControl" = timeControl and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20;
+  from (select * from games where games.white_id = u_id) g join (select * from games where games.black_id != u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g."TimeControl" = g_t."TimeControl" where g."TimeControl" = timeControl and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20;
 $$;
 
--- this function finds if the player is black_pieces and they find a player with white_pieces, timecontrol included. time_control within 20 seconds.
+-- get white pairing partner if user requesting is with black pieces.
 create or replace function get_white_pairing_by_id_join(u_id uuid, timeControl text)
 returns table (
   id int8,
@@ -64,14 +64,14 @@ returns table (
   created_at text,
   created_at_gt text,
   TimeControl text,
-  WhiteElo text,
-  BlackElo text
+  WhiteElo int8,
+  BlackElo int8
 )
 language sql
 security definer
 as $$
   select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g."TimeControl", g."WhiteElo", g_t."BlackElo"
-  from games g join games g_t on g.white_id != g_t.black_id and g.status = 'pairing' and g_t.status = 'pairing' and g."TimeControl" = g_t."TimeControl" where g.black_id = u_id and g."TimeControl" = timeControl and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20;
+  from (select * from games where games.white_id != u_id) g join (select * from games where games.black_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g."TimeControl" = g_t."TimeControl" where g."TimeControl" = timeControl and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20;
 $$;
 
 -- version 2.0 12-25-25
@@ -90,7 +90,7 @@ returns table (
 language sql
 security definer
 as $$
-INSERT INTO games (turn, status, "WhiteElo", "BlackElo", "TimeControl", white_id, black_id) values (color_flag, 'pairing',
+INSERT INTO games (turn, status, "WhiteElo", "BlackElo", "TimeControl", white_id, black_id) values ('white', 'pairing',
 case when color_flag = 'white' then (SELECT (u.rating ->> timeControl)::int FROM users u WHERE u.u_id = u_id limit 1) else null end, case when color_flag = 'black' then (SELECT (u.rating ->> timeControl)::int FROM users u WHERE u.u_id = u_id limit 1) else null end, game_length, 
 case when color_flag = 'white' then u_id else null end, case when color_flag = 'black' then u_id else null end) returning *;
 $$;

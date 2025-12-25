@@ -68,18 +68,29 @@ export async function gamesNewRequestOnUserColor(
           );
         }
         if (data_a && data_a[0]?.length) {
-          const updateObj = { ...data_a[0] };
-          Reflect.deleteProperty(updateObj, data_a[0].id);
-          updateObj[`${user_color}_id`] = userId;
+          const updateObjWhite = { ...data_a[0] };
+          const id = updateObjWhite.id;
+          const id_gt = updateObjWhite.id_gt;
+          Reflect.deleteProperty(updateObjWhite, data_a[0].id);
+          Reflect.deleteProperty(updateObjWhite, data_a[0].id_gt);
+          Reflect.deleteProperty(updateObjWhite, data_a[0].created_at_gt);
+          Reflect.deleteProperty(updateObjWhite, data_a[0].created_at);
+          Reflect.deleteProperty(updateObjWhite, data_a[0].TimeControl);
+          Reflect.deleteProperty(updateObjWhite, data_a[0].status);
+          updateObjWhite[`status`] = 'playing';
           //TODO: update status field to playing after game starts.
-          const { data: data_a_insert, error } = await localSupabase
+          const { data: data_a_update, error } = await localSupabase
             .from("games")
-            .update(updateObj)
-            .eq("id", data_a[0].id);
-          if (error) {
+            .update(updateObjWhite)
+            .eq("id", id);
+          const { data: data_b_update, error: error_b } = await localSupabase
+            .from("games")
+            .update(updateObjWhite)
+            .eq("id", id_gt);
+          if (error || error_b) {
             return Response.json(
               {
-                error,
+                error: {error: error, error_b: error_b},
                 go: false,
                 message:
                   "failed to update on games table with black and white id",
@@ -91,8 +102,8 @@ export async function gamesNewRequestOnUserColor(
               {
                 error: null,
                 go: true,
-                message: "success in pairing, found black_user_id",
-                data: data_a_insert,
+                message: `success in pairing, found ${user_color == "white" ? "black" : "white"}_user_id`,
+                data: {data: data_a_update, data_b: data_b_update}
               },
               { headers }
             );
