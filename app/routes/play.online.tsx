@@ -1,8 +1,9 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
 import { Form, useActionData } from "@remix-run/react";
-import { useContext, useEffect, useState } from "react";
+import { ChangeEventHandler, useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
+import { gamesNewRequestOnUserColor } from "~/utils/game";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 /* ---------------- LOADER ---------------- */
@@ -20,6 +21,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const supabase = client;
   const { data, error } = await supabase.auth.getClaims();
   const userId = data?.claims.sub;
+  const formData = Object.fromEntries(await request.formData());
   if (error) {
     return Response.json({ error, go: false }, { headers });
   }
@@ -30,18 +32,16 @@ export async function action({ request }: ActionFunctionArgs) {
 
   if (userId) {
     //look up pairing games on current user id.
-    const { data, error } = await supabase.rpc("get_pairing_user_by_id", {
-      u_id: userId,
-    });
-    if (data) {
-      return Response.json({ data }, { headers });
-    }
-    if (error) {
-      return Response.json({ error }, { headers });
-    }
+    const response = await gamesNewRequestOnUserColor(
+      supabase,
+      userId,
+      headers,
+      String(formData?.colorPreference),
+      String(formData?.timeControl)
+    );
+    return response;
   }
-  const formData = await request.formData();
-  const timeControl = formData.get("timeControl");
+  const timeControl = String(formData.timeControl);
 
   if (
     timeControl !== "3" &&
@@ -64,6 +64,8 @@ export default function Index() {
   const actionData = useActionData<typeof action>();
   const PlayContext = useContext(GlobalContext);
   const [IsDisabled, setIsDisabled] = useState(false);
+  const [colorChange, setColorChange] = useState("random");
+  const [timeControl, setTimeControl] = useState("5");
 
   useEffect(() => {
     if (PlayContext.isPlaying) {
@@ -74,6 +76,19 @@ export default function Index() {
       true;
     };
   }, []);
+
+  const handleColorChange: ChangeEventHandler<HTMLInputElement> | undefined = (
+    e
+  ) => {
+    setColorChange(e.target.value);
+    console.log(colorChange);
+  };
+
+  const handleTimeControl: ChangeEventHandler<HTMLInputElement> | undefined = (
+    e
+  ) => {
+    setTimeControl(e.target.value);
+  };
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
@@ -89,7 +104,6 @@ export default function Index() {
           <legend className="mb-2 text-sm font-medium text-gray-700">
             Time Control
           </legend>
-
           {[
             { label: "Blitz 3 min", value: "3" },
             { label: "Blitz 5 min", value: "5" },
@@ -106,6 +120,7 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                onChange={handleTimeControl}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
@@ -134,6 +149,7 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                onChange={handleColorChange}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
