@@ -48,7 +48,7 @@ export async function gamesNewRequestOnUserColor(
           {
             error,
             go: false,
-            message: `failed to pair and find a ${user_color}_user_id`,
+            message: `failed to insert new pairing request on ${user_color}_user_id`,
           },
           { headers }
         );

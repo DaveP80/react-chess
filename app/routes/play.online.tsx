@@ -64,8 +64,6 @@ export default function Index() {
   const actionData = useActionData<typeof action>();
   const PlayContext = useContext(GlobalContext);
   const [IsDisabled, setIsDisabled] = useState(false);
-  const [colorChange, setColorChange] = useState("random");
-  const [timeControl, setTimeControl] = useState("5");
 
   useEffect(() => {
     if (PlayContext.isPlaying) {
@@ -76,18 +74,6 @@ export default function Index() {
       true;
     };
   }, []);
-
-  const handleColorChange: ChangeEventHandler<HTMLInputElement> | undefined = (
-    e
-  ) => {
-    setColorChange(e.target.value);
-  };
-
-  const handleTimeControl: ChangeEventHandler<HTMLInputElement> | undefined = (
-    e
-  ) => {
-    setTimeControl(e.target.value);
-  };
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
@@ -119,7 +105,6 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                onChange={handleTimeControl}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
@@ -148,7 +133,6 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                onChange={handleColorChange}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
