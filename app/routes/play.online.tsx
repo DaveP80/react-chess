@@ -8,7 +8,6 @@ import {
   gamesNewRequestOnUserColor,
   handleInsertedNewGame,
 } from "~/utils/game";
-import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 /* ---------------- LOADER ---------------- */
@@ -69,23 +68,28 @@ export default function Index() {
   const actionData = useActionData<typeof action>();
   const PlayContext = useContext(GlobalContext);
   const [IsDisabled, setIsDisabled] = useState(false);
-  const [submit, setSubmit] = useState({});
-  const fetcher = useFetcher();
+  const [submit, setSubmit] = useState<Record<string, string>>({colorPreference: "", timeControl: ""});
+  const supabase = createBrowserClient(
+    import.meta.env.VITE_SUPABASE_URL!,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+    { isSingleton: false }
+  );
 
   useEffect(() => {
     const headers = new Headers();
-    const supabase = createBrowserClient(
-      import.meta.env.VITE_SUPABASE_URL!,
-      import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-      { isSingleton: false }
-    );
+    let data;
+    let error;
+    let userId: string | undefined;
     const useSupabase = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      const userId = data?.user.id;
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      userId = authData?.user?.id;
+      data = authData;
+      error = authError
       if (PlayContext.isPlaying) {
         setIsDisabled(true);
       }
-      console.log(data);
+    };
+    useSupabase();
       const channel = supabase
         .channel("realtime-messages")
         .on(
@@ -93,13 +97,13 @@ export default function Index() {
           { event: "*", schema: "public", table: "games" },
           (payload) => {
             if (payload.eventType === "INSERT") {
-              if (submit) {
-                const fData = new FormData(submit);
+              if (submit.colorPreference && submit.timeControl) {
+                const fData = submit;
                 const res = handleInsertedNewGame(
                   supabase,
                   userId,
-                  fData.get("colorPreference")?.toString(),
-                  fData.get("timeControl")?.toString(),
+                  fData.colorPreference,
+                  fData.timeControl,
                   headers
                 );
               }
@@ -114,18 +118,16 @@ export default function Index() {
         )
         .subscribe();
 
-      return channel;
-    };
 
-    const channel = useSupabase();
-
-    return () => {
-      supabase.removeChannel(channel);
+    return async () => {
+        supabase.removeChannel(channel);
     };
-  }, []);
+  }, [supabase]);
 
   const handleSubmit = (e) => {
-    setSubmit(e.target);
+    const formData = new FormData(e.currentTarget);
+
+    setSubmit({timeControl: formData.get("timeControl")?.toString() || "", colorPreference: formData.get("colorPreference")?.toString() || ""});
   };
 
   return (
