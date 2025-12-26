@@ -43,7 +43,7 @@ export async function gamesNewRequestOnUserColor(
         "insert_new_pairing_request",
         {
           color_flag: user_color,
-          timecontrol: timeControl,
+          timecontrol_f: timeControl,
           game_length,
           u_id: userId,
         }
@@ -149,7 +149,7 @@ export async function handleInsertedNewGame(localSupabase: any, userId: any, use
   try {
     const { data: data_a, error: error_a } = await localSupabase.rpc(
       `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
-      { u_id: userId, timecontrol: game_length }
+      { u_id: userId, timecontrol_f: game_length }
     );
     if (error_a) {
       return Response.json(
@@ -165,19 +165,13 @@ export async function handleInsertedNewGame(localSupabase: any, userId: any, use
       const updateObjWhite = { ...data_a[0] };
       const id = updateObjWhite.id;
       const id_gt = updateObjWhite.id_gt;
-      const WhiteElo = updateObjWhite.whiteelo;
-      const BlackElo = updateObjWhite.blackelo;
       Reflect.deleteProperty(updateObjWhite, data_a[0].id);
       Reflect.deleteProperty(updateObjWhite, data_a[0].id_gt);
       Reflect.deleteProperty(updateObjWhite, data_a[0].created_at_gt);
       Reflect.deleteProperty(updateObjWhite, data_a[0].created_at);
-      Reflect.deleteProperty(updateObjWhite, data_a[0].TimeControl);
+      Reflect.deleteProperty(updateObjWhite, data_a[0].timecontrol);
       Reflect.deleteProperty(updateObjWhite, data_a[0].status);
-      Reflect.deleteProperty(updateObjWhite, data_a[0].whiteelo);
-      Reflect.deleteProperty(updateObjWhite, data_a[0].blackelo);
       updateObjWhite[`status`] = 'playing';
-      updateObjWhite[`WhiteElo`] = WhiteElo;
-      updateObjWhite[`BlackElo`] = BlackElo;
       //TODO: update status field to playing after game starts.
       const { data: data_a_update, error } = await localSupabase
         .from("games")
