@@ -1,9 +1,13 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Form, useActionData } from "@remix-run/react";
-import { ChangeEventHandler, useContext, useEffect, useState } from "react";
+import { redirect } from "@remix-run/node";
+import { Form, useActionData, useFetcher } from "@remix-run/react";
+import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
-import { gamesNewRequestOnUserColor } from "~/utils/game";
+import {
+  gamesNewRequestOnUserColor,
+  handleInsertedNewGame,
+} from "~/utils/game";
+import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 /* ---------------- LOADER ---------------- */
@@ -64,16 +68,52 @@ export default function Index() {
   const actionData = useActionData<typeof action>();
   const PlayContext = useContext(GlobalContext);
   const [IsDisabled, setIsDisabled] = useState(false);
+  const [submit, setSubmit] = useState({});
+  const fetcher = useFetcher();
 
   useEffect(() => {
+    const localSupabase = getSupabaseBrowserClient();
+    const { data, error } = localSupabase.auth.getClaims();
+    const userId = data.claims.sub;
     if (PlayContext.isPlaying) {
       setIsDisabled(true);
     }
+    const channel = localSupabase
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "games" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            if (submit) {
+              const fData = new FormData(submit);
+              const res = handleInsertedNewGame(
+                localSupabase,
+                userId,
+                fData.get("colorPreference")?.toString(),
+                fData.get("timeControl")?.toString(),
+                localSupabase.headers
+              );
+            }
+          }
+          if (payload.eventType === "UPDATE") {
+            ("foo");
+          }
+          if (payload.eventType === "DELETE") {
+            ("bar");
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
-      true;
+      localSupabase.removeChannel(channel);
     };
   }, []);
+
+  const handleSubmit = (e) => {
+    setSubmit(e.target);
+  };
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
@@ -84,6 +124,7 @@ export default function Index() {
       <Form
         method="post"
         className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+        onSubmit={handleSubmit}
       >
         <fieldset className="space-y-3">
           <legend className="mb-2 text-sm font-medium text-gray-700">

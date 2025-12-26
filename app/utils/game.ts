@@ -1,3 +1,4 @@
+let foobar = {};
 export function gameRequest(
   localSupabase: any,
   color: string,
@@ -52,84 +53,160 @@ export async function gamesNewRequestOnUserColor(
           },
           { headers }
         );
-      } else if (data && data[0]) {
-        const { data: data_a, error: error_a } = await localSupabase.rpc(
-          `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
-          { u_id: userId, timecontrol: game_length }
+      // } else if (data && data[0]) {
+        // const { data: data_a, error: error_a } = await localSupabase.rpc(
+        //   `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
+        //   { u_id: userId, timecontrol: game_length }
+        // );
+        // if (error_a) {
+        //   return Response.json(
+        //     {
+        //       error: error_a,
+        //       go: false,
+        //       message: `failed lookup black user searching`,
+        //     },
+        //     { headers }
+        //   );
+        // }
+        // if (data_a && data_a[0]?.length) {
+        //   const updateObjWhite = { ...data_a[0] };
+        //   const id = updateObjWhite.id;
+        //   const id_gt = updateObjWhite.id_gt;
+        //   Reflect.deleteProperty(updateObjWhite, data_a[0].id);
+        //   Reflect.deleteProperty(updateObjWhite, data_a[0].id_gt);
+        //   Reflect.deleteProperty(updateObjWhite, data_a[0].created_at_gt);
+        //   Reflect.deleteProperty(updateObjWhite, data_a[0].created_at);
+        //   Reflect.deleteProperty(updateObjWhite, data_a[0].TimeControl);
+        //   Reflect.deleteProperty(updateObjWhite, data_a[0].status);
+        //   updateObjWhite[`status`] = 'playing';
+        //   //TODO: update status field to playing after game starts.
+        //   const { data: data_a_update, error } = await localSupabase
+        //     .from("games")
+        //     .update(updateObjWhite)
+        //     .eq("id", id);
+        //   const { data: data_b_update, error: error_b } = await localSupabase
+        //     .from("games")
+        //     .update(updateObjWhite)
+        //     .eq("id", id_gt);
+        //   if (error || error_b) {
+        //     return Response.json(
+        //       {
+        //         error: {error: error, error_b: error_b},
+        //         go: false,
+        //         message:
+        //           "failed to update on games table with black and white id",
+        //       },
+        //       { headers }
+        //     );
+        //   } else {
+        //     return Response.json(
+        //       {
+        //         error: null,
+        //         go: true,
+        //         message: `success in pairing, found ${user_color == "white" ? "black" : "white"}_user_id`,
+        //         data: {data: data_a_update, data_b: data_b_update}
+        //       },
+        //       { headers }
+        //     );
+        //   }
+        // } else {
+        //   return Response.json(
+        //     {
+        //       message: "unsuccessful search on finding black user id in games",
+        //       go: false,
+        //     },
+        //     { headers }
+        //   );
+        // }
+      // } else {
+      //   return Response.json(
+      //     { message: "sql unsuccessful", go: true },
+      //     { headers }
+      //   );
+      // }
+    // } else {
+    //   return Response.json(
+    //     { message: "random not implemented yet", go: true },
+    //     { headers }
+    //   );
+    // }
+      }
+      else {
+        return Response.json({data, go: true, message: "new pairing insert on games table."}, {headers});
+      }
+  } 
+}
+  catch (error) {
+    return Response.json({ error }, { headers });
+  }
+};
+
+export async function handleInsertedNewGame(localSupabase: any, userId: any, user_color: string, game_length: any, headers: any) {
+  try {
+    const { data: data_a, error: error_a } = await localSupabase.rpc(
+      `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
+      { u_id: userId, timecontrol: game_length }
+    );
+    if (error_a) {
+      return Response.json(
+        {
+          error: error_a,
+          go: false,
+          message: `failed lookup black user searching`,
+        },
+      );
+    }
+    if (data_a && data_a[0]?.length) {
+      const updateObjWhite = { ...data_a[0] };
+      const id = updateObjWhite.id;
+      const id_gt = updateObjWhite.id_gt;
+      Reflect.deleteProperty(updateObjWhite, data_a[0].id);
+      Reflect.deleteProperty(updateObjWhite, data_a[0].id_gt);
+      Reflect.deleteProperty(updateObjWhite, data_a[0].created_at_gt);
+      Reflect.deleteProperty(updateObjWhite, data_a[0].created_at);
+      Reflect.deleteProperty(updateObjWhite, data_a[0].TimeControl);
+      Reflect.deleteProperty(updateObjWhite, data_a[0].status);
+      updateObjWhite[`status`] = 'playing';
+      //TODO: update status field to playing after game starts.
+      const { data: data_a_update, error } = await localSupabase
+        .from("games")
+        .update(updateObjWhite)
+        .eq("id", id);
+      const { data: data_b_update, error: error_b } = await localSupabase
+        .from("games")
+        .update(updateObjWhite)
+        .eq("id", id_gt);
+      if (error || error_b) {
+        return Response.json(
+          {
+            error: {error: error, error_b: error_b},
+            go: false,
+            message:
+              "failed to update on games table with black and white id",
+          },
         );
-        if (error_a) {
-          return Response.json(
-            {
-              error: error_a,
-              go: false,
-              message: `failed lookup black user searching`,
-            },
-            { headers }
-          );
-        }
-        if (data_a && data_a[0]?.length) {
-          const updateObjWhite = { ...data_a[0] };
-          const id = updateObjWhite.id;
-          const id_gt = updateObjWhite.id_gt;
-          Reflect.deleteProperty(updateObjWhite, data_a[0].id);
-          Reflect.deleteProperty(updateObjWhite, data_a[0].id_gt);
-          Reflect.deleteProperty(updateObjWhite, data_a[0].created_at_gt);
-          Reflect.deleteProperty(updateObjWhite, data_a[0].created_at);
-          Reflect.deleteProperty(updateObjWhite, data_a[0].TimeControl);
-          Reflect.deleteProperty(updateObjWhite, data_a[0].status);
-          updateObjWhite[`status`] = 'playing';
-          //TODO: update status field to playing after game starts.
-          const { data: data_a_update, error } = await localSupabase
-            .from("games")
-            .update(updateObjWhite)
-            .eq("id", id);
-          const { data: data_b_update, error: error_b } = await localSupabase
-            .from("games")
-            .update(updateObjWhite)
-            .eq("id", id_gt);
-          if (error || error_b) {
-            return Response.json(
-              {
-                error: {error: error, error_b: error_b},
-                go: false,
-                message:
-                  "failed to update on games table with black and white id",
-              },
-              { headers }
-            );
-          } else {
-            return Response.json(
-              {
-                error: null,
-                go: true,
-                message: `success in pairing, found ${user_color == "white" ? "black" : "white"}_user_id`,
-                data: {data: data_a_update, data_b: data_b_update}
-              },
-              { headers }
-            );
-          }
-        } else {
-          return Response.json(
-            {
-              message: "unsuccessful search on finding black user id in games",
-              go: false,
-            },
-            { headers }
-          );
-        }
       } else {
         return Response.json(
-          { message: "sql unsuccessful", go: true },
-          { headers }
+          {
+            error: null,
+            go: true,
+            message: `success in pairing, found ${user_color == "white" ? "black" : "white"}_user_id`,
+            data: {data: data_a_update, data_b: data_b_update}
+          },
         );
       }
     } else {
       return Response.json(
-        { message: "random not implemented yet", go: true },
-        { headers }
+        {
+          message: `unsuccessful search on finding ${user_color == "white" ? "black" : "white"} user id in games`,
+          go: false,
+        },
       );
     }
+    
   } catch (error) {
-    return Response.json({ error }, { headers });
+    return Response.json({message: "", go: false, error}, {headers});
+    
   }
+
 }
