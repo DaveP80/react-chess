@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { Form, useActionData, useFetcher } from "@remix-run/react";
+import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
 import {
@@ -72,42 +73,54 @@ export default function Index() {
   const fetcher = useFetcher();
 
   useEffect(() => {
-    const localSupabase = getSupabaseBrowserClient();
-    const { data, error } = localSupabase.auth.getClaims();
-    const userId = data.claims.sub;
-    if (PlayContext.isPlaying) {
-      setIsDisabled(true);
-    }
-    const channel = localSupabase
-      .channel("realtime-messages")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "games" },
-        (payload) => {
-          if (payload.eventType === "INSERT") {
-            if (submit) {
-              const fData = new FormData(submit);
-              const res = handleInsertedNewGame(
-                localSupabase,
-                userId,
-                fData.get("colorPreference")?.toString(),
-                fData.get("timeControl")?.toString(),
-                localSupabase.headers
-              );
+    const headers = new Headers();
+    const supabase = createBrowserClient(
+      import.meta.env.VITE_SUPABASE_URL!,
+      import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+      { isSingleton: false }
+    );
+    const useSupabase = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      const userId = data?.user.id;
+      if (PlayContext.isPlaying) {
+        setIsDisabled(true);
+      }
+      console.log(data);
+      const channel = supabase
+        .channel("realtime-messages")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "games" },
+          (payload) => {
+            if (payload.eventType === "INSERT") {
+              if (submit) {
+                const fData = new FormData(submit);
+                const res = handleInsertedNewGame(
+                  supabase,
+                  userId,
+                  fData.get("colorPreference")?.toString(),
+                  fData.get("timeControl")?.toString(),
+                  headers
+                );
+              }
+            }
+            if (payload.eventType === "UPDATE") {
+              ("foo");
+            }
+            if (payload.eventType === "DELETE") {
+              ("bar");
             }
           }
-          if (payload.eventType === "UPDATE") {
-            ("foo");
-          }
-          if (payload.eventType === "DELETE") {
-            ("bar");
-          }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+
+      return channel;
+    };
+
+    const channel = useSupabase();
 
     return () => {
-      localSupabase.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
   }, []);
 
