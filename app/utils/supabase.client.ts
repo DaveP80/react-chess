@@ -14,5 +14,6 @@ export function getSupabaseBrowserClient() {
   if (!client) {
     client = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {isSingleton: false});
   }
+  
   return client;
 }

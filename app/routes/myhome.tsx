@@ -155,7 +155,7 @@ export default function Index() {
 
   return (
     <Suspense fallback={<div>...Loading</div>}>
-      <MyHome />;
+      <MyHome />
     </Suspense>
   );
 }
