@@ -161,17 +161,23 @@ export async function handleInsertedNewGame(localSupabase: any, userId: any, use
       );
     };
     console.log(data_a);
-    if (data_a && data_a[0]?.length) {
+    if (data_a && data_a?.length) {
       const updateObjWhite = { ...data_a[0] };
       const id = updateObjWhite.id;
       const id_gt = updateObjWhite.id_gt;
+      const WhiteElo = updateObjWhite.whiteelo;
+      const BlackElo = updateObjWhite.blackelo;
       Reflect.deleteProperty(updateObjWhite, data_a[0].id);
       Reflect.deleteProperty(updateObjWhite, data_a[0].id_gt);
       Reflect.deleteProperty(updateObjWhite, data_a[0].created_at_gt);
       Reflect.deleteProperty(updateObjWhite, data_a[0].created_at);
       Reflect.deleteProperty(updateObjWhite, data_a[0].TimeControl);
       Reflect.deleteProperty(updateObjWhite, data_a[0].status);
+      Reflect.deleteProperty(updateObjWhite, data_a[0].whiteelo);
+      Reflect.deleteProperty(updateObjWhite, data_a[0].blackelo);
       updateObjWhite[`status`] = 'playing';
+      updateObjWhite[`WhiteElo`] = WhiteElo;
+      updateObjWhite[`BlackElo`] = BlackElo;
       //TODO: update status field to playing after game starts.
       const { data: data_a_update, error } = await localSupabase
         .from("games")
