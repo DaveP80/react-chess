@@ -90,22 +90,26 @@ export default function Index() {
       }
     };
     useSupabase();
+
       const channel = supabase
         .channel("realtime-messages")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "games" },
-          (payload) => {
+          async(payload) => {
             if (payload.eventType === "INSERT") {
+              console.log("insert event");
+              console.log(submit)
               if (submit.colorPreference && submit.timeControl) {
                 const fData = submit;
-                const res = handleInsertedNewGame(
+                const res =  await handleInsertedNewGame(
                   supabase,
                   userId,
                   fData.colorPreference,
                   fData.timeControl,
                   headers
                 );
+                console.log(await res.json());
               }
             }
             if (payload.eventType === "UPDATE") {
@@ -117,7 +121,6 @@ export default function Index() {
           }
         )
         .subscribe();
-
 
     return async () => {
         supabase.removeChannel(channel);

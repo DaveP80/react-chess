@@ -21,18 +21,22 @@ export async function gamesNewRequestOnUserColor(
         case "3": {
           timeControl = "blitz_rating";
           game_length = "3";
+          break;
         }
         case "5": {
           timeControl = "blitz_rating";
           game_length = "5";
+          break;
         }
         case "10": {
           timeControl = "rapid_rating";
           game_length = "10";
+          break;
         }
         case "unlimited": {
           timeControl = "rapid_rating";
           game_length = "unlimited";
+          break;
         }
       }
       const { data, error } = await localSupabase.rpc(
@@ -155,7 +159,8 @@ export async function handleInsertedNewGame(localSupabase: any, userId: any, use
           message: `failed lookup black user searching`,
         },
       );
-    }
+    };
+    console.log(data_a);
     if (data_a && data_a[0]?.length) {
       const updateObjWhite = { ...data_a[0] };
       const id = updateObjWhite.id;
