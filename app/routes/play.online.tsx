@@ -76,6 +76,11 @@ export default function Index() {
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
     { isSingleton: false }
   );
+  const supabase2 = createBrowserClient(
+    import.meta.env.VITE_SUPABASE_URL!,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+    { isSingleton: false }
+  );
 
   useEffect(() => {
     const headers = new Headers();
@@ -125,7 +130,7 @@ export default function Index() {
         )
         .subscribe();
 
-        const channel2 = supabase
+        const channel2 = supabase2
         .channel("realtime-messages")
         .on(
           "postgres_changes",
@@ -137,7 +142,7 @@ export default function Index() {
 
               if (pairingInfo) {
                 const headers2 = new Headers()
-                const response = await getNewGamePairing(pairingInfo, supabase, headers2);
+                const response = await getNewGamePairing(pairingInfo, supabase2, headers2);
                 if (response) {
                     navigate("/game/1")
                 }
@@ -152,7 +157,7 @@ export default function Index() {
 
     return async () => {
         supabase.removeChannel(channel);
-        supabase.removeChannel(channel2);
+        supabase2.removeChannel(channel2);
     };
   }, [actionData]);
 
