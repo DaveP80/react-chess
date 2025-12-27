@@ -143,25 +143,41 @@ export async function handleInsertedNewGame(
 }
 
 export async function getNewGamePairing(
-  id: string,
   pairing_info: any,
   supabase: any,
   headers: {}
 ) {
   try {
-    const { data, error } = await supabase
-      .from("games")
-      .select()
-      .eq("id", pairing_info.data[0].id);
+    const { data, error } = await supabase.rpc("lookup_new_game_moves", {
+      find_id: +pairing_info.data[0].id,
+    });
     if (error) {
       return Response.json({ go: false, error }, { headers });
     }
 
     if (data && data?.length) {
-      ("foo");
+      const found_id = data[0].found_id;
+      if (found_id) {
+        return Response.json(
+          {
+            go: true,
+            message: `new game made with game_id: ${data[0].game_id}.`,
+          },
+          { headers }
+        );
+      } else {
+        return Response.json(
+          {
+            go: false,
+            message: `no game found with reference id: ${+pairing_info.data[0]
+              .id}.`,
+          },
+          { headers }
+        );
+      }
     }
   } catch (error) {
-    return Response.json({ error: "error" });
+    return Response.json({ error: "error", go: false }, { headers });
   }
 }
 

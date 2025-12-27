@@ -103,14 +103,13 @@ export default function Index() {
             if (payload.eventType === "INSERT") {
               if (submit.colorPreference && submit.timeControl) {
                 const fData = submit;
-                const res =  await handleInsertedNewGame(
+                  await handleInsertedNewGame(
                   supabase,
                   userId,
                   fData.colorPreference,
                   fData.timeControl,
                   headers
                 );
-                console.log(await res.json());
               }
             }
             if (payload.eventType === "UPDATE") {

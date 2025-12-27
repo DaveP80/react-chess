@@ -61,3 +61,16 @@ case when color_flag = 'white' then (SELECT (u.rating ->> timeControl_f)::int FR
 case when color_flag = 'white' then u_id else null end, case when color_flag = 'black' then u_id else null end) returning *;
 $$;
 
+-- version 2.0 12-27-25
+create or replace function lookup_new_game_moves(find_id int)
+returns table (
+  found_id boolean,
+  id int8,
+  game_id int8
+)
+language sql
+security definer
+as $$
+select find_id = any(game_id_ref) as found_id, id, game_id from game_moves;
+$$;
+
