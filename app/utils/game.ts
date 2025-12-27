@@ -168,10 +168,10 @@ export async function getNewGamePairing(
 async function handleInsertStartGame(supabase: any, data: any, headers: any) {
   //to determine game_id to use in foreign key.
   const created_at_id_ref =
-    new Date(data.data.created_at) > new Date(data.data_b.created_at)
-      ? data.data.id
-      : data.data_b.id;
-  const game_id_ref = [+data.data.id, +data.data_b.id];
+    new Date(data.data[0].created_at) > new Date(data.data_b[0].created_at)
+      ? data.data[0].id
+      : data.data_b[0].id;
+  const game_id_ref = [+data.data[0].id, +data.data_b[0].id];
 
   try {
     const { data, error } = await supabase
