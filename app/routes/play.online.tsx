@@ -6,6 +6,7 @@ import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
 import {
   gamesNewRequestOnUserColor,
+  getNewGamePairing,
   handleInsertedNewGame,
 } from "~/utils/game";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
@@ -112,10 +113,6 @@ export default function Index() {
                   fData.timeControl,
                   headers
                 );
-                const resData = await res?.json()
-                if (resData && resData.go) {
-                  navigate("/play/online/search");
-                }
               }
             }
             if (payload.eventType === "UPDATE") {
@@ -128,8 +125,34 @@ export default function Index() {
         )
         .subscribe();
 
+        const channel2 = supabase
+        .channel("realtime-messages")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "game_moves" },
+          async(payload) => {
+            if (payload.eventType === "INSERT") {
+              let pairingInfo = localStorage.getItem("pairing_info");
+              pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
+
+              if (pairingInfo) {
+                const headers2 = new Headers()
+                const response = await getNewGamePairing(pairingInfo, supabase, headers2);
+                if (response) {
+                    navigate("/game/1")
+                }
+              }
+            }
+            if (payload.eventType === "DELETE") {
+              ("bar");
+            }
+          }
+        )
+        .subscribe();
+
     return async () => {
         supabase.removeChannel(channel);
+        supabase.removeChannel(channel2);
     };
   }, [actionData]);
 
@@ -217,9 +240,6 @@ export default function Index() {
           <p className="text-sm text-red-600">{actionData.error}</p>
         )}
       </Form>
-      <aside>
-        <Outlet/>
-      </aside>
     </div>
   );
 }
