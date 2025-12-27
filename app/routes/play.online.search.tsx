@@ -75,7 +75,7 @@ export default function Index() {
     return async () => {
         supabase.removeChannel(channel);
     };
-  }, []);
+  }, [supabase]);
 
 
   return (

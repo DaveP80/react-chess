@@ -222,6 +222,6 @@ async function handleInsertStartGame(supabase: any, data: any, headers: any) {
       { headers }
     );
   } finally {
-    return Response.json({ message: "no message on insert game_moves table" });
+    return Response.json({ message: "no message on insert game_moves table", go: false }, {headers});
   }
 }

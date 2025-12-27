@@ -105,13 +105,17 @@ export default function Index() {
               const saved_pairing_info = localStorage.getItem("pairing_info");
               if (saved_pairing_info && JSON.parse(saved_pairing_info).colorPreference && JSON.parse(saved_pairing_info).timeControl) {
                 const fData = JSON.parse(saved_pairing_info);
-                  await handleInsertedNewGame(
+                  const res = await handleInsertedNewGame(
                   supabase,
                   userId,
                   fData.colorPreference,
                   fData.timeControl,
                   headers
                 );
+                const resData = await res?.json()
+                if (resData && resData.go) {
+                  navigate("/play/online/search");
+                }
               }
             }
             if (payload.eventType === "UPDATE") {
@@ -132,7 +136,6 @@ export default function Index() {
   const handleSubmit = (e) => {
     const formData = new FormData(e.currentTarget);
     localStorage.setItem("pairing_info", JSON.stringify({timeControl: formData.get("timeControl")?.toString() || "", colorPreference: formData.get("colorPreference")?.toString() || ""}))
-    navigate("/play/online/search");
   };
 
   return (
