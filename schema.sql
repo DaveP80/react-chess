@@ -16,7 +16,7 @@ language sql
 security definer
 as $$
   select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo
-  from (select * from games where games.white_id = u_id) g join (select * from games where games.black_id != u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol where g.timecontrol = timeControl_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20;
+  from (select * from games where games.white_id = u_id) g join (select * from games where games.black_id != u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol where g.timecontrol = timeControl_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
 $$;
 
 -- get white pairing partner if user requesting is with black pieces.
@@ -37,7 +37,7 @@ language sql
 security definer
 as $$
   select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo
-  from (select * from games where games.white_id != u_id) g join (select * from games where games.black_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol where g.timecontrol = timeControl_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20;
+  from (select * from games where games.white_id != u_id) g join (select * from games where games.black_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol where g.timecontrol = timeControl_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
 $$;
 
 -- version 2.0 12-25-25

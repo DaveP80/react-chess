@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { Form, useActionData, useFetcher } from "@remix-run/react";
+import { Form, Outlet, useActionData, useFetcher } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
@@ -80,6 +80,9 @@ export default function Index() {
     let data;
     let error;
     let userId: string | undefined;
+    if (actionData?.go == true) {
+      localStorage.setItem("pairing_info", JSON.stringify({...submit, data: actionData.data}))
+    }
     const useSupabase = async () => {
       const { data: authData, error: authError } = await supabase.auth.getUser();
       userId = authData?.user?.id;
@@ -98,8 +101,6 @@ export default function Index() {
           { event: "*", schema: "public", table: "games" },
           async(payload) => {
             if (payload.eventType === "INSERT") {
-              console.log("insert event");
-              console.log(submit)
               if (submit.colorPreference && submit.timeControl) {
                 const fData = submit;
                 const res =  await handleInsertedNewGame(
@@ -125,7 +126,7 @@ export default function Index() {
     return async () => {
         supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [actionData]);
 
   const handleSubmit = (e) => {
     const formData = new FormData(e.currentTarget);
@@ -212,6 +213,9 @@ export default function Index() {
           <p className="text-sm text-red-600">{actionData.error}</p>
         )}
       </Form>
+      <aside>
+        <Outlet/>
+      </aside>
     </div>
   );
 }
