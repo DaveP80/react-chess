@@ -1,12 +1,3 @@
-let foobar = {};
-export function gameRequest(
-  localSupabase: any,
-  color: string,
-  timeControl: string
-) {
-  return true;
-}
-
 export async function gamesNewRequestOnUserColor(
   localSupabase: any,
   userId: string,
@@ -144,7 +135,7 @@ export async function handleInsertedNewGame(localSupabase: any, userId: any, use
 export async function getNewGamePairing(id: string, pairing_info: any, supabase: any, headers: {}) {
   try {
 
-    const {data, error} = await supabase.from("games").select().eq("id", pairing_info.data.data.id);
+    const {data, error} = await supabase.from("games").select().eq("id", pairing_info.data[0].id);
     if (error) {
       return Response.json({go: false, error}, {headers})
     }
@@ -164,10 +155,10 @@ export async function getNewGamePairing(id: string, pairing_info: any, supabase:
 export async function handleInsertStartGame(supabase: any, data: any, headers: any) {
   //to determine game_id to use in foreign key.
   const created_at_id_ref = new Date(data.data.created_at) > new Date(data.data_b.created_at) ? data.data.id : data.data_b.id;
-  const game_id_ref = [data.data.id, data.data_b.id];
+  const game_id_ref = [+data.data.id, +data.data_b.id];
 
   try {
-    const {data, error} = await supabase.from("games").insert({game_id: created_at_id_ref, game_id_ref, })
+    const {data, error} = await supabase.from("game_moves").insert({game_id: created_at_id_ref, game_id_ref, }).select();
     if (error) {
       return Response.json({go: false, error, message: "error on entering new row on games table"}, {headers});
     }
@@ -180,6 +171,8 @@ export async function handleInsertStartGame(supabase: any, data: any, headers: a
 
    return Response.json({go: false, error, message: "unknown supabase error on handleInsertStartGame"}, {headers});
     
+  } finally {
+    return Response.json({message: "no message on insert game_moves table"})
   }
 
 }
