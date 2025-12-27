@@ -59,7 +59,7 @@ export default function Index() {
               if (pairingInfo && userId) {
                 const response = await getNewGamePairing(pairingInfo, supabase, headers);
                 if (response) {
-                    console.log(response);
+                    setSearching(false);
 
 
                 }

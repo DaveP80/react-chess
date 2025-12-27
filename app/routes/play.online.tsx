@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { Form, Outlet, useActionData, useFetcher } from "@remix-run/react";
+import { Form, Outlet, useActionData, useFetcher, useNavigate } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
@@ -68,7 +68,8 @@ export default function Index() {
   const actionData = useActionData<typeof action>();
   const PlayContext = useContext(GlobalContext);
   const [IsDisabled, setIsDisabled] = useState(false);
-  const [submit, setSubmit] = useState<Record<string, string>>({colorPreference: "", timeControl: ""});
+  const navigate = useNavigate();
+  //const [submit, setSubmit] = useState<Record<string, string>>({colorPreference: "", timeControl: ""});
   const supabase = createBrowserClient(
     import.meta.env.VITE_SUPABASE_URL!,
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
@@ -81,7 +82,7 @@ export default function Index() {
     let error;
     let userId: string | undefined;
     if (actionData?.go == true) {
-      localStorage.setItem("pairing_info", JSON.stringify({...submit, data: actionData.data}))
+      localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), data: actionData.data}));
     }
     const useSupabase = async () => {
       const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -101,8 +102,9 @@ export default function Index() {
           { event: "*", schema: "public", table: "games" },
           async(payload) => {
             if (payload.eventType === "INSERT") {
-              if (submit.colorPreference && submit.timeControl) {
-                const fData = submit;
+              const saved_pairing_info = localStorage.getItem("pairing_info");
+              if (saved_pairing_info && JSON.parse(saved_pairing_info).colorPreference && JSON.parse(saved_pairing_info).timeControl) {
+                const fData = JSON.parse(saved_pairing_info);
                   await handleInsertedNewGame(
                   supabase,
                   userId,
@@ -129,8 +131,8 @@ export default function Index() {
 
   const handleSubmit = (e) => {
     const formData = new FormData(e.currentTarget);
-
-    setSubmit({timeControl: formData.get("timeControl")?.toString() || "", colorPreference: formData.get("colorPreference")?.toString() || ""});
+    localStorage.setItem("pairing_info", JSON.stringify({timeControl: formData.get("timeControl")?.toString() || "", colorPreference: formData.get("colorPreference")?.toString() || ""}))
+    navigate("/play/online/search");
   };
 
   return (
