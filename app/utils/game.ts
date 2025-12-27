@@ -48,32 +48,37 @@ export async function gamesNewRequestOnUserColor(
           },
           { headers }
         );
+      } else {
+        return Response.json(
+          { data, go: true, message: "new pairing insert on games table." },
+          { headers }
+        );
       }
-      else {
-        return Response.json({data, go: true, message: "new pairing insert on games table."}, {headers});
-      }
-  } 
-}
-  catch (error) {
+    }
+  } catch (error) {
     return Response.json({ error }, { headers });
   }
-};
+}
 
-export async function handleInsertedNewGame(localSupabase: any, userId: any, user_color: string, game_length: any, headers: any) {
+export async function handleInsertedNewGame(
+  localSupabase: any,
+  userId: any,
+  user_color: string,
+  game_length: any,
+  headers: any
+) {
   try {
     const { data: data_a, error: error_a } = await localSupabase.rpc(
       `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
       { u_id: userId, timecontrol_f: game_length }
     );
     if (error_a) {
-      return Response.json(
-        {
-          error: error_a,
-          go: false,
-          message: `failed lookup black user searching`,
-        },
-      );
-    };
+      return Response.json({
+        error: error_a,
+        go: false,
+        message: `failed lookup black user searching`,
+      });
+    }
     console.log(data_a);
     if (data_a && data_a?.length) {
       const updateObjWhite = { ...data_a[0] };
@@ -85,28 +90,36 @@ export async function handleInsertedNewGame(localSupabase: any, userId: any, use
       Reflect.deleteProperty(updateObjWhite, "created_at");
       Reflect.deleteProperty(updateObjWhite, "timecontrol");
       Reflect.deleteProperty(updateObjWhite, "status");
-      updateObjWhite[`status`] = 'playing';
+      updateObjWhite[`status`] = "playing";
       //TODO: update status field to playing after game starts.
-      const { data: data_a_update, error } = await localSupabase
-        .from("games")
-        .update(updateObjWhite)
-        .eq("id", id);
-      const { data: data_b_update, error: error_b } = await localSupabase
-        .from("games")
-        .update(updateObjWhite)
-        .eq("id", id_gt);
-      if (error || error_b) {
-        return Response.json(
-          {
-            error: {error: error, error_b: error_b},
-            go: false,
-            message:
-              "failed to update on games table with black and white id",
-          },
+      const [aResult, bResult] = await Promise.all([
+        localSupabase
+          .from("games")
+          .update(updateObjWhite)
+          .eq("id", id)
+          .select(),
+        localSupabase
+          .from("games")
+          .update(updateObjWhite)
+          .eq("id", id_gt)
+          .select(),
+      ]);
+      const { data: data_a_update, error: error_a } = aResult;
+      const { data: data_b_update, error: error_b } = bResult;
+      if (error_a || error_b) {
+        return Response.json({
+          error: { error: error_a, error_b: error_b },
+          go: false,
+          message: "failed to update on games table with black and white id",
+        });
+      }
+      if (data_a_update && data_b_update) {
+        const response = await handleInsertStartGame(
+          localSupabase,
+          { data: data_a_update, data_b: data_b_update },
+          headers
         );
-      } else {
-        const response = await handleInsertStartGame(localSupabase, {data: data_a_update, data_b: data_b_update}, headers);
-        return response
+        return response;
         // return Response.json(
         //   {
         //     error: null,
@@ -117,62 +130,82 @@ export async function handleInsertedNewGame(localSupabase: any, userId: any, use
         // );
       }
     } else {
-      return Response.json(
-        {
-          message: `unsuccessful search on finding ${user_color == "white" ? "black" : "white"} user id in games`,
-          go: false,
-        },
-      );
+      return Response.json({
+        message: `unsuccessful search on finding ${
+          user_color == "white" ? "black" : "white"
+        } user id in games`,
+        go: false,
+      });
     }
-    
   } catch (error) {
-    return Response.json({message: "", go: false, error}, {headers});
-    
+    return Response.json({ message: "", go: false, error }, { headers });
   }
-
 }
 
-export async function getNewGamePairing(id: string, pairing_info: any, supabase: any, headers: {}) {
+export async function getNewGamePairing(
+  id: string,
+  pairing_info: any,
+  supabase: any,
+  headers: {}
+) {
   try {
-
-    const {data, error} = await supabase.from("games").select().eq("id", pairing_info.data[0].id);
+    const { data, error } = await supabase
+      .from("games")
+      .select()
+      .eq("id", pairing_info.data[0].id);
     if (error) {
-      return Response.json({go: false, error}, {headers})
+      return Response.json({ go: false, error }, { headers });
     }
 
     if (data && data?.length) {
-      "foo"
-
+      ("foo");
     }
-    
   } catch (error) {
-    return Response.json({"error": "error"})
-    
+    return Response.json({ error: "error" });
   }
-
 }
 
-export async function handleInsertStartGame(supabase: any, data: any, headers: any) {
+async function handleInsertStartGame(supabase: any, data: any, headers: any) {
   //to determine game_id to use in foreign key.
-  const created_at_id_ref = new Date(data.data.created_at) > new Date(data.data_b.created_at) ? data.data.id : data.data_b.id;
+  const created_at_id_ref =
+    new Date(data.data.created_at) > new Date(data.data_b.created_at)
+      ? data.data.id
+      : data.data_b.id;
   const game_id_ref = [+data.data.id, +data.data_b.id];
 
   try {
-    const {data, error} = await supabase.from("game_moves").insert({game_id: created_at_id_ref, game_id_ref, }).select();
+    const { data, error } = await supabase
+      .from("game_moves")
+      .insert({ game_id: created_at_id_ref, game_id_ref })
+      .select();
     if (error) {
-      return Response.json({go: false, error, message: "error on entering new row on games table"}, {headers});
+      return Response.json(
+        {
+          go: false,
+          error,
+          message: "error on entering new row on games table",
+        },
+        { headers }
+      );
+    } else if (data) {
+      return Response.json(
+        {
+          go: true,
+          message: "successfully entered new row on games start table.",
+        },
+        { headers }
+      );
     }
-
-    else {
-      return Response.json({go: true, message: "successfully entereed new row on games start table."}, {headers});
-    }
-    
   } catch (error) {
-
-   return Response.json({go: false, error, message: "unknown supabase error on handleInsertStartGame"}, {headers});
-    
+    return Response.json(
+      {
+        go: false,
+        error,
+        message: "unknown supabase error on handleInsertStartGame",
+      },
+      { headers }
+    );
   } finally {
-    return Response.json({message: "no message on insert game_moves table"})
+    return Response.json({ message: "no message on insert game_moves table" });
   }
-
 }
