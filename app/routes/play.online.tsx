@@ -1,6 +1,12 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
-import { Form, Outlet, useActionData, useFetcher, useNavigate } from "@remix-run/react";
+import {
+  Form,
+  Outlet,
+  useActionData,
+  useFetcher,
+  useNavigate,
+} from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
@@ -76,23 +82,37 @@ export default function Index() {
   //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
   //   { isSingleton: false }
   // );
-  // const supabase2 = createBrowserClient(
-  //   import.meta.env.VITE_SUPABASE_URL!,
-  //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-  //   { isSingleton: false }
-  // );
+  const supabase2 = createBrowserClient(
+    import.meta.env.VITE_SUPABASE_URL!,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+    { isSingleton: false }
+  );
 
   useEffect(() => {
     if (PlayContext.isPlaying) {
       setIsDisabled(true);
     }
+    let userId2: string | undefined;
+
+    const useSupabase2 = async () => {
+      const { data: authData, error: authError } =
+        await supabase2.auth.getUser();
+      userId2 = authData?.user?.id;
+    };
     // const headers = new Headers();
     // let data;
     // let error;
     // let userId: string | undefined;
     if (actionData?.go == true) {
-      localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), data: actionData.data}));
+      localStorage.setItem(
+        "pairing_info",
+        JSON.stringify({
+          ...JSON.parse(localStorage.getItem("pairing_info") || "{}"),
+          data: actionData.data,
+        })
+      );
     }
+    useSupabase2();
     // const useSupabase = async () => {
     //   const { data: authData, error: authError } = await supabase.auth.getUser();
     //   userId = authData?.user?.id;
@@ -133,41 +153,51 @@ export default function Index() {
     //     )
     //     .subscribe();
 
-    //     const channel2 = supabase2
-    //     .channel("realtime-messages")
-    //     .on(
-    //       "postgres_changes",
-    //       { event: "*", schema: "public", table: "game_moves" },
-    //       async(payload) => {
-    //         if (payload.eventType === "INSERT") {
-    //           let pairingInfo = localStorage.getItem("pairing_info");
-    //           pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
+    const channel2 = supabase2
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "game_moves" },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            let pairingInfo = localStorage.getItem("pairing_info");
+            pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
 
-    //           if (pairingInfo) {
-    //             const headers2 = new Headers()
-    //             const response = await getNewGamePairing(pairingInfo, supabase2, headers2);
-    //             if (response) {
-    //                 navigate("/game/1")
-    //             }
-    //           }
-    //         }
-    //         if (payload.eventType === "DELETE") {
-    //           ("bar");
-    //         }
-    //       }
-    //     )
-    //     .subscribe();
+            if (pairingInfo && pairingInfo?.data && userId2) {
+              const headers2 = new Headers();
+              let response = await getNewGamePairing(
+                pairingInfo,
+                supabase2,
+                headers2
+              );
 
-    // return async () => {
-    //     supabase.removeChannel(channel);
-    //     supabase2.removeChannel(channel2);
-    // };
-    return () => {true;};
-  }, [actionData]);
+              if (response?.go) {
+                navigate("/game/1");
+              }
+            }
+          }
+          if (payload.eventType === "DELETE") {
+            ("bar");
+          }
+        }
+      )
+      .subscribe();
+
+    return async () => {
+      // //     supabase.removeChannel(channel);
+      supabase2.removeChannel(channel2);
+    };
+  }, []);
 
   const handleSubmit = (e) => {
     const formData = new FormData(e.currentTarget);
-    localStorage.setItem("pairing_info", JSON.stringify({timeControl: formData.get("timeControl")?.toString() || "", colorPreference: formData.get("colorPreference")?.toString() || ""}));
+    localStorage.setItem(
+      "pairing_info",
+      JSON.stringify({
+        timeControl: formData.get("timeControl")?.toString() || "",
+        colorPreference: formData.get("colorPreference")?.toString() || "",
+      })
+    );
   };
 
   return (
@@ -179,7 +209,6 @@ export default function Index() {
       <Form
         method="post"
         className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
-   
       >
         <fieldset className="space-y-3">
           <legend className="mb-2 text-sm font-medium text-gray-700">
@@ -201,7 +230,17 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                onChange={() => {localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), timeControl: option.value}));}}
+                onChange={() => {
+                  localStorage.setItem(
+                    "pairing_info",
+                    JSON.stringify({
+                      ...JSON.parse(
+                        localStorage.getItem("pairing_info") || "{}"
+                      ),
+                      timeControl: option.value,
+                    })
+                  );
+                }}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
@@ -230,7 +269,17 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                onChange={() => {localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), colorPreference: option.value}))}}
+                onChange={() => {
+                  localStorage.setItem(
+                    "pairing_info",
+                    JSON.stringify({
+                      ...JSON.parse(
+                        localStorage.getItem("pairing_info") || "{}"
+                      ),
+                      colorPreference: option.value,
+                    })
+                  );
+                }}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
