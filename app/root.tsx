@@ -5,12 +5,16 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useNavigate,
   useRouteError,
 } from "@remix-run/react";
 import type { LinksFunction } from "@remix-run/node";
 import stylesheet from "~/styles/tailwind.css?url";
 import Navigation from "./components/Navigation";
 import GlobalContextProvider from "./context/globalcontext";
+import { useEffect } from "react";
+import { createBrowserClient } from "@supabase/ssr";
+import { getNewGamePairing, handleInsertedNewGame } from "./utils/game";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
@@ -34,6 +38,110 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
+  const supabase = createBrowserClient(
+    import.meta.env.VITE_SUPABASE_URL!,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+    { isSingleton: false }
+  );
+  const supabase2 = createBrowserClient(
+    import.meta.env.VITE_SUPABASE_URL!,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+    { isSingleton: false }
+  );
+  const navigate = useNavigate();
+  useEffect(() => {
+    const headers = new Headers();
+    let data;
+    let error;
+    let userId: string | undefined;
+    let userId2: string | undefined;
+    const useSupabase = async () => {
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
+      userId = authData?.user?.id;
+      data = authData;
+      error = authError;
+    };
+    const useSupabase2 = async () => {
+      const { data: authData, error: authError } =
+        await supabase2.auth.getUser();
+      userId2 = authData?.user?.id;
+    };
+    useSupabase();
+    useSupabase2();
+
+    const channel = supabase
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "games" },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            const saved_pairing_info = localStorage.getItem("pairing_info");
+            if (
+              userId &&
+              saved_pairing_info &&
+              JSON.parse(saved_pairing_info).colorPreference &&
+              JSON.parse(saved_pairing_info).timeControl &&
+              JSON.parse(saved_pairing_info).data
+            ) {
+              const fData = JSON.parse(saved_pairing_info);
+              await handleInsertedNewGame(
+                supabase,
+                userId,
+                fData.colorPreference,
+                fData.timeControl,
+                fData.data[0].created_at,
+                headers
+              );
+            }
+          }
+          if (payload.eventType === "UPDATE") {
+            ("foo");
+          }
+          if (payload.eventType === "DELETE") {
+            ("bar");
+          }
+        }
+      )
+      .subscribe();
+
+    const channel2 = supabase2
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "game_moves" },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            let pairingInfo = localStorage.getItem("pairing_info");
+            pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
+
+            if (pairingInfo && userId2) {
+              const headers2 = new Headers();
+              let response = await getNewGamePairing(
+                pairingInfo,
+                supabase2,
+                headers2
+              );
+
+              if (response?.go) {
+                navigate("/game/1");
+              }
+            }
+          }
+          if (payload.eventType === "DELETE") {
+            ("bar");
+          }
+        }
+      )
+      .subscribe();
+
+    return async () => {
+      supabase.removeChannel(channel);
+      supabase2.removeChannel(channel2);
+    };
+  }, []);
+
   return (
     <html lang="en">
       <head>

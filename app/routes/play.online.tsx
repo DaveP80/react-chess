@@ -71,95 +71,99 @@ export default function Index() {
   const [IsDisabled, setIsDisabled] = useState(false);
   const navigate = useNavigate();
   //const [submit, setSubmit] = useState<Record<string, string>>({colorPreference: "", timeControl: ""});
-  const supabase = createBrowserClient(
-    import.meta.env.VITE_SUPABASE_URL!,
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-    { isSingleton: false }
-  );
-  const supabase2 = createBrowserClient(
-    import.meta.env.VITE_SUPABASE_URL!,
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-    { isSingleton: false }
-  );
+  // const supabase = createBrowserClient(
+  //   import.meta.env.VITE_SUPABASE_URL!,
+  //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+  //   { isSingleton: false }
+  // );
+  // const supabase2 = createBrowserClient(
+  //   import.meta.env.VITE_SUPABASE_URL!,
+  //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+  //   { isSingleton: false }
+  // );
 
   useEffect(() => {
-    const headers = new Headers();
-    let data;
-    let error;
-    let userId: string | undefined;
+    if (PlayContext.isPlaying) {
+      setIsDisabled(true);
+    }
+    // const headers = new Headers();
+    // let data;
+    // let error;
+    // let userId: string | undefined;
     if (actionData?.go == true) {
       localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), data: actionData.data}));
     }
-    const useSupabase = async () => {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      userId = authData?.user?.id;
-      data = authData;
-      error = authError
-      if (PlayContext.isPlaying) {
-        setIsDisabled(true);
-      }
-    };
-    useSupabase();
+    // const useSupabase = async () => {
+    //   const { data: authData, error: authError } = await supabase.auth.getUser();
+    //   userId = authData?.user?.id;
+    //   data = authData;
+    //   error = authError
+    //   if (PlayContext.isPlaying) {
+    //     setIsDisabled(true);
+    //   }
+    // };
+    // useSupabase();
 
-      const channel = supabase
-        .channel("realtime-messages")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "games" },
-          async(payload) => {
-            if (payload.eventType === "INSERT") {
-              const saved_pairing_info = localStorage.getItem("pairing_info");
-              if (saved_pairing_info && JSON.parse(saved_pairing_info).colorPreference && JSON.parse(saved_pairing_info).timeControl) {
-                const fData = JSON.parse(saved_pairing_info);
-                  const res = await handleInsertedNewGame(
-                  supabase,
-                  userId,
-                  fData.colorPreference,
-                  fData.timeControl,
-                  headers
-                );
-              }
-            }
-            if (payload.eventType === "UPDATE") {
-              ("foo");
-            }
-            if (payload.eventType === "DELETE") {
-              ("bar");
-            }
-          }
-        )
-        .subscribe();
+    //   const channel = supabase
+    //     .channel("realtime-messages")
+    //     .on(
+    //       "postgres_changes",
+    //       { event: "*", schema: "public", table: "games" },
+    //       async(payload) => {
+    //         if (payload.eventType === "INSERT") {
+    //           const saved_pairing_info = localStorage.getItem("pairing_info");
+    //           if (saved_pairing_info && JSON.parse(saved_pairing_info).colorPreference && JSON.parse(saved_pairing_info).timeControl) {
+    //             const fData = JSON.parse(saved_pairing_info);
+    //               const res = await handleInsertedNewGame(
+    //               supabase,
+    //               userId,
+    //               fData.colorPreference,
+    //               fData.timeControl,
+    //               headers
+    //             );
+    //           }
+    //         }
+    //         if (payload.eventType === "UPDATE") {
+    //           ("foo");
+    //         }
+    //         if (payload.eventType === "DELETE") {
+    //           ("bar");
+    //         }
+    //       }
+    //     )
+    //     .subscribe();
 
-        const channel2 = supabase2
-        .channel("realtime-messages")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "game_moves" },
-          async(payload) => {
-            if (payload.eventType === "INSERT") {
-              let pairingInfo = localStorage.getItem("pairing_info");
-              pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
+    //     const channel2 = supabase2
+    //     .channel("realtime-messages")
+    //     .on(
+    //       "postgres_changes",
+    //       { event: "*", schema: "public", table: "game_moves" },
+    //       async(payload) => {
+    //         if (payload.eventType === "INSERT") {
+    //           let pairingInfo = localStorage.getItem("pairing_info");
+    //           pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
 
-              if (pairingInfo) {
-                const headers2 = new Headers()
-                const response = await getNewGamePairing(pairingInfo, supabase2, headers2);
-                if (response) {
-                    navigate("/game/1")
-                }
-              }
-            }
-            if (payload.eventType === "DELETE") {
-              ("bar");
-            }
-          }
-        )
-        .subscribe();
+    //           if (pairingInfo) {
+    //             const headers2 = new Headers()
+    //             const response = await getNewGamePairing(pairingInfo, supabase2, headers2);
+    //             if (response) {
+    //                 navigate("/game/1")
+    //             }
+    //           }
+    //         }
+    //         if (payload.eventType === "DELETE") {
+    //           ("bar");
+    //         }
+    //       }
+    //     )
+    //     .subscribe();
 
-    return async () => {
-        supabase.removeChannel(channel);
-        supabase2.removeChannel(channel2);
-    };
-  }, [actionData]);
+    // return async () => {
+    //     supabase.removeChannel(channel);
+    //     supabase2.removeChannel(channel2);
+    // };
+    return () => {true;};
+  }, []);
 
   const handleSubmit = (e) => {
     const formData = new FormData(e.currentTarget);

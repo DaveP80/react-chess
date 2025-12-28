@@ -1,3 +1,5 @@
+import { join } from "path";
+
 export async function gamesNewRequestOnUserColor(
   localSupabase: any,
   userId: string,
@@ -65,6 +67,7 @@ export async function handleInsertedNewGame(
   userId: any,
   user_color: string,
   game_length: any,
+  created_at: string,
   headers: any
 ) {
   try {
@@ -79,7 +82,6 @@ export async function handleInsertedNewGame(
         message: `failed lookup black user searching`,
       });
     }
-    console.log(data_a);
     if (data_a && data_a?.length) {
       const updateObjWhite = { ...data_a[0] };
       const id = updateObjWhite.id;
@@ -91,19 +93,26 @@ export async function handleInsertedNewGame(
       Reflect.deleteProperty(updateObjWhite, "timecontrol");
       Reflect.deleteProperty(updateObjWhite, "status");
       updateObjWhite[`status`] = "playing";
-      //TODO: update status field to playing after game starts.
-      const [aResult, bResult] = await Promise.all([
-        localSupabase
-          .from("games")
-          .update(updateObjWhite)
-          .eq("id", id)
-          .select(),
-        localSupabase
-          .from("games")
-          .update(updateObjWhite)
-          .eq("id", id_gt)
-          .select(),
-      ]);
+      let aResult;
+      let bResult;
+      switch (user_color) {
+        case "white": {
+          aResult = await localSupabase
+            .from("games")
+            .update(updateObjWhite)
+            .eq("id", id)
+            .select();
+          break;
+        }
+        case "black": {
+          bResult = await localSupabase
+            .from("games")
+            .update(updateObjWhite)
+            .eq("id", id_gt)
+            .select();
+          break;
+        }
+      }
       const { data: data_a_update, error: error_a } = aResult;
       const { data: data_b_update, error: error_b } = bResult;
       if (error_a || error_b) {
@@ -113,10 +122,10 @@ export async function handleInsertedNewGame(
           message: "failed to update on games table with black and white id",
         });
       }
-      if (data_a_update && data_b_update) {
+      if (data_a_update || data_b_update) {
         const response = await handleInsertStartGame(
           localSupabase,
-          { data: data_a_update, data_b: data_b_update },
+          { joinedData: data_a[0], primaryData: created_at },
           headers
         );
         return response;
@@ -152,64 +161,80 @@ export async function getNewGamePairing(
       find_id: +pairing_info.data[0].id,
     });
     if (error) {
-      return Response.json({ go: false, error }, { headers });
+      return { go: false, error };
     }
 
     if (data && data?.length) {
       const found_id = data[0].found_id;
       if (found_id) {
-        return Response.json(
-          {
-            go: true,
-            message: `new game made with game_id: ${data[0].game_id}.`,
-          },
-          { headers }
-        );
+        return {
+          go: true,
+          message: `new game made with game_id: ${data[0].game_id}.`,
+        };
       } else {
+        return {
+          go: false,
+          message: `no game found with reference id: ${+pairing_info.data[0]
+            .id}.`,
+        };
+      }
+    }
+  } catch (error) {
+    return { error, go: false };
+  }
+}
+
+async function handleInsertStartGame(
+  supabase: any,
+  incomingData: any,
+  headers: any
+) {
+  //to determine game_id to use in foreign key.
+  const joinedData = incomingData.joinedData;
+  const greater_at =
+    new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
+      ? joinedData.created_at
+      : joinedData.created_at_gt;
+  const continue_request = greater_at == incomingData.primaryData;
+  const created_at_id_ref =
+    new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
+      ? joinedData.id
+      : joinedData.id_gt;
+  const game_id_ref = [joinedData.id, joinedData.id_gt];
+
+  try {
+    //throws error is duplicate game entry.
+    //only continue if the user is the last to request a game.
+    if (continue_request) {
+      const { data, error } = await supabase
+        .from("game_moves")
+        .insert({ game_id: created_at_id_ref, game_id_ref })
+        .select();
+      if (error) {
         return Response.json(
           {
             go: false,
-            message: `no game found with reference id: ${+pairing_info.data[0]
-              .id}.`,
+            error,
+            message: "error on entering new row on games table",
+          },
+          { headers }
+        );
+      } else if (data) {
+        return Response.json(
+          {
+            go: true,
+            message: "successfully entered new row on games start table.",
           },
           { headers }
         );
       }
-    }
-  } catch (error) {
-    return Response.json({ error: "error", go: false }, { headers });
-  }
-}
-
-async function handleInsertStartGame(supabase: any, data: any, headers: any) {
-  //to determine game_id to use in foreign key.
-  const created_at_id_ref =
-    new Date(data.data[0].created_at) > new Date(data.data_b[0].created_at)
-      ? data.data[0].id
-      : data.data_b[0].id;
-  const game_id_ref = [+data.data[0].id, +data.data_b[0].id];
-
-  try {
-    const { data, error } = await supabase
-      .from("game_moves")
-      .insert({ game_id: created_at_id_ref, game_id_ref })
-      .select();
-    if (error) {
-      return Response.json(
-        {
-          go: false,
-          error,
-          message: "error on entering new row on games table",
-        },
-        { headers }
-      );
-    } else if (data) {
+    } else {
       return Response.json(
         {
           go: true,
-          message: "successfully entered new row on games start table.",
+          message: "games table and status updated, and new game intitiated.",
         },
-        { headers }
+        headers
       );
     }
   } catch (error) {
@@ -222,6 +247,9 @@ async function handleInsertStartGame(supabase: any, data: any, headers: any) {
       { headers }
     );
   } finally {
-    return Response.json({ message: "no message on insert game_moves table", go: false }, {headers});
+    return Response.json(
+      { message: "no message on insert game_moves table", go: false },
+      { headers }
+    );
   }
 }
