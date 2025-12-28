@@ -1,5 +1,3 @@
-import { join } from "path";
-
 export async function gamesNewRequestOnUserColor(
   localSupabase: any,
   userId: string,
@@ -170,6 +168,7 @@ export async function getNewGamePairing(
         return {
           go: true,
           message: `new game made with game_id: ${data[0].game_id}.`,
+          data
         };
       } else {
         return {

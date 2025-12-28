@@ -2,10 +2,9 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import {
   Form,
-  Outlet,
   useActionData,
-  useFetcher,
   useNavigate,
+  useNavigation,
 } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
@@ -75,8 +74,9 @@ export default function Index() {
   const actionData = useActionData<typeof action>();
   const PlayContext = useContext(GlobalContext);
   const [IsDisabled, setIsDisabled] = useState(false);
+  const [loading, setIsLoading] = useState(false);
+  const navigation = useNavigation();
   const navigate = useNavigate();
-  //const [submit, setSubmit] = useState<Record<string, string>>({colorPreference: "", timeControl: ""});
   const supabase = createBrowserClient(
     import.meta.env.VITE_SUPABASE_URL!,
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
@@ -99,10 +99,7 @@ export default function Index() {
         await supabase2.auth.getUser();
       userId = authData?.user?.id;
     };
-    // const headers = new Headers();
-    // let data;
-    // let error;
-    // let userId: string | undefined;
+
     if (actionData?.go == true) {
       localStorage.setItem(
         "pairing_info",
@@ -113,34 +110,24 @@ export default function Index() {
       );
     }
     useSupabase();
-    // const useSupabase = async () => {
-    //   const { data: authData, error: authError } = await supabase.auth.getUser();
-    //   userId = authData?.user?.id;
-    //   data = authData;
-    //   error = authError
-    //   if (PlayContext.isPlaying) {
-    //     setIsDisabled(true);
-    //   }
-    // };
-    // useSupabase();
 
     const channel = supabase
-    .channel("realtime-messages")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "games" },
-      async (payload) => {
-        if (payload.eventType === "INSERT") {
-          const saved_pairing_info = localStorage.getItem("pairing_info");
-          if (
-            userId &&
-            saved_pairing_info &&
-            JSON.parse(saved_pairing_info).colorPreference &&
-            JSON.parse(saved_pairing_info).timeControl &&
-            JSON.parse(saved_pairing_info).data
-          ) {
-            const headers = new Headers();
-            const fData = JSON.parse(saved_pairing_info);
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "games" },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            const saved_pairing_info = localStorage.getItem("pairing_info");
+            if (
+              userId &&
+              saved_pairing_info &&
+              JSON.parse(saved_pairing_info).colorPreference &&
+              JSON.parse(saved_pairing_info).timeControl &&
+              JSON.parse(saved_pairing_info).data
+            ) {
+              const headers = new Headers();
+              const fData = JSON.parse(saved_pairing_info);
               await handleInsertedNewGame(
                 supabase,
                 userId,
@@ -180,7 +167,7 @@ export default function Index() {
               );
 
               if (response?.go) {
-                navigate("/game/1");
+                navigate(`/game/${response.data[0].id}`);
               }
             }
           }
@@ -197,16 +184,17 @@ export default function Index() {
     };
   }, [actionData]);
 
-  const handleSubmit = (e) => {
-    const formData = new FormData(e.currentTarget);
-    localStorage.setItem(
-      "pairing_info",
-      JSON.stringify({
-        timeControl: formData.get("timeControl")?.toString() || "",
-        colorPreference: formData.get("colorPreference")?.toString() || "",
-      })
-    );
-  };
+  useEffect(() => {
+    if (navigation.state === "submitting") {
+      setIsLoading(true);
+    } else if (navigation.state === "idle") {
+      setIsLoading(false);
+    }
+
+    return () => {
+      true;
+    };
+  }, [navigation]);
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
@@ -301,7 +289,21 @@ export default function Index() {
           className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
           disabled={IsDisabled}
         >
-          Find Game
+          <span
+            className={
+              loading
+                ? `inline-block
+        h-4 w-4
+        animate-spin
+        rounded-full
+        border-2
+        border-current
+        border-t-transparent`
+                : ``
+            }
+          >
+            {loading ? "" : "Find Game"}
+          </span>
         </button>
 
         {actionData?.error && (
