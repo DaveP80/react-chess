@@ -86,7 +86,6 @@ export default function App() {
             JSON.parse(saved_pairing_info).data
           ) {
             const fData = JSON.parse(saved_pairing_info);
-              setTimeout(() => {}, 2000);
               await handleInsertedNewGame(
                 supabase,
                 userId,
@@ -117,9 +116,8 @@ export default function App() {
             let pairingInfo = localStorage.getItem("pairing_info");
             pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
 
-            if (pairingInfo && userId2) {
+            if (pairingInfo && pairingInfo?.data && userId2) {
               const headers2 = new Headers();
-              setTimeout(() => {}, 2000);
               let response = await getNewGamePairing(
                 pairingInfo,
                 supabase2,
