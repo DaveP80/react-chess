@@ -73,10 +73,13 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Index() {
   const actionData = useActionData<typeof action>();
-  const [IsDisabled, setIsDisabled] = useState(false);
   const [loading, setIsLoading] = useState(false);
+  const [requestAlert, setRequestAlert] = useState<{
+    [key: string]: any;
+  } | null>(null);
   const navigation = useNavigation();
   const PlayContext = useContext(GlobalContext);
+  const NewGameContext = useContext(GlobalContext);
   const navigate = useNavigate();
   const supabase = createBrowserClient(
     import.meta.env.VITE_SUPABASE_URL!,
@@ -89,6 +92,16 @@ export default function Index() {
     { isSingleton: false }
   );
 
+  if (actionData?.go == true) {
+    localStorage.setItem(
+      "pairing_info",
+      JSON.stringify({
+        ...JSON.parse(localStorage.getItem("pairing_info") || "{}"),
+        data: actionData.data,
+      })
+    );
+  }
+
   useEffect(() => {
     let userId: string | undefined;
 
@@ -97,16 +110,6 @@ export default function Index() {
         await supabase2.auth.getUser();
       userId = authData?.user?.id;
     };
-
-    if (actionData?.go == true) {
-      localStorage.setItem(
-        "pairing_info",
-        JSON.stringify({
-          ...JSON.parse(localStorage.getItem("pairing_info") || "{}"),
-          data: actionData.data,
-        })
-      );
-    }
     useSupabase();
 
     const channel = supabase
@@ -157,19 +160,31 @@ export default function Index() {
             pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
 
             if (pairingInfo && pairingInfo?.data && userId) {
-              const headers2 = new Headers();
-              let response = await getNewGamePairing(
-                pairingInfo,
-                supabase2,
-                headers2
-              );
+              let response = await getNewGamePairing(pairingInfo, supabase2);
 
               if (response?.go) {
-                const update_res = await updateActiveUserStatus(userId, supabase2);
+                const update_res = await updateActiveUserStatus(
+                  userId,
+                  supabase2
+                );
                 if (update_res && update_res.go) {
                   PlayContext.setPlayingGame(true);
+                  setRequestAlert(response);
+                  NewGameContext.setPGNInfo({
+                    ...NewGameContext.pgnInfo,
+                    routing_id: response.data?.navigateId,
+                    newgame_data: response.data?.newgame_data,
+                  });
+                  localStorage.setItem(
+                    "pgnInfo",
+                    JSON.stringify({
+                      ...NewGameContext.pgnInfo,
+                      routing_id: response.data?.navigateId,
+                      newgame_data: response.data?.newgame_data,
+                    })
+                  );
                 }
-                navigate(`/game/${response.data[0].id}`);
+                navigate(`/game/${response?.data?.navigateId}`);
               }
             }
           }
@@ -184,7 +199,7 @@ export default function Index() {
       supabase.removeChannel(channel);
       supabase2.removeChannel(channel2);
     };
-  }, [actionData]);
+  }, []);
 
   useEffect(() => {
     if (navigation.state === "submitting") {
@@ -200,9 +215,22 @@ export default function Index() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
-      <h1 className="mb-6 text-2xl font-semibold text-gray-900">
-        Find an Opponent
-      </h1>
+      {requestAlert ? (
+        <div>
+          <button
+            className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            onMouseOver={() => {
+              navigate(`/game/${requestAlert?.data?.navigateId}`);
+            }}
+          >
+            Go To your New Game!
+          </button>
+        </div>
+      ) : (
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">
+          Find an Opponent
+        </h1>
+      )}
 
       <Form
         method="post"

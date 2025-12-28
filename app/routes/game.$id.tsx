@@ -1,63 +1,153 @@
-import { useState } from 'react';
-import { Chessboard } from 'react-chessboard';
-import { Chess } from 'chess.js';
-import type { MetaFunction } from '@remix-run/node';
-import { RotateCcw, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, FlagIcon } from 'lucide-react';
-import { checkIfRepetition } from "~/utils/helper";
+import { useContext, useEffect, useState } from "react";
+import { Chessboard } from "react-chessboard";
+import { Chess } from "chess.js";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import {
+  RotateCcw,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+  FlagIcon,
+} from "lucide-react";
+import { checkIfRepetition, timeControlReducer } from "~/utils/helper";
+import { GlobalContext } from "~/context/globalcontext";
+import { createSupabaseServerClient } from "~/utils/supabase.server";
+import { useLoaderData } from "@remix-run/react";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: 'Chess Game - Play Online' },
-    { name: 'description', content: 'Interactive chess game built with Remix and react-chessboard' },
+    { title: "Chess Game - Play Online" },
+    {
+      name: "description",
+      content: "Interactive chess game built with Remix and react-chessboard",
+    },
   ];
 };
 
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  const gameId = params.id;
+
+  try {
+    const { client, headers } = createSupabaseServerClient(request);
+    const { data: userData } = await client.auth.getClaims();
+    //returns userdata and the current game data.
+    const { data, error } = await client.rpc("lookup_userdata_on_gameid", {
+      game_id_f: gameId,
+    });
+
+    if (error) {
+      return Response.json({ error }, { headers });
+    } else {
+      return Response.json(
+        {
+          go: true,
+          message: `retrieved game data on id: ${gameId}`,
+          data: data[0],
+          userData: userData?.claims.sub,
+        },
+        { headers }
+      );
+    }
+  } catch (error) {
+    const headers = new Headers();
+    return Response.json({ error }, { headers });
+  }
+}
+
 export default function Index() {
-  const [game, setGame] = useState(new Chess());
-  const [fenHistory, setFenHistory] = useState<any[]>([]);
-  const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [isReplay, setIsReplay] = useState<null | number>(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
   const [resign, setResign] = useState(false);
+  const UserContext = useContext(GlobalContext);
+  const [toggleUsers, setToggleUsers] = useState({
+    toggle: false,
+    orientation: "white",
+    oppUsername: "",
+    myUsername: UserContext.user.username,
+    oppAvatarURL: "",
+    myAvatarURL: UserContext.user.avatarUrl,
+    gameTimeLength: "",
+    oppElo: 1500,
+    myElo: 1500,
+  });
+  const { activeGame, setActiveGame } = useContext(GlobalContext);
+  const { fenHistory, setFenHistory } = useContext(GlobalContext);
+  const { moveHistory, setMoveHistory } = useContext(GlobalContext);
+  const { data: gameData } = useLoaderData<typeof loader>();
+  const gameConfig = JSON.parse(
+    window.localStorage.getItem("pairing_info") || "{}"
+  );
+  const [game_length, timeControl] = timeControlReducer(
+    gameConfig?.timeControl || ""
+  );
+
+  useEffect(() => {
+    if (gameData) {
+      setToggleUsers({
+        ...toggleUsers,
+        toggle: true,
+        orientation:
+          gameData.white_username == UserContext.user.username
+            ? "white"
+            : "black",
+        oppUsername:
+          gameData.white_username == UserContext.user.username
+            ? gameData.black_username
+            : gameData.white_username,
+        oppAvatarURL:
+          gameData.white_avatar == UserContext.user.avatarUrl
+            ? gameData.black_avatar
+            : gameData.white_avatar,
+        gameTimeLength: game_length,
+        oppElo:
+          gameData.white_rating[timeControl] ==
+          UserContext.user?.rating[timeControl]
+            ? gameData.black_rating[timeControl]
+            : gameData.white_rating[timeControl],
+        myElo: UserContext.user?.rating[timeControl],
+      });
+    }
+
+    return () => {
+      true;
+    };
+  }, [gameData]);
 
   function onDrop(sourceSquare: string, targetSquare: string) {
     try {
       if (!isReplay && !resign && !checkIfRepetition(fenHistory)) {
-
-        const gameCopy = new Chess(game.fen());
+        const gameCopy = new Chess(activeGame.fen());
         const move = gameCopy.move({
           from: sourceSquare,
           to: targetSquare,
-          promotion: 'q',
+          promotion: "q",
         });
 
-
         if (move === null) return false;
-        setGame(gameCopy);
+        setActiveGame(gameCopy);
         setMoveHistory([...moveHistory, move.san]);
         setFenHistory([...fenHistory, gameCopy]);
         setCurrentMoveIndex(moveHistory.length - 1);
 
         return true;
       }
-
-
     } catch (error) {
       return false;
     }
   }
 
   function resetGame() {
-    setGame(new Chess());
+    setActiveGame(new Chess());
     setMoveHistory([]);
     setFenHistory([]);
     setCurrentMoveIndex(-1);
     setResign(false);
   }
   function resignGame() {
-    if (game.isGameOver()) {
+    if (activeGame.isGameOver()) {
       return null;
-    };
+    }
     if (checkIfRepetition(fenHistory)) {
       return null;
     }
@@ -68,20 +158,20 @@ export default function Index() {
 
   const handleSetReplay = (idx: number) => {
     if (idx != fenHistory.length - 1) {
-      setGame(fenHistory[idx]);
+      setActiveGame(fenHistory[idx]);
       setIsReplay(idx);
       setCurrentMoveIndex(idx);
     }
     if (idx == fenHistory.length - 1) {
       setIsReplay(null);
-      setGame(fenHistory[fenHistory.length - 1]);
+      setActiveGame(fenHistory[fenHistory.length - 1]);
       setCurrentMoveIndex(fenHistory.length - 1);
     }
-  }
+  };
 
   const goToStart = () => {
     if (fenHistory.length > 0) {
-      setGame(new Chess());
+      setActiveGame(new Chess());
       setIsReplay(-1);
       setCurrentMoveIndex(-1);
     }
@@ -90,7 +180,7 @@ export default function Index() {
   const goToEnd = () => {
     if (fenHistory.length > 0) {
       const lastIndex = fenHistory.length - 1;
-      setGame(fenHistory[lastIndex]);
+      setActiveGame(fenHistory[lastIndex]);
       setIsReplay(null);
       setCurrentMoveIndex(lastIndex);
     }
@@ -99,7 +189,7 @@ export default function Index() {
   const goToPrevious = () => {
     if (currentMoveIndex > 0) {
       const newIndex = currentMoveIndex - 1;
-      setGame(fenHistory[newIndex]);
+      setActiveGame(fenHistory[newIndex]);
       setIsReplay(newIndex);
       setCurrentMoveIndex(newIndex);
     }
@@ -108,7 +198,7 @@ export default function Index() {
   const goToNext = () => {
     if (currentMoveIndex < fenHistory.length - 1) {
       const newIndex = currentMoveIndex + 1;
-      setGame(fenHistory[newIndex]);
+      setActiveGame(fenHistory[newIndex]);
       if (newIndex === fenHistory.length - 1) {
         setIsReplay(null);
       } else {
@@ -118,10 +208,10 @@ export default function Index() {
     }
   };
 
-  const isGameOver = game.isGameOver();
-  const isCheckmate = game.isCheckmate();
-  const isDraw = game.isDraw();
-  const isCheck = game.isCheck();
+  const isGameOver = activeGame.isGameOver();
+  const isCheckmate = activeGame.isCheckmate();
+  const isDraw = activeGame.isDraw();
+  const isCheck = activeGame.isCheck();
   const isThreeFoldRepit = checkIfRepetition(fenHistory);
 
   return (
@@ -129,9 +219,7 @@ export default function Index() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-5xl font-bold text-white mb-3">
-              Chess Game
-            </h1>
+            <h1 className="text-5xl font-bold text-white mb-3">Chess Game</h1>
             <p className="text-slate-300 text-lg">
               Built with Remix and react-chessboard
             </p>
@@ -173,11 +261,33 @@ export default function Index() {
                     Resign
                   </button>
                 </div>
+                <div className="mb-1 flex justify-start">
+                  {toggleUsers.toggle && (
+                    <section>
+                      <p>{toggleUsers.oppUsername}</p>
+                      <img src={toggleUsers.oppAvatarURL}></img>
+                      <p>{toggleUsers.oppElo}</p>
+                    </section>
+                  )}
+                </div>
                 <Chessboard
-                  position={game.fen()}
+                  position={activeGame.fen()}
                   onPieceDrop={onDrop}
-                  boardWidth={Math.min(600, typeof window !== 'undefined' ? window.innerWidth - 48 : 600)}
+                  boardWidth={Math.min(
+                    600,
+                    typeof window !== "undefined" ? window.innerWidth - 48 : 600
+                  )}
+                  boardOrientation={toggleUsers.orientation || "white"}
                 />
+                <div className="mb-1 flex justify-start">
+                  {toggleUsers.toggle && (
+                    <section>
+                      <p>{toggleUsers.myUsername}</p>
+                      <img src={toggleUsers.myAvatarURL}></img>
+                      <p>{toggleUsers.myElo}</p>
+                    </section>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -188,20 +298,22 @@ export default function Index() {
                 </h2>
                 <div className="bg-slate-50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
                   {moveHistory.length === 0 ? (
-                    <p className="text-slate-400 text-center">
-                      No moves yet
-                    </p>
+                    <p className="text-slate-400 text-center">No moves yet</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
                       {moveHistory.map((move, index) => (
                         <div
                           key={index}
-                          className={`bg-white px-3 py-2 rounded shadow-sm ${index == isReplay ? 'text-red-500' : 'text-slate-700'}`}
+                          className={`bg-white px-3 py-2 rounded shadow-sm ${
+                            index == isReplay
+                              ? "text-red-500"
+                              : "text-slate-700"
+                          }`}
                           onClick={() => handleSetReplay(index)}
                         >
                           <span className="font-semibold text-slate-500 text-sm">
                             {Math.floor(index / 2) + 1}.
-                          </span>{' '}
+                          </span>{" "}
                           {move}
                         </div>
                       ))}
@@ -250,17 +362,21 @@ export default function Index() {
                     <p className="font-bold text-lg mb-2">Game Over!</p>
                     <p className="text-slate-300">
                       {isCheckmate && !resign
-                        ? `${game.turn() === 'w' ? 'Black' : 'White'} wins!`
-                        : (!resign ? "The game is a draw." : "")}
+                        ? `${
+                            activeGame.turn() === "w" ? "Black" : "White"
+                          } wins!`
+                        : !resign
+                        ? "The game is a draw."
+                        : ""}
                     </p>
                     <p className="text-slate-300">
-                      {game.turn() === 'w' && resign && "White Resigns!"}
-                      {game.turn() === 'b' && resign && "Black Resigns!"}
+                      {activeGame.turn() === "w" && resign && "White Resigns!"}
+                      {activeGame.turn() === "b" && resign && "Black Resigns!"}
                     </p>
                     <p className="text-slate-300">
-                      {isThreeFoldRepit && !resign && (
-                        `Draw!! Three Fold Repitition.`
-                      )}
+                      {isThreeFoldRepit &&
+                        !resign &&
+                        `Draw!! Three Fold Repitition.`}
                     </p>
                   </div>
                 )}

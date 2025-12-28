@@ -65,12 +65,42 @@ $$;
 create or replace function lookup_new_game_moves(find_id int)
 returns table (
   found_id boolean,
-  id int8,
-  game_id int8
+  id int,
+  game_id int,
+  game_id_b int,
+  pgn_info jsonb
 )
 language sql
 security definer
 as $$
-select find_id = any(game_id_ref) as found_id, id, game_id from game_moves;
+select case when find_id in (game_id, game_id_b) then true else false end as found_id, id, game_id, game_id_b, pgn_info from game_moves order by found_id desc limit 1;
 $$;
 
+create or replace function update_live_pairing_request (
+  black_elo_update int,
+  white_elo_update int,
+  black_id_update uuid,
+  white_id_update uuid,
+  white_g_update_id int,
+  black_g_update_id int
+) returns void language sql security definer as $$
+UPDATE games SET status = 'playing', blackelo = black_elo_update, whiteelo = white_elo_update, black_id = black_id_update, white_id = white_id_update WHERE id in (white_g_update_id, black_g_update_id);
+$$
+
+create or replace function lookup_userdata_on_gameid(game_id_f int)
+returns table (
+  id int,
+  pgn_info jsonb,
+  pgn text[],
+  white_username text,
+  black_username text,
+  white_avatar text,
+  black_avatar text,
+  white_rating jsonb,
+  black_rating jsonb
+)
+language sql
+security definer
+as $$
+select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u."avatarURL" as white_avatar, u_t."avatarURL" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_moves gm left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text where id = game_id_f;
+$$;

@@ -2,7 +2,7 @@ import React, { useContext, useEffect } from "react";
 import { GlobalContext } from "~/context/globalcontext";
 import DemoUser from "./DemoUser";
 import { TbUserCog } from "react-icons/tb";
-import { useNavigate } from "@remix-run/react";
+import { NavLink, useNavigate } from "@remix-run/react";
 
 
 // Mock data for demonstration purposes
@@ -51,7 +51,7 @@ const gameHistory = [
 ];
 
 export default function UserProfile() {
-  const playingGame = useContext(GlobalContext);
+  const GamePlayContext = useContext(GlobalContext);
   const UserInfo = useContext(GlobalContext);
   const navigate = useNavigate();
 
@@ -107,11 +107,12 @@ export default function UserProfile() {
                 <div className="flex items-center justify-center sm:justify-start mt-2">
                   <span
                     className={`h-3 w-3 rounded-full mr-2 ${
-                      playingGame ? "bg-green-500" : "bg-gray-400"
+                      GamePlayContext.playingGame ? "bg-green-500" : "bg-gray-400"
                     }`}
                   ></span>
                   <span className="text-sm text-gray-600">
-                    {playingGame ? "Currently in a game" : "idle"}
+                    {GamePlayContext.playingGame ? "Currently in a game" : "idle"}
+                    {GamePlayContext.playingGame && localStorage.getItem("pgnInfo") && <NavLink to={`/game/${JSON.parse(localStorage.getItem("pgnInfo") || "{}").routing_id}`}>Go To Game</NavLink>}
                   </span>
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">

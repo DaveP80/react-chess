@@ -139,6 +139,7 @@ export default function Index() {
         username: rowData.username,
         verified: rowData.verified,
         provider,
+        rating: rowData.rating
       });
       PlayingData.setPlayingGame(rowData.isActive);
     } else if (user?.id && !rowData) {
@@ -146,7 +147,6 @@ export default function Index() {
       UserInfo.setUser({ ...UserInfo.user, user: user.id, email: user.email });
       PlayingData.setPlayingGame(false);
     }
-
     return () => {
       true;
     };

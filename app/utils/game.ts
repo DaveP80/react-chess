@@ -1,35 +1,15 @@
+import { timeControlReducer } from "./helper";
+
 export async function gamesNewRequestOnUserColor(
   localSupabase: any,
   userId: string,
   headers: {},
   user_color: string,
-  timeControl: string
+  timeControl_req: string
 ) {
   try {
     if (user_color == "white" || user_color == "black") {
-      let game_length = null;
-      switch (timeControl) {
-        case "3": {
-          timeControl = "blitz_rating";
-          game_length = "3";
-          break;
-        }
-        case "5": {
-          timeControl = "blitz_rating";
-          game_length = "5";
-          break;
-        }
-        case "10": {
-          timeControl = "rapid_rating";
-          game_length = "10";
-          break;
-        }
-        case "unlimited": {
-          timeControl = "rapid_rating";
-          game_length = "unlimited";
-          break;
-        }
-      }
+      const [game_length, timeControl] = timeControlReducer(timeControl_req);
       const { data, error } = await localSupabase.rpc(
         "insert_new_pairing_request",
         {
@@ -97,22 +77,17 @@ export async function handleInsertedNewGame(
           : data_a[0].created_at_gt;
       const continue_request = greater_at == created_at;
       if (!continue_request) {
-        const {data: rpcData, error} = await localSupabase.rpc("update_live_pairing_request", {black_elo_update: updateObjWhite.blackelo, white_elo_update: updateObjWhite.whiteelo,
-          black_id_update: updateObjWhite.black_id, white_id_update: updateObjWhite.white_id, white_g_update_id: id, black_g_update_id: id_gt});
-        // const [aResult, bResult] = await Promise.all([
-        //   localSupabase
-        //     .from("games")
-        //     .update(updateObjWhite)
-        //     .eq("id", id)
-        //     .select(),
-        //   localSupabase
-        //     .from("games")
-        //     .update(updateObjWhite)
-        //     .eq("id", id_gt)
-        //     .select(),
-        // ]);
-        // const { data: data_a_update, error: error_a } = aResult;
-        // const { data: data_b_update, error: error_b } = bResult;
+        const { data: rpcData, error } = await localSupabase.rpc(
+          "update_live_pairing_request",
+          {
+            black_elo_update: updateObjWhite.blackelo,
+            white_elo_update: updateObjWhite.whiteelo,
+            black_id_update: updateObjWhite.black_id,
+            white_id_update: updateObjWhite.white_id,
+            white_g_update_id: id,
+            black_g_update_id: id_gt,
+          }
+        );
         if (error) {
           return Response.json({
             error,
@@ -139,12 +114,9 @@ export async function handleInsertedNewGame(
   }
 }
 
-export async function getNewGamePairing(
-  pairing_info: any,
-  supabase: any,
-  headers: {}
-) {
+export async function getNewGamePairing(pairing_info: any, supabase: any) {
   try {
+    //returns 1 row of data if found
     const { data, error } = await supabase.rpc("lookup_new_game_moves", {
       find_id: +pairing_info.data[0].id,
     });
@@ -153,12 +125,11 @@ export async function getNewGamePairing(
     }
 
     if (data && data?.length) {
-      const found_id = data[0].found_id;
-      if (found_id) {
+      if (data[0].found_id) {
         return {
           go: true,
-          message: `new game made with game_id: ${data[0].game_id}.`,
-          data,
+          message: `new game made with game_id: ${data[0].game_id}, ${data[0].game_id_b}.`,
+          data: { navigateId: data[0].id, newgame_data: data[0] },
         };
       } else {
         return {
@@ -180,19 +151,28 @@ async function handleInsertStartGame(
 ) {
   //to determine game_id to use in foreign key.
   const joinedData = incomingData.joinedData;
-  const created_at_id_ref =
-    new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
-      ? joinedData.id_gt
-      : joinedData.id;
-  const game_id_ref = [joinedData.id, joinedData.id_gt];
 
   try {
     //throws error if duplicate game entry.
-    //only continue if the user is the last to request a game.
-    console.log("reached here:", incomingData);
+    //only continue if the user is the first to request a game.
+    //TODO: more infmation needed to enter on game_moves table.
     const { data, error } = await supabase
       .from("game_moves")
-      .insert({ game_id: created_at_id_ref, game_id_ref })
+      .insert({
+        game_id: Math.min(+joinedData.id, +joinedData.id_gt),
+        game_id_b: Math.max(+joinedData.id, joinedData.id_gt),
+        pgn_info: {
+          date: new Date().toISOString(),
+          //game_moves id
+          gameid: 0,
+          round: 1,
+          white: joinedData.white_id,
+          black: joinedData.black_id,
+          result: "",
+          whiteelo: joinedData.whiteelo,
+          blackelo: joinedData.blackelo,
+        },
+      })
       .select();
     if (error) {
       return Response.json(
@@ -219,11 +199,6 @@ async function handleInsertStartGame(
         error,
         message: "unknown supabase error on handleInsertStartGame",
       },
-      { headers }
-    );
-  } finally {
-    return Response.json(
-      { message: "no message on insert game_moves table", go: false },
       { headers }
     );
   }

@@ -11,6 +11,7 @@ export interface User  {
   avatarUrl?: string;
   verified?: boolean;
   provider?: string;
+  rating?: Record<any,any>
 } ;
 
 export interface Game {
