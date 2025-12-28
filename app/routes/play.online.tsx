@@ -163,11 +163,11 @@ export default function Index() {
     //     supabase2.removeChannel(channel2);
     // };
     return () => {true;};
-  }, []);
+  }, [actionData]);
 
   const handleSubmit = (e) => {
     const formData = new FormData(e.currentTarget);
-    localStorage.setItem("pairing_info", JSON.stringify({timeControl: formData.get("timeControl")?.toString() || "", colorPreference: formData.get("colorPreference")?.toString() || ""}))
+    localStorage.setItem("pairing_info", JSON.stringify({timeControl: formData.get("timeControl")?.toString() || "", colorPreference: formData.get("colorPreference")?.toString() || ""}));
   };
 
   return (
@@ -179,7 +179,7 @@ export default function Index() {
       <Form
         method="post"
         className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
-        onSubmit={handleSubmit}
+   
       >
         <fieldset className="space-y-3">
           <legend className="mb-2 text-sm font-medium text-gray-700">
@@ -201,6 +201,7 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                onChange={() => {localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), timeControl: option.value}));}}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
@@ -229,6 +230,7 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                onChange={() => {localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), colorPreference: option.value}))}}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}

@@ -71,21 +71,22 @@ export default function App() {
     useSupabase2();
 
     const channel = supabase
-      .channel("realtime-messages")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "games" },
-        async (payload) => {
-          if (payload.eventType === "INSERT") {
-            const saved_pairing_info = localStorage.getItem("pairing_info");
-            if (
-              userId &&
-              saved_pairing_info &&
-              JSON.parse(saved_pairing_info).colorPreference &&
-              JSON.parse(saved_pairing_info).timeControl &&
-              JSON.parse(saved_pairing_info).data
-            ) {
-              const fData = JSON.parse(saved_pairing_info);
+    .channel("realtime-messages")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "games" },
+      async (payload) => {
+        if (payload.eventType === "INSERT") {
+          const saved_pairing_info = localStorage.getItem("pairing_info");
+          if (
+            userId &&
+            saved_pairing_info &&
+            JSON.parse(saved_pairing_info).colorPreference &&
+            JSON.parse(saved_pairing_info).timeControl &&
+            JSON.parse(saved_pairing_info).data
+          ) {
+            const fData = JSON.parse(saved_pairing_info);
+              setTimeout(() => {}, 2000);
               await handleInsertedNewGame(
                 supabase,
                 userId,
@@ -107,23 +108,24 @@ export default function App() {
       .subscribe();
 
     const channel2 = supabase2
-      .channel("realtime-messages")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "game_moves" },
-        async (payload) => {
+    .channel("realtime-messages")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "game_moves" },
+      async (payload) => {
           if (payload.eventType === "INSERT") {
             let pairingInfo = localStorage.getItem("pairing_info");
             pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
 
             if (pairingInfo && userId2) {
               const headers2 = new Headers();
+              setTimeout(() => {}, 2000);
               let response = await getNewGamePairing(
                 pairingInfo,
                 supabase2,
                 headers2
               );
-
+              
               if (response?.go) {
                 navigate("/game/1");
               }
@@ -135,15 +137,15 @@ export default function App() {
         }
       )
       .subscribe();
-
-    return async () => {
-      supabase.removeChannel(channel);
-      supabase2.removeChannel(channel2);
-    };
-  }, []);
-
-  return (
-    <html lang="en">
+      
+      return async () => {
+        supabase.removeChannel(channel);
+        supabase2.removeChannel(channel2);
+      };
+    }, []);
+    
+    return (
+      <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
