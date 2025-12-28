@@ -13,6 +13,7 @@ import {
   gamesNewRequestOnUserColor,
   getNewGamePairing,
   handleInsertedNewGame,
+  updateActiveUserStatus,
 } from "~/utils/game";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
@@ -167,6 +168,7 @@ export default function Index() {
               );
 
               if (response?.go) {
+                await updateActiveUserStatus(userId, supabase2);
                 navigate(`/game/${response.data[0].id}`);
               }
             }

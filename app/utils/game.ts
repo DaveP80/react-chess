@@ -126,14 +126,7 @@ export async function handleInsertedNewGame(
           headers
         );
         return response;
-        // return Response.json(
-        //   {
-        //     error: null,
-        //     go: true,
-        //     message: `success in pairing, found ${user_color == "white" ? "black" : "white"}_user_id`,
-        //     data: {data: data_a_update, data_b: data_b_update}
-        //   },
-        // );
+
       }
     }
     } else {
@@ -191,19 +184,19 @@ async function handleInsertStartGame(
   //to determine game_id to use in foreign key.
   const joinedData = incomingData.joinedData;
   const created_at_id_ref =
-    new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
-      ? joinedData.id_gt
-      : joinedData.id;
+  new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
+  ? joinedData.id_gt
+  : joinedData.id;
   const game_id_ref = [joinedData.id, joinedData.id_gt];
-
+  
   try {
     //throws error if duplicate game entry.
     //only continue if the user is the last to request a game.
     console.log("reached here:", incomingData);
     const { data, error } = await supabase
-      .from("game_moves")
-      .insert({ game_id: created_at_id_ref, game_id_ref })
-      .select();
+    .from("game_moves")
+    .insert({ game_id: created_at_id_ref, game_id_ref })
+    .select();
     if (error) {
       return Response.json(
         {
@@ -236,5 +229,34 @@ async function handleInsertStartGame(
       { message: "no message on insert game_moves table", go: false },
       { headers }
     );
+  }
+}
+
+export async function updateActiveUserStatus(
+  userId: any,
+  supabase: any,
+) {
+  try {
+    const { data, error } = await supabase.from("users").update({isActive: true}).eq("u_id", userId).select();
+    if (error) {
+      return { go: false, error };
+    }
+
+    if (data && data[0].length) {
+      const u_id = data[0].u_id;
+      if (u_id) {
+        return {
+          go: true,
+          message: `user table updated on id: ${data[0].u_id}.`,
+        };
+      } else {
+        return {
+          go: false,
+          message: `unable to update active status on user table.`,
+        };
+      }
+    }
+  } catch (error) {
+    return { error, go: false };
   }
 }
