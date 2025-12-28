@@ -90,9 +90,6 @@ export default function Index() {
   );
 
   useEffect(() => {
-    if (PlayContext.isPlaying) {
-      setIsDisabled(true);
-    }
     let userId: string | undefined;
 
     const useSupabase = async () => {
@@ -292,7 +289,7 @@ export default function Index() {
         <button
           type="submit"
           className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-          disabled={IsDisabled}
+          disabled={PlayContext.playingGame}
         >
           <span
             className={

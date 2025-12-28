@@ -107,11 +107,11 @@ export default function UserProfile() {
                 <div className="flex items-center justify-center sm:justify-start mt-2">
                   <span
                     className={`h-3 w-3 rounded-full mr-2 ${
-                      playingGame.isActive ? "bg-green-500" : "bg-gray-400"
+                      playingGame ? "bg-green-500" : "bg-gray-400"
                     }`}
                   ></span>
                   <span className="text-sm text-gray-600">
-                    {playingGame.isActive ? "Currently in a game" : "idle"}
+                    {playingGame ? "Currently in a game" : "idle"}
                   </span>
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
