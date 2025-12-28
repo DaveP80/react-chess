@@ -77,11 +77,11 @@ export default function Index() {
   const [IsDisabled, setIsDisabled] = useState(false);
   const navigate = useNavigate();
   //const [submit, setSubmit] = useState<Record<string, string>>({colorPreference: "", timeControl: ""});
-  // const supabase = createBrowserClient(
-  //   import.meta.env.VITE_SUPABASE_URL!,
-  //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-  //   { isSingleton: false }
-  // );
+  const supabase = createBrowserClient(
+    import.meta.env.VITE_SUPABASE_URL!,
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+    { isSingleton: false }
+  );
   const supabase2 = createBrowserClient(
     import.meta.env.VITE_SUPABASE_URL!,
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
@@ -92,12 +92,12 @@ export default function Index() {
     if (PlayContext.isPlaying) {
       setIsDisabled(true);
     }
-    let userId2: string | undefined;
+    let userId: string | undefined;
 
-    const useSupabase2 = async () => {
+    const useSupabase = async () => {
       const { data: authData, error: authError } =
         await supabase2.auth.getUser();
-      userId2 = authData?.user?.id;
+      userId = authData?.user?.id;
     };
     // const headers = new Headers();
     // let data;
@@ -112,7 +112,7 @@ export default function Index() {
         })
       );
     }
-    useSupabase2();
+    useSupabase();
     // const useSupabase = async () => {
     //   const { data: authData, error: authError } = await supabase.auth.getUser();
     //   userId = authData?.user?.id;
@@ -124,7 +124,7 @@ export default function Index() {
     // };
     // useSupabase();
 
-    const channel = supabase2
+    const channel = supabase
     .channel("realtime-messages")
     .on(
       "postgres_changes",
@@ -133,7 +133,7 @@ export default function Index() {
         if (payload.eventType === "INSERT") {
           const saved_pairing_info = localStorage.getItem("pairing_info");
           if (
-            userId2 &&
+            userId &&
             saved_pairing_info &&
             JSON.parse(saved_pairing_info).colorPreference &&
             JSON.parse(saved_pairing_info).timeControl &&
@@ -142,8 +142,8 @@ export default function Index() {
             const headers = new Headers();
             const fData = JSON.parse(saved_pairing_info);
               await handleInsertedNewGame(
-                supabase2,
-                userId2,
+                supabase,
+                userId,
                 fData.colorPreference,
                 fData.timeControl,
                 fData.data[0].created_at,
@@ -171,7 +171,7 @@ export default function Index() {
             let pairingInfo = localStorage.getItem("pairing_info");
             pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
 
-            if (pairingInfo && pairingInfo?.data && userId2) {
+            if (pairingInfo && pairingInfo?.data && userId) {
               const headers2 = new Headers();
               let response = await getNewGamePairing(
                 pairingInfo,
@@ -192,8 +192,8 @@ export default function Index() {
       .subscribe();
 
     return async () => {
+      supabase.removeChannel(channel);
       supabase2.removeChannel(channel2);
-      supabase2.removeChannel(channel);
     };
   }, [actionData]);
 
