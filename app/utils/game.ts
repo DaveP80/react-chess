@@ -97,28 +97,29 @@ export async function handleInsertedNewGame(
           : data_a[0].created_at_gt;
       const continue_request = greater_at == created_at;
       if (!continue_request) {
-        const [aResult, bResult] = await Promise.all([
-          localSupabase
-            .from("games")
-            .update(updateObjWhite)
-            .eq("id", id)
-            .select(),
-          localSupabase
-            .from("games")
-            .update(updateObjWhite)
-            .eq("id", id_gt)
-            .select(),
-        ]);
-        const { data: data_a_update, error: error_a } = aResult;
-        const { data: data_b_update, error: error_b } = bResult;
-        if (error_a || error_b) {
+        const {data: rpcData, error} = await localSupabase.rpc("update_live_pairing_request", {black_elo_update: updateObjWhite.blackelo, white_elo_update: updateObjWhite.whiteelo,
+          black_id_update: updateObjWhite.black_id, white_id_update: updateObjWhite.white_id, white_g_update_id: id, black_g_update_id: id_gt});
+        // const [aResult, bResult] = await Promise.all([
+        //   localSupabase
+        //     .from("games")
+        //     .update(updateObjWhite)
+        //     .eq("id", id)
+        //     .select(),
+        //   localSupabase
+        //     .from("games")
+        //     .update(updateObjWhite)
+        //     .eq("id", id_gt)
+        //     .select(),
+        // ]);
+        // const { data: data_a_update, error: error_a } = aResult;
+        // const { data: data_b_update, error: error_b } = bResult;
+        if (error) {
           return Response.json({
-            error: { error: error_a, error_b: error_b },
+            error,
             go: false,
             message: "failed to update on games table with black and white id",
           });
-        }
-        if (data_a_update && data_b_update) {
+        } else {
           const response = await handleInsertStartGame(
             localSupabase,
             { joinedData: data_a[0] },
