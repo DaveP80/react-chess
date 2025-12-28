@@ -124,34 +124,42 @@ export default function Index() {
     // };
     // useSupabase();
 
-    //   const channel = supabase
-    //     .channel("realtime-messages")
-    //     .on(
-    //       "postgres_changes",
-    //       { event: "*", schema: "public", table: "games" },
-    //       async(payload) => {
-    //         if (payload.eventType === "INSERT") {
-    //           const saved_pairing_info = localStorage.getItem("pairing_info");
-    //           if (saved_pairing_info && JSON.parse(saved_pairing_info).colorPreference && JSON.parse(saved_pairing_info).timeControl) {
-    //             const fData = JSON.parse(saved_pairing_info);
-    //               const res = await handleInsertedNewGame(
-    //               supabase,
-    //               userId,
-    //               fData.colorPreference,
-    //               fData.timeControl,
-    //               headers
-    //             );
-    //           }
-    //         }
-    //         if (payload.eventType === "UPDATE") {
-    //           ("foo");
-    //         }
-    //         if (payload.eventType === "DELETE") {
-    //           ("bar");
-    //         }
-    //       }
-    //     )
-    //     .subscribe();
+    const channel = supabase2
+    .channel("realtime-messages")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "games" },
+      async (payload) => {
+        if (payload.eventType === "INSERT") {
+          const saved_pairing_info = localStorage.getItem("pairing_info");
+          if (
+            userId2 &&
+            saved_pairing_info &&
+            JSON.parse(saved_pairing_info).colorPreference &&
+            JSON.parse(saved_pairing_info).timeControl &&
+            JSON.parse(saved_pairing_info).data
+          ) {
+            const headers = new Headers();
+            const fData = JSON.parse(saved_pairing_info);
+              await handleInsertedNewGame(
+                supabase2,
+                userId2,
+                fData.colorPreference,
+                fData.timeControl,
+                fData.data[0].created_at,
+                headers
+              );
+            }
+          }
+          if (payload.eventType === "UPDATE") {
+            ("foo");
+          }
+          if (payload.eventType === "DELETE") {
+            ("bar");
+          }
+        }
+      )
+      .subscribe();
 
     const channel2 = supabase2
       .channel("realtime-messages")
@@ -185,6 +193,7 @@ export default function Index() {
 
     return async () => {
       supabase2.removeChannel(channel2);
+      supabase2.removeChannel(channel);
     };
   }, [actionData]);
 

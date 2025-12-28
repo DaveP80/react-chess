@@ -93,26 +93,25 @@ export async function handleInsertedNewGame(
       Reflect.deleteProperty(updateObjWhite, "timecontrol");
       Reflect.deleteProperty(updateObjWhite, "status");
       updateObjWhite[`status`] = "playing";
-      let aResult;
-      let bResult;
-      switch (user_color) {
-        case "white": {
-          aResult = await localSupabase
-            .from("games")
-            .update(updateObjWhite)
-            .eq("id", id)
-            .select();
-          break;
-        }
-        case "black": {
-          bResult = await localSupabase
-            .from("games")
-            .update(updateObjWhite)
-            .eq("id", id_gt)
-            .select();
-          break;
-        }
-      }
+      const greater_at =
+      new Date(data_a[0].created_at) > new Date(data_a[0].created_at_gt)
+        ? data_a[0].created_at
+        : data_a[0].created_at_gt;
+    const continue_request = greater_at == created_at;
+    if (!continue_request) {
+
+      const [aResult, bResult] = await Promise.all([
+        localSupabase
+          .from("games")
+          .update(updateObjWhite)
+          .eq("id", id)
+          .select(),
+        localSupabase
+          .from("games")
+          .update(updateObjWhite)
+          .eq("id", id_gt)
+          .select(),
+      ]);
       const { data: data_a_update, error: error_a } = aResult;
       const { data: data_b_update, error: error_b } = bResult;
       if (error_a || error_b) {
@@ -122,10 +121,10 @@ export async function handleInsertedNewGame(
           message: "failed to update on games table with black and white id",
         });
       }
-      if (data_a_update || data_b_update) {
+      if (data_a_update && data_b_update) {
         const response = await handleInsertStartGame(
           localSupabase,
-          { joinedData: data_a[0], primaryData: created_at },
+          { joinedData: data_a[0] },
           headers
         );
         return response;
@@ -138,6 +137,7 @@ export async function handleInsertedNewGame(
         //   },
         // );
       }
+    }
     } else {
       return Response.json({
         message: `unsuccessful search on finding ${
@@ -191,51 +191,36 @@ async function handleInsertStartGame(
 ) {
   //to determine game_id to use in foreign key.
   const joinedData = incomingData.joinedData;
-  const greater_at =
-    new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
-      ? joinedData.created_at
-      : joinedData.created_at_gt;
-  const continue_request = greater_at == incomingData.primaryData;
   const created_at_id_ref =
     new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
-      ? joinedData.id
-      : joinedData.id_gt;
+      ? joinedData.id_gt
+      : joinedData.id;
   const game_id_ref = [joinedData.id, joinedData.id_gt];
 
   try {
     //throws error if duplicate game entry.
     //only continue if the user is the last to request a game.
-    console.log("reached here:", incomingData)
-    if (continue_request) {
-      const { data, error } = await supabase
-        .from("game_moves")
-        .insert({ game_id: created_at_id_ref, game_id_ref })
-        .select();
-      if (error) {
-        return Response.json(
-          {
-            go: false,
-            error,
-            message: "error on entering new row on games table",
-          },
-          { headers }
-        );
-      } else if (data) {
-        return Response.json(
-          {
-            go: true,
-            message: "successfully entered new row on games start table.",
-          },
-          { headers }
-        );
-      }
-    } else {
+    console.log("reached here:", incomingData);
+    const { data, error } = await supabase
+      .from("game_moves")
+      .insert({ game_id: created_at_id_ref, game_id_ref })
+      .select();
+    if (error) {
+      return Response.json(
+        {
+          go: false,
+          error,
+          message: "error on entering new row on games table",
+        },
+        { headers }
+      );
+    } else if (data) {
       return Response.json(
         {
           go: true,
-          message: "games table and status updated, and new game intitiated.",
+          message: "successfully entered new row on games start table.",
         },
-        headers
+        { headers }
       );
     }
   } catch (error) {
