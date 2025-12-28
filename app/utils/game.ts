@@ -203,8 +203,9 @@ async function handleInsertStartGame(
   const game_id_ref = [joinedData.id, joinedData.id_gt];
 
   try {
-    //throws error is duplicate game entry.
+    //throws error if duplicate game entry.
     //only continue if the user is the last to request a game.
+    console.log("reached here:", incomingData)
     if (continue_request) {
       const { data, error } = await supabase
         .from("game_moves")
