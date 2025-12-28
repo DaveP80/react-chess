@@ -73,10 +73,10 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Index() {
   const actionData = useActionData<typeof action>();
-  const PlayContext = useContext(GlobalContext);
   const [IsDisabled, setIsDisabled] = useState(false);
   const [loading, setIsLoading] = useState(false);
   const navigation = useNavigation();
+  const PlayContext = useContext(GlobalContext);
   const navigate = useNavigate();
   const supabase = createBrowserClient(
     import.meta.env.VITE_SUPABASE_URL!,
@@ -168,7 +168,10 @@ export default function Index() {
               );
 
               if (response?.go) {
-                await updateActiveUserStatus(userId, supabase2);
+                const update_res = await updateActiveUserStatus(userId, supabase2);
+                if (update_res && update_res.go) {
+                  PlayContext.setPlayingGame(true);
+                }
                 navigate(`/game/${response.data[0].id}`);
               }
             }

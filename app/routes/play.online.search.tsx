@@ -1,9 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { redirect } from "@remix-run/node";
-import { Form, useActionData, useFetcher } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
-import { useContext, useEffect, useState } from "react";
-import { GlobalContext } from "~/context/globalcontext";
+import { useEffect, useState } from "react";
 import {
   getNewGamePairing,
 } from "~/utils/game";

@@ -92,48 +92,44 @@ export async function handleInsertedNewGame(
       Reflect.deleteProperty(updateObjWhite, "status");
       updateObjWhite[`status`] = "playing";
       const greater_at =
-      new Date(data_a[0].created_at) > new Date(data_a[0].created_at_gt)
-        ? data_a[0].created_at
-        : data_a[0].created_at_gt;
-    const continue_request = greater_at == created_at;
-    if (!continue_request) {
-
-      const [aResult, bResult] = await Promise.all([
-        localSupabase
-          .from("games")
-          .update(updateObjWhite)
-          .eq("id", id)
-          .select(),
-        localSupabase
-          .from("games")
-          .update(updateObjWhite)
-          .eq("id", id_gt)
-          .select(),
-      ]);
-      const { data: data_a_update, error: error_a } = aResult;
-      const { data: data_b_update, error: error_b } = bResult;
-      if (error_a || error_b) {
-        return Response.json({
-          error: { error: error_a, error_b: error_b },
-          go: false,
-          message: "failed to update on games table with black and white id",
-        });
+        new Date(data_a[0].created_at) > new Date(data_a[0].created_at_gt)
+          ? data_a[0].created_at
+          : data_a[0].created_at_gt;
+      const continue_request = greater_at == created_at;
+      if (!continue_request) {
+        const [aResult, bResult] = await Promise.all([
+          localSupabase
+            .from("games")
+            .update(updateObjWhite)
+            .eq("id", id)
+            .select(),
+          localSupabase
+            .from("games")
+            .update(updateObjWhite)
+            .eq("id", id_gt)
+            .select(),
+        ]);
+        const { data: data_a_update, error: error_a } = aResult;
+        const { data: data_b_update, error: error_b } = bResult;
+        if (error_a || error_b) {
+          return Response.json({
+            error: { error: error_a, error_b: error_b },
+            go: false,
+            message: "failed to update on games table with black and white id",
+          });
+        }
+        if (data_a_update && data_b_update) {
+          const response = await handleInsertStartGame(
+            localSupabase,
+            { joinedData: data_a[0] },
+            headers
+          );
+          return response;
+        }
       }
-      if (data_a_update && data_b_update) {
-        const response = await handleInsertStartGame(
-          localSupabase,
-          { joinedData: data_a[0] },
-          headers
-        );
-        return response;
-
-      }
-    }
     } else {
       return Response.json({
-        message: `unsuccessful search on finding ${
-          user_color == "white" ? "black" : "white"
-        } user id in games`,
+        message: `update games table on other client user.`,
         go: false,
       });
     }
@@ -161,7 +157,7 @@ export async function getNewGamePairing(
         return {
           go: true,
           message: `new game made with game_id: ${data[0].game_id}.`,
-          data
+          data,
         };
       } else {
         return {
@@ -184,19 +180,19 @@ async function handleInsertStartGame(
   //to determine game_id to use in foreign key.
   const joinedData = incomingData.joinedData;
   const created_at_id_ref =
-  new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
-  ? joinedData.id_gt
-  : joinedData.id;
+    new Date(joinedData.created_at) > new Date(joinedData.created_at_gt)
+      ? joinedData.id_gt
+      : joinedData.id;
   const game_id_ref = [joinedData.id, joinedData.id_gt];
-  
+
   try {
     //throws error if duplicate game entry.
     //only continue if the user is the last to request a game.
     console.log("reached here:", incomingData);
     const { data, error } = await supabase
-    .from("game_moves")
-    .insert({ game_id: created_at_id_ref, game_id_ref })
-    .select();
+      .from("game_moves")
+      .insert({ game_id: created_at_id_ref, game_id_ref })
+      .select();
     if (error) {
       return Response.json(
         {
@@ -232,29 +228,19 @@ async function handleInsertStartGame(
   }
 }
 
-export async function updateActiveUserStatus(
-  userId: any,
-  supabase: any,
-) {
+export async function updateActiveUserStatus(userId: any, supabase: any) {
   try {
-    const { data, error } = await supabase.from("users").update({isActive: true}).eq("u_id", userId).select();
+    const { data, error } = await supabase
+      .from("users")
+      .update({ isActive: true })
+      .eq("u_id", userId);
     if (error) {
       return { go: false, error };
-    }
-
-    if (data && data[0].length) {
-      const u_id = data[0].u_id;
-      if (u_id) {
-        return {
-          go: true,
-          message: `user table updated on id: ${data[0].u_id}.`,
-        };
-      } else {
-        return {
-          go: false,
-          message: `unable to update active status on user table.`,
-        };
-      }
+    } else {
+      return {
+        go: true,
+        message: `user table updated on id: ${userId}.`,
+      };
     }
   } catch (error) {
     return { error, go: false };
