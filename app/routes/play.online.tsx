@@ -184,10 +184,9 @@ export default function Index() {
       .subscribe();
 
     return async () => {
-      // //     supabase.removeChannel(channel);
       supabase2.removeChannel(channel2);
     };
-  }, []);
+  }, [actionData]);
 
   const handleSubmit = (e) => {
     const formData = new FormData(e.currentTarget);
