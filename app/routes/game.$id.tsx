@@ -10,10 +10,11 @@ import {
   ChevronsRight,
   FlagIcon,
 } from "lucide-react";
-import { checkIfRepetition, timeControlReducer } from "~/utils/helper";
+import { checkIfRepetition, timeControlReducer, parseTimeControl } from "~/utils/helper";
 import { GlobalContext } from "~/context/globalcontext";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData } from "@remix-run/react";
+import { ChessClock } from "~/components/ChessClock";
 
 export const meta: MetaFunction = () => {
   return [
@@ -81,6 +82,10 @@ export default function Index() {
   const [game_length, timeControl] = timeControlReducer(
     gameConfig?.timeControl || ""
   );
+  const [initialTime, increment] = parseTimeControl(
+    gameConfig?.timeControl || "unlimited"
+  );
+  const [timeOut, setTimeOut] = useState<"white" | "black" | null>(null);
 
   useEffect(() => {
     if (gameData) {
@@ -143,6 +148,11 @@ export default function Index() {
     setFenHistory([]);
     setCurrentMoveIndex(-1);
     setResign(false);
+    setTimeOut(null);
+  }
+
+  function handleTimeOut(player: "white" | "black") {
+    setTimeOut(player);
   }
   function resignGame() {
     if (activeGame.isGameOver()) {
@@ -208,7 +218,7 @@ export default function Index() {
     }
   };
 
-  const isGameOver = activeGame.isGameOver();
+  const isGameOver = activeGame.isGameOver() || timeOut !== null;
   const isCheckmate = activeGame.isCheckmate();
   const isDraw = activeGame.isDraw();
   const isCheck = activeGame.isCheck();
@@ -294,8 +304,23 @@ export default function Index() {
             <div className="lg:col-span-1">
               <div className="bg-white rounded-2xl shadow-2xl p-6">
                 <h2 className="text-2xl font-bold text-slate-800 mb-4">
-                  Move History
+                  Game Info
                 </h2>
+
+                {/* Chess Clock */}
+                <ChessClock
+                  initialTime={initialTime}
+                  increment={increment}
+                  currentTurn={activeGame.turn()}
+                  isGameOver={isGameOver}
+                  onTimeOut={handleTimeOut}
+                  moveCount={moveHistory.length}
+                  isReplay={isReplay !== null}
+                />
+
+                <h3 className="text-xl font-bold text-slate-800 mb-4 mt-6">
+                  Move History
+                </h3>
                 <div className="bg-slate-50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
                   {moveHistory.length === 0 ? (
                     <p className="text-slate-400 text-center">No moves yet</p>
@@ -361,7 +386,11 @@ export default function Index() {
                   <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
                     <p className="font-bold text-lg mb-2">Game Over!</p>
                     <p className="text-slate-300">
-                      {isCheckmate && !resign
+                      {timeOut
+                        ? `${
+                            timeOut === "white" ? "Black" : "White"
+                          } wins on time!`
+                        : isCheckmate && !resign
                         ? `${
                             activeGame.turn() === "w" ? "Black" : "White"
                           } wins!`
@@ -376,6 +405,7 @@ export default function Index() {
                     <p className="text-slate-300">
                       {isThreeFoldRepit &&
                         !resign &&
+                        !timeOut &&
                         `Draw!! Three Fold Repitition.`}
                     </p>
                   </div>

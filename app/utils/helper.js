@@ -56,28 +56,56 @@ export function isValidAvatarURL(avatarURL) {
 
 export function timeControlReducer(timeControl) {
   let game_length = null;
-  switch (timeControl) {
+  let ratingType = null;
+
+  // Extract base time (before the + if it exists)
+  const baseTime = timeControl.split("+")[0];
+
+  switch (baseTime) {
     case "3": {
-      timeControl = "blitz_rating";
-      game_length = "3";
+      ratingType = "blitz_rating";
+      game_length = timeControl; // Keep full format like "3+2"
       break;
     }
     case "5": {
-      timeControl = "blitz_rating";
-      game_length = "5";
+      ratingType = "blitz_rating";
+      game_length = timeControl;
       break;
     }
     case "10": {
-      timeControl = "rapid_rating";
-      game_length = "10";
+      ratingType = "rapid_rating";
+      game_length = timeControl;
       break;
     }
     case "unlimited": {
-      timeControl = "rapid_rating";
+      ratingType = "rapid_rating";
       game_length = "unlimited";
       break;
     }
+    default: {
+      ratingType = "rapid_rating";
+      game_length = timeControl;
+    }
   }
 
-  return [game_length, timeControl];
+  return [game_length, ratingType];
+}
+
+/**
+ * Parse time control string and return initial time and increment in seconds
+ * @param {string} timeControl - Format: "3+2" (3 minutes + 2 second increment) or "unlimited"
+ * @returns {[number, number]} - [initialTimeInSeconds, incrementInSeconds]
+ */
+export function parseTimeControl(timeControl) {
+  if (timeControl === "unlimited") {
+    return [0, 0]; // 0 means unlimited
+  }
+
+  const parts = timeControl.split("+");
+  const minutes = parseInt(parts[0], 10);
+  const increment = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+
+  const initialTimeInSeconds = minutes * 60;
+
+  return [initialTimeInSeconds, increment];
 }

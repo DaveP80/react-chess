@@ -54,12 +54,17 @@ export async function action({ request }: ActionFunctionArgs) {
   }
   const timeControl = String(formData.timeControl);
 
-  if (
-    timeControl !== "3" &&
-    timeControl !== "5" &&
-    timeControl !== "10" &&
-    timeControl !== "unlimited"
-  ) {
+  const validTimeControls = [
+    "3+0",
+    "3+2",
+    "5+0",
+    "5+3",
+    "10+0",
+    "10+5",
+    "unlimited",
+  ];
+
+  if (!validTimeControls.includes(timeControl)) {
     return Response.json({ error: "Invalid time control" }, { status: 400 });
   }
 
@@ -241,9 +246,12 @@ export default function Index() {
             Time Control
           </legend>
           {[
-            { label: "Blitz 3 min", value: "3" },
-            { label: "Blitz 5 min", value: "5" },
-            { label: "Rapid 10 min", value: "10" },
+            { label: "Blitz 3 min", value: "3+0" },
+            { label: "Blitz 3+2", value: "3+2" },
+            { label: "Blitz 5 min", value: "5+0" },
+            { label: "Blitz 5+3", value: "5+3" },
+            { label: "Rapid 10 min", value: "10+0" },
+            { label: "Rapid 10+5", value: "10+5" },
             { label: "Unlimited", value: "unlimited" },
           ].map((option) => (
             <label
