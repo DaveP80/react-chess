@@ -155,7 +155,11 @@ export default function Index() {
     setTimeOut(player);
   }
   function resignGame() {
-    if (activeGame.isGameOver()) {
+    // Check the actual game state, not the displayed position
+    const actualGame =
+      fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
+
+    if (actualGame.isGameOver()) {
       return null;
     }
     if (checkIfRepetition(fenHistory)) {
@@ -218,11 +222,21 @@ export default function Index() {
     }
   };
 
-  const isGameOver = activeGame.isGameOver() || timeOut !== null;
+  // Get the actual game state (from the real current position, not the displayed position during replay)
+  const actualGame =
+    fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
+
+  // Game over state is based on the actual game, not the displayed position
+  const isGameOver = actualGame.isGameOver() || timeOut !== null;
+
+  // Display indicators are based on what's currently shown on the board
   const isCheckmate = activeGame.isCheckmate();
   const isDraw = activeGame.isDraw();
   const isCheck = activeGame.isCheck();
   const isThreeFoldRepit = checkIfRepetition(fenHistory);
+
+  // Get the actual game turn
+  const actualGameTurn = actualGame.turn();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -311,11 +325,10 @@ export default function Index() {
                 <ChessClock
                   initialTime={initialTime}
                   increment={increment}
-                  currentTurn={activeGame.turn()}
+                  currentTurn={actualGameTurn}
                   isGameOver={isGameOver}
                   onTimeOut={handleTimeOut}
                   moveCount={moveHistory.length}
-                  isReplay={isReplay !== null}
                 />
 
                 <h3 className="text-xl font-bold text-slate-800 mb-4 mt-6">
@@ -390,17 +403,17 @@ export default function Index() {
                         ? `${
                             timeOut === "white" ? "Black" : "White"
                           } wins on time!`
-                        : isCheckmate && !resign
+                        : actualGame.isCheckmate() && !resign
                         ? `${
-                            activeGame.turn() === "w" ? "Black" : "White"
+                            actualGameTurn === "w" ? "Black" : "White"
                           } wins!`
                         : !resign
                         ? "The game is a draw."
                         : ""}
                     </p>
                     <p className="text-slate-300">
-                      {activeGame.turn() === "w" && resign && "White Resigns!"}
-                      {activeGame.turn() === "b" && resign && "Black Resigns!"}
+                      {actualGameTurn === "w" && resign && "White Resigns!"}
+                      {actualGameTurn === "b" && resign && "Black Resigns!"}
                     </p>
                     <p className="text-slate-300">
                       {isThreeFoldRepit &&

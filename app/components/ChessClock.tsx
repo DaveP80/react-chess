@@ -4,11 +4,10 @@ import { Clock } from "lucide-react";
 interface ChessClockProps {
   initialTime: number; // in seconds
   increment: number; // in seconds
-  currentTurn: "w" | "b";
+  currentTurn: "w" | "b"; // The actual game turn, not the displayed position
   isGameOver: boolean;
   onTimeOut: (player: "white" | "black") => void;
-  moveCount: number;
-  isReplay: boolean;
+  moveCount: number; // The actual number of moves made in the game
 }
 
 export function ChessClock({
@@ -18,7 +17,6 @@ export function ChessClock({
   isGameOver,
   onTimeOut,
   moveCount,
-  isReplay,
 }: ChessClockProps) {
   const [whiteTime, setWhiteTime] = useState(initialTime);
   const [blackTime, setBlackTime] = useState(initialTime);
@@ -35,14 +33,14 @@ export function ChessClock({
     }
   }, [moveCount, initialTime]);
 
-  // Start clock on first move, pause during replay or game over
+  // Start clock on first move, only pause on game over
   useEffect(() => {
-    if (isReplay || isGameOver) {
+    if (isGameOver) {
       setIsActive(false);
     } else if (moveCount > 0) {
       setIsActive(true);
     }
-  }, [moveCount, isReplay, isGameOver]);
+  }, [moveCount, isGameOver]);
 
   // Handle increment when turn changes
   useEffect(() => {
