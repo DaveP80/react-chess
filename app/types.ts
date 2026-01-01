@@ -26,3 +26,15 @@ export interface UserContextType {
       rowId: number;
       setRowId: (args: number) => void;
     };
+
+    export type MyHomeData = {
+      user: {
+        id: string;
+        email: string | undefined;
+      } | {} | null;
+      rowData: any; // Replace 'any' with your actual user table type
+      provider?: string;
+      message?: string;
+      error?: any;
+      intent?: any;
+    };

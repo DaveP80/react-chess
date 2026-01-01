@@ -1,11 +1,12 @@
 // app/components/SignInButtons.tsx
-import { useNavigate } from "@remix-run/react";
+import { useNavigate, useRouteLoaderData } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useContext } from "react";
 import { GlobalContext } from "~/context/globalcontext";
+import { loader } from "~/root";
 
 export default function SignInButtons() {
-  const UserInfo = useContext(GlobalContext);
+  const UserInfo = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
   const supabase = createBrowserClient(
     import.meta.env.VITE_SUPABASE_URL!,
@@ -14,7 +15,7 @@ export default function SignInButtons() {
   );
 
   const signInWithGitHub = async () => {
-    if (!UserInfo.user.id) {
+    if (!UserInfo?.user.id) {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {
@@ -30,7 +31,7 @@ export default function SignInButtons() {
 
   const signOut = async () => {
     try {
-      if (UserInfo.user.id) {
+      if (UserInfo?.user.id) {
         await supabase.auth.signOut({ scope: "global" });
         const localAuth = await localStorage.getItem("auth");
         if (localAuth) {

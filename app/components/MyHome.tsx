@@ -1,14 +1,14 @@
-import React, { useContext, useEffect } from "react";
-import { GlobalContext } from "~/context/globalcontext";
+import React, { useEffect, useState } from "react";
 import DemoUser from "./DemoUser";
 import { TbUserCog } from "react-icons/tb";
-import { NavLink, useNavigate } from "@remix-run/react";
+import { NavLink, useNavigate, useRouteLoaderData } from "@remix-run/react";
+import { loader } from "~/root";
 
 
 // Mock data for demonstration purposes
 const Mockuser = {
   username: "ChessMaster123",
-  avatarUrl:
+  avatarURL:
     "https://cdn3.iconfinder.com/data/icons/family-member-flat-happy-family-day/512/Uncle-64.png", // Placeholder avatar
   isPlaying: true,
   stats: {
@@ -51,30 +51,39 @@ const gameHistory = [
 ];
 
 export default function UserProfile() {
-  const GamePlayContext = useContext(GlobalContext);
-  const UserInfo = useContext(GlobalContext);
+  //const GamePlayContext = useContext(GlobalContext);
+  // const UserInfo = useContext(GlobalContext);
+  const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");
+  const [UserInfo, setUserInfo] = useState({});
+  const [UserRowData, setUserRowData] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (UserInfo.user?.id) {
-      if (UserInfo.user.provider === "github") {
-        localStorage.setItem(
+    if (user?.id) {
+      if (provider === "github") {
+        window.localStorage.setItem(
           "auth",
           JSON.stringify({ new_signup: false, is_logged_in: true })
         );
       }
-      if (UserInfo.user.provider === "email") {
-        localStorage.setItem(
+      if (provider === "email") {
+        window.localStorage.setItem(
           "auth",
           JSON.stringify({ new_signup: true, is_logged_in: true })
         );
       }
     }
 
+    // if (user?.id) {
+    //  setUserInfo({...UserInfo, ...user});
+    // }
+    // if (rowData?.id) {
+    //  setUserRowData(rowData);
+    // }
     return () => {
       true;
     };
-  }, [UserInfo]);
+  }, [rowData, user]);
 
 
   const handleClick = () => {
@@ -84,19 +93,19 @@ export default function UserProfile() {
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="container mx-auto max-w-4xl">
-        {UserInfo?.user.id ? (
+        {user?.id ? (
           <div className="bg-white rounded-lg shadow-lg p-6">
             {/* Profile Header */}
             <div className="flex flex-col sm:flex-row items-center sm:items-start">
               <img
                 className="w-32 h-32 rounded-full border-4 border-gray-300"
-                src={UserInfo.user.avatarUrl}
-                alt={`${UserInfo.user.username || "placeholders"}'s avatar`}
+                src={rowData?.avatarURL}
+                alt={`${rowData?.username || "placeholders"}'s avatar`}
               />
               <div className="sm:ml-6 mt-4 sm:mt-0 text-center sm:text-left">
                 <div className="flex justify-evenly">
                 <h1 className="text-3xl font-bold text-gray-800">
-                  {UserInfo.user.username || `chessplayer_`.concat(Math.floor((Math.random() * (100 - 1 + 1)) + 1).toString())}
+                  {rowData?.username || `chessplayer_`.concat(Math.floor((Math.random() * (100 - 1 + 1)) + 1).toString())}
                 </h1>
                 <button className="sm:px-4 sm:py-2 hover:shadow-sm" onClick={handleClick}>
                   <TbUserCog size={"40px"}/>
@@ -107,12 +116,12 @@ export default function UserProfile() {
                 <div className="flex items-center justify-center sm:justify-start mt-2">
                   <span
                     className={`h-3 w-3 rounded-full mr-2 ${
-                      GamePlayContext.playingGame ? "bg-green-500" : "bg-gray-400"
+                      rowData?.isActive ? "bg-green-500" : "bg-gray-400"
                     }`}
                   ></span>
                   <span className="text-sm text-gray-600">
-                    {GamePlayContext.playingGame ? "Currently in a game" : "idle"}
-                    {GamePlayContext.playingGame && localStorage.getItem("pgnInfo") && <NavLink to={`/game/${JSON.parse(localStorage.getItem("pgnInfo") || "{}").routing_id}`}>Go To Game</NavLink>}
+                    {rowData?.isActive ? "Currently in a game" : "idle"}
+                    {rowData?.isActive && localStorage.getItem("pgnInfo") && <NavLink to={`/game/${JSON.parse(localStorage.getItem("pgnInfo") || "{}").routing_id}`}>Go To Game</NavLink>}
                   </span>
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
@@ -125,7 +134,7 @@ export default function UserProfile() {
                   Add Friend
                 </button>
                 </div>
-                {UserInfo?.user.verified ? (
+                {rowData?.verified ? (
                   <></>
                 ) : (
                   <div className="mt-1 flex space-x-2 justify-center sm:justify-start">

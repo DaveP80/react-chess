@@ -1,13 +1,15 @@
-import React, { useState, useContext, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Form,
   useActionData,
   useNavigation,
+  useRouteLoaderData,
 } from "@remix-run/react";
 import { GlobalContext } from "~/context/globalcontext";
 import SignInButtons from "~/components/SignInButtons";
 import { ActionFunctionArgs, LoaderFunction, redirect } from "@remix-run/node";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
+import { loader } from "~/root";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   // Initialize Supabase client with cookie handling
@@ -82,7 +84,7 @@ export default function Login() {
   const [btnDisable, setBtnDisable] = useState(false);
   const [loading, setIsLoading] = useState(false);
   const [isError, setError] = useState(false);
-  const UserContext = useContext(GlobalContext);
+  const UserContext = useRouteLoaderData<typeof loader>("root");
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -90,7 +92,7 @@ export default function Login() {
     if (checkSignUp && JSON.parse(checkSignUp).new_signup) {
       setEmailSent(true);
     }
-    if (UserContext?.user.id) {
+    if (UserContext?.user?.id) {
       setBtnDisable(true);
     }
     if (loginAction?.error && loginAction?.intent) {
@@ -197,7 +199,7 @@ export default function Login() {
               {emailSent && (
                 <div className="text-green-900">
                   <h3 className="">
-                    This Email is not yet verified: {UserContext.user.email}.
+                    This Email is not yet verified: {UserContext?.user?.email}.
                   </h3>
                 </div>
               )}

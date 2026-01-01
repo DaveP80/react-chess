@@ -1,9 +1,8 @@
-import { Link } from '@remix-run/react';
-import { useContext } from 'react';
-import { GlobalContext } from '~/context/globalcontext';
+import { Link, useRouteLoaderData } from '@remix-run/react';
+import { loader } from '~/root';
 
 export default function CreateGame() {
-  const PlayContext = useContext(GlobalContext);
+  const { rowData } = useRouteLoaderData<typeof loader>("root");
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4">
       <h1 className="text-6xl font-extrabold mb-6 text-center leading-tight">
@@ -13,10 +12,10 @@ export default function CreateGame() {
         Challenge yourself with an interactive chess experience built with Remix and react-chessboard.
       </p>
       <Link
-        to={PlayContext.isPlaying ? "/game/1" : "/play/online"}
+        to={rowData?.isActive ? "/game/1" : "/play/online"}
         className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-2xl font-bold rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50"
       >
-        {PlayContext.isPlaying ? "Continue Game" : "Start New Game"}
+        {rowData?.isActive ? "Continue Game" : "Start New Game"}
       </Link>
       <p className="mt-12 text-md text-slate-400">
         Powered by Remix and react-chessboard

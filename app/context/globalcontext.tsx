@@ -11,16 +11,7 @@ export default function GlobalContextProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [user, setUser] = useState<User>({
-    //DB references Id as u_id;
-    id: "",
-    email: "",
-    username: "",
-    avatarUrl: "",
-    verified: false,
-    provider: "",
-    rating: {}
-  });
+
   const [playingGame, setPlayingGame] = useState(false);
   const [activeGame, setActiveGame] = useState(new Chess());
   const [fenHistory, setFenHistory] = useState<any[]>([]);
@@ -37,13 +28,9 @@ export default function GlobalContextProvider({
     blackelo: 1500,
   });
 
-  const clearUser = () => setUser({ id: "" });
   return (
     <GlobalContext.Provider
       value={{
-        user,
-        setUser,
-        clearUser,
         playingGame,
         setPlayingGame,
         activeGame,

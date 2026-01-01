@@ -5,6 +5,7 @@ import {
   useActionData,
   useNavigate,
   useNavigation,
+  useRouteLoaderData,
 } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
@@ -83,8 +84,9 @@ export default function Index() {
     [key: string]: any;
   } | null>(null);
   const navigation = useNavigation();
-  const PlayContext = useContext(GlobalContext);
+  //const PlayContext = useContext(GlobalContext);
   const NewGameContext = useContext(GlobalContext);
+  const PlayContext = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
   const supabase = createBrowserClient(
     import.meta.env.VITE_SUPABASE_URL!,
@@ -173,7 +175,7 @@ export default function Index() {
                   supabase2
                 );
                 if (update_res && update_res.go) {
-                  PlayContext.setPlayingGame(true);
+                  //PlayContext.setPlayingGame(true);
                   setRequestAlert(response);
                   NewGameContext.setPGNInfo({
                     ...NewGameContext.pgnInfo,
@@ -325,7 +327,7 @@ export default function Index() {
         <button
           type="submit"
           className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-          disabled={PlayContext.playingGame}
+          disabled={PlayContext?.rowData?.isActive}
         >
           <span
             className={

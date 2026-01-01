@@ -1,26 +1,29 @@
-import { Form, NavLink, useNavigate, useNavigation } from "@remix-run/react";
+import { Form, NavLink, useNavigate, useNavigation, useRevalidator, useRouteLoaderData } from "@remix-run/react";
 import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
+import { loader } from "~/root";
+import { MyHomeData } from "~/types";
 
-export default function Navigation() {
+export default function Navigation({user}) {
   const [userData, setUserData] = useState(false);
-  const UserContext = useContext(GlobalContext);
+  const { user: UserContext } = useRouteLoaderData<typeof loader>("root");
   const navigation = useNavigation();
   const navigate = useNavigate();
+  const revalidator = useRevalidator();
 
-  useEffect(() => {
-    if (navigation.state == "idle" || navigation.state == "loading") {
-      if (UserContext?.user.id) {
-        setUserData(true);
-      } else if (!UserContext?.user.id) {
-        setUserData(false);
-      }
-    }
+  // useEffect(() => {
+  //   if (navigation.state == "idle" || navigation.state == "loading") {
+  //     if (UserContext?.user?.id) {
+  //       setUserData(true);
+  //     } else {
+  //       setUserData(false);
+  //     }
+  //   }
 
-    return () => {
-      true;
-    };
-  }, [navigation.state]);
+  //   return () => {
+  //     true;
+  //   };
+  // }, [navigation.state]);
 
   async function handleLogout(): Promise<void> {
     try {
@@ -36,6 +39,7 @@ export default function Navigation() {
 
   return (
     <nav className="bg-gray-800 p-4">
+
       <ul className="flex space-x-6">
         <li>
           <NavLink
@@ -43,6 +47,7 @@ export default function Navigation() {
             className={({ isActive }) =>
               `text-white hover:text-gray-300 ${isActive ? "font-bold" : ""}`
             }
+            
           >
             Chess
           </NavLink>
@@ -59,7 +64,7 @@ export default function Navigation() {
         </li>
         <li>
           <NavLink
-            to={`/myhome?provider=${UserContext?.user.provider}`}
+            to={`/myhome`}
             className={({ isActive }) =>
               `text-white hover:text-gray-300 ${isActive ? "font-bold" : ""}`
             }
@@ -67,7 +72,7 @@ export default function Navigation() {
             MyHome
           </NavLink>
         </li>
-        {userData ? (
+        {user?.id ? (
           <li>
             <Form id="logoutForm">
               <button

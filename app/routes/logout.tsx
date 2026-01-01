@@ -1,7 +1,6 @@
 import { ActionFunctionArgs, LoaderFunction } from "@remix-run/node";
 import { useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
-import { useContext, useEffect } from "react";
-import { GlobalContext } from "~/context/globalcontext";
+import { useEffect } from "react";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 export const loader: LoaderFunction = async ({ request }) => {
@@ -23,7 +22,7 @@ export default function Index() {
   const { error, ok } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("query");
-  const UserContext = useContext(GlobalContext);
+  //const UserContext = useContext(GlobalContext);
   const supabase = getSupabaseBrowserClient();
   const navigate = useNavigate();
 
@@ -35,16 +34,7 @@ export default function Index() {
     } catch (error) {
       console.error(error);
     } finally {
-      if (ok === true) {
-        UserContext.setUser({
-          id: "",
-          email: "",
-          username: "",
-          avatarUrl: "",
-          verified: false,
-          provider: ""
-        });
-      }
+
       navigate("/login");
     }
 

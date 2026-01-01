@@ -5,16 +5,25 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLoaderData,
   useRouteError,
 } from "@remix-run/react";
-import type { LinksFunction } from "@remix-run/node";
+import type { LinksFunction, LoaderFunction, LoaderFunctionArgs } from "@remix-run/node";
 import stylesheet from "~/styles/tailwind.css?url";
 import Navigation from "./components/Navigation";
-import GlobalContextProvider from "./context/globalcontext";
+import GlobalContextProvider, { GlobalContext } from "./context/globalcontext";
+import { getMyHomeData } from "./utils/apicalls";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
 ];
+
+export const loader: LoaderFunction = async({request}: LoaderFunctionArgs) => {
+  const response = await getMyHomeData({request});
+  return response;
+}
+
+
 
 export function ErrorBoundary() {
   useRouteError();
@@ -34,6 +43,7 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
+  const { user, rowData, provider } = useLoaderData<typeof loader>();
     
     return (
       <html lang="en">
@@ -45,7 +55,7 @@ export default function App() {
       </head>
       <body>
         <GlobalContextProvider>
-          <Navigation />
+          <Navigation user={user} />
           <Outlet />
         </GlobalContextProvider>
         <ScrollRestoration />

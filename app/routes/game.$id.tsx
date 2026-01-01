@@ -10,10 +10,14 @@ import {
   ChevronsRight,
   FlagIcon,
 } from "lucide-react";
-import { checkIfRepetition, timeControlReducer, parseTimeControl } from "~/utils/helper";
+import {
+  checkIfRepetition,
+  timeControlReducer,
+  parseTimeControl,
+} from "~/utils/helper";
 import { GlobalContext } from "~/context/globalcontext";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { ChessClock } from "~/components/ChessClock";
 
 export const meta: MetaFunction = () => {
@@ -60,14 +64,14 @@ export default function Index() {
   const [isReplay, setIsReplay] = useState<null | number>(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
   const [resign, setResign] = useState(false);
-  const UserContext = useContext(GlobalContext);
+  const UserContext = useRouteLoaderData<typeof loader>("root");
   const [toggleUsers, setToggleUsers] = useState({
     toggle: false,
     orientation: "white",
     oppUsername: "",
-    myUsername: UserContext.user.username,
+    myUsername: UserContext?.user?.username,
     oppAvatarURL: "",
-    myAvatarURL: UserContext.user.avatarUrl,
+    myAvatarURL: UserContext?.user?.avatarUrl,
     gameTimeLength: "",
     oppElo: 1500,
     myElo: 1500,
@@ -86,6 +90,7 @@ export default function Index() {
     gameConfig?.timeControl || "unlimited"
   );
   const [timeOut, setTimeOut] = useState<"white" | "black" | null>(null);
+  const [gameStart, setGameStart] = useState<boolean>(false);
 
   useEffect(() => {
     if (gameData) {
@@ -93,24 +98,24 @@ export default function Index() {
         ...toggleUsers,
         toggle: true,
         orientation:
-          gameData.white_username == UserContext.user.username
-            ? "white"
-            : "black",
+          gameData.white_username == UserContext?.username ? "white" : "black",
         oppUsername:
-          gameData.white_username == UserContext.user.username
+          gameData.white_username == UserContext?.username
             ? gameData.black_username
             : gameData.white_username,
+        myUsername: UserContext?.rowData.username,
         oppAvatarURL:
-          gameData.white_avatar == UserContext.user.avatarUrl
+          gameData.white_avatar == UserContext?.rowData.avatarURL
             ? gameData.black_avatar
             : gameData.white_avatar,
+        myAvatarURL: UserContext?.rowData.avatarURL,
         gameTimeLength: game_length,
         oppElo:
           gameData.white_rating[timeControl] ==
-          UserContext.user?.rating[timeControl]
+          UserContext?.rowData.rating[timeControl]
             ? gameData.black_rating[timeControl]
             : gameData.white_rating[timeControl],
-        myElo: UserContext.user?.rating[timeControl],
+        myElo: UserContext?.rowData.rating[timeControl],
       });
     }
 
@@ -404,9 +409,7 @@ export default function Index() {
                             timeOut === "white" ? "Black" : "White"
                           } wins on time!`
                         : actualGame.isCheckmate() && !resign
-                        ? `${
-                            actualGameTurn === "w" ? "Black" : "White"
-                          } wins!`
+                        ? `${actualGameTurn === "w" ? "Black" : "White"} wins!`
                         : !resign
                         ? "The game is a draw."
                         : ""}

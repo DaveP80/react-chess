@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { json, redirect } from "@remix-run/node";
-import { Form, useLoaderData, useActionData } from "@remix-run/react";
+import { redirect } from "@remix-run/node";
+import { Form, useActionData, useRouteLoaderData } from "@remix-run/react";
 import { isValidAvatarURL, isValidUsername } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
@@ -9,11 +9,9 @@ import { createSupabaseServerClient } from "~/utils/supabase.server";
 export async function loader({ request }: LoaderFunctionArgs) {
   const { client, headers } = createSupabaseServerClient(request);
   const supabase = client;
-  let SupabaseData = null;
 
   const { data, error } = await supabase.auth.getClaims();
   const userId = data?.claims.sub;
-  const userEmail = data?.claims.email;
 
   if (!userId) {
     return redirect("/login", { headers });
@@ -23,39 +21,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     return redirect("/myhome", { headers });
   }
 
-  try {
-    SupabaseData = await supabase.from("users").select("*").eq("u_id", userId);
-  } catch (error) {
-    console.error(error);
-    return redirect("/myhome", { headers });
-  } finally {
-    if (!SupabaseData) {
-      return redirect("/myhome", { headers });
-    } else {
-      return Response.json(
-        {
-          user: userId
-            ? {
-                id: userId,
-                email: userEmail,
-              }
-            : null,
-          rowData: SupabaseData
-            ? SupabaseData?.data
-              ? SupabaseData.data[0]
-              : null
-            : null,
-          provider: data?.claims.app_metadata?.providers?.some(
-            (item) => item == "github"
-          )
-            ? "github"
-            : "email",
-          intent: "",
-        },
-        { headers }
-      );
-    }
-  }
+  return Response.json({message: "validated headers or redirected to login <> myhome"})
 }
 
 /* ---------------- ACTION ---------------- */
@@ -67,7 +33,6 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const { data, error } = await supabase.auth.getClaims();
   const userId = data?.claims.sub;
-  const userEmail = data?.claims.email;
   const provider = data?.claims.app_metadata?.providers?.some(
     (item) => item == "github"
   )
@@ -144,7 +109,8 @@ export async function action({ request }: ActionFunctionArgs) {
 /* ---------------- COMPONENT ---------------- */
 
 export default function Index() {
-  const userData = useLoaderData<typeof loader>();
+  //const userData = useLoaderData<typeof loader>();
+  const userData = useRouteLoaderData<typeof loader>("root");
   const actionData = useActionData<typeof action>();
 
   return (
