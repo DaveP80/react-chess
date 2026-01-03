@@ -7,12 +7,12 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env
 
 let client: ReturnType<typeof createBrowserClient> | null = null;
 
-export function getSupabaseBrowserClient() {
+export function getSupabaseBrowserClient(flag: boolean) {
   if (typeof window === "undefined") {
     throw new Error("supabase browser client can only be used in the browser");
   }
   if (!client) {
-    client = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {isSingleton: false});
+    client = createBrowserClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {isSingleton: flag});
   }
   
   return client;

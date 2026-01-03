@@ -22,8 +22,7 @@ export default function Index() {
   const { error, ok } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("query");
-  //const UserContext = useContext(GlobalContext);
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSupabaseBrowserClient(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,6 +33,9 @@ export default function Index() {
     } catch (error) {
       console.error(error);
     } finally {
+      localStorage.removeItem("auth");
+      localStorage.removeItem("pairing_info");
+      localStorage.removeItem("pgnInfo");
 
       navigate("/login");
     }

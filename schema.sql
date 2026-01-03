@@ -104,3 +104,62 @@ security definer
 as $$
 select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u."avatarURL" as white_avatar, u_t."avatarURL" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_moves gm left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text where id = game_id_f;
 $$;
+
+create or replace function lookup_userdata_on_active_status(user_id int)
+returns table (
+  id int,
+  pgn_info jsonb,
+  pgn text[],
+  white_username text,
+  black_username text,
+  white_avatar text,
+  black_avatar text,
+  white_rating jsonb,
+  black_rating jsonb
+)
+language sql
+security definer
+as $$
+with cte as (
+  select id from game_moves where pgn_info ->> 'white' = user_id::text or pgn_info ->> 'black' = user_id::text
+)
+select z.* from cte join (
+select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u."avatarURL" as white_avatar, u_t."avatarURL" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_moves gm left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text where u."isActive" = true and u_t."isActive" = true
+) z on cte.id = z.id order by z.id;
+$$;
+
+create or replace function update_live_game_moves_pgn (
+  new_move text, game_id int
+) returns void language sql security definer as $$
+UPDATE game_moves
+SET pgn = pgn || new_move
+WHERE id = game_id;
+$$
+
+-- Create a generic raw SQL executor (one-time setup)
+CREATE OR REPLACE FUNCTION execute_sql(sql_query text)
+RETURNS void AS $$
+BEGIN
+  EXECUTE sql_query;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.execute_sql_lookup_userdata_on_gameid(sql_query text)
+RETURNS TABLE (
+  id int,
+  pgn_info jsonb,
+  pgn text[],
+  white_username text,
+  black_username text,
+  white_avatar text,
+  black_avatar text,
+  white_rating jsonb,
+  black_rating jsonb
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY EXECUTE sql_query;
+END;
+$$;

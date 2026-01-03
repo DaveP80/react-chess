@@ -1,4 +1,5 @@
 import { timeControlReducer } from "./helper";
+import { createNewGameTable } from "./supabase.gameplay";
 
 export async function gamesNewRequestOnUserColor(
   localSupabase: any,
@@ -98,6 +99,7 @@ export async function handleInsertedNewGame(
           const response = await handleInsertStartGame(
             localSupabase,
             { joinedData: data_a[0] },
+            game_length,
             headers
           );
           return response;
@@ -147,6 +149,7 @@ export async function getNewGamePairing(pairing_info: any, supabase: any) {
 async function handleInsertStartGame(
   supabase: any,
   incomingData: any,
+  game_length: any,
   headers: any
 ) {
   //to determine game_id to use in foreign key.
@@ -161,6 +164,7 @@ async function handleInsertStartGame(
       .insert({
         game_id: Math.min(+joinedData.id, +joinedData.id_gt),
         game_id_b: Math.max(+joinedData.id, joinedData.id_gt),
+        pgn: [],
         pgn_info: {
           date: new Date().toISOString(),
           //game_moves id
@@ -171,6 +175,7 @@ async function handleInsertStartGame(
           result: "",
           whiteelo: joinedData.whiteelo,
           blackelo: joinedData.blackelo,
+          time_control: game_length,
         },
       })
       .select();
@@ -179,15 +184,27 @@ async function handleInsertStartGame(
         {
           go: false,
           error,
-          message: "error on entering new row on games table",
+          message: "unknown supabase error on handleInsertStartGame",
         },
         { headers }
       );
     } else if (data) {
+      const {data: newTableData, error: newTableError} = await createNewGameTable(supabase, data[0].id);
+      if (newTableError) {
+        return Response.json(
+          {
+            go: false,
+            error,
+            message: "error on creating new game number table",
+          },
+          { headers }
+        );
+
+      }
       return Response.json(
         {
           go: true,
-          message: "successfully entered new row on games start table.",
+          message: "successfully entered new row on games start table and made a new table game_number_table_" + data[0].id, 
         },
         { headers }
       );

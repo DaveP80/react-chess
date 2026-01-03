@@ -14,11 +14,17 @@ import {
   checkIfRepetition,
   timeControlReducer,
   parseTimeControl,
+  processIncomingPgn,
+  SUPABASE_CONFIG,
 } from "~/utils/helper";
 import { GlobalContext } from "~/context/globalcontext";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { ChessClock } from "~/components/ChessClock";
+import { getSupabaseBrowserClient } from "~/utils/supabase.client";
+import { inserNewMoves } from "~/utils/supabase.gameplay";
+import { createBrowserClient } from "@supabase/ssr";
+import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -37,23 +43,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const { client, headers } = createSupabaseServerClient(request);
     const { data: userData } = await client.auth.getClaims();
     //returns userdata and the current game data.
-    const { data, error } = await client.rpc("lookup_userdata_on_gameid", {
-      game_id_f: gameId,
-    });
-
-    if (error) {
-      return Response.json({ error }, { headers });
-    } else {
-      return Response.json(
-        {
-          go: true,
-          message: `retrieved game data on id: ${gameId}`,
-          data: data[0],
-          userData: userData?.claims.sub,
-        },
-        { headers }
-      );
-    }
+    const response = await lookup_userdata_on_gameid(
+      client,
+      headers,
+      Number(gameId),
+      userData
+    );
+    return response;
   } catch (error) {
     const headers = new Headers();
     return Response.json({ error }, { headers });
@@ -76,13 +72,14 @@ export default function Index() {
     oppElo: 1500,
     myElo: 1500,
   });
+  const [gameConfig, setGameConfig] = useState({
+    timeControl: "unlimited",
+    colorPreference: "white",
+  });
   const { activeGame, setActiveGame } = useContext(GlobalContext);
   const { fenHistory, setFenHistory } = useContext(GlobalContext);
   const { moveHistory, setMoveHistory } = useContext(GlobalContext);
   const { data: gameData } = useLoaderData<typeof loader>();
-  const gameConfig = JSON.parse(
-    window.localStorage.getItem("pairing_info") || "{}"
-  );
   const [game_length, timeControl] = timeControlReducer(
     gameConfig?.timeControl || ""
   );
@@ -91,6 +88,12 @@ export default function Index() {
   );
   const [timeOut, setTimeOut] = useState<"white" | "black" | null>(null);
   const [gameStart, setGameStart] = useState<boolean>(false);
+  const supabase = getSupabaseBrowserClient(true);
+  const supabase2 = createBrowserClient(
+    SUPABASE_CONFIG[0],
+    SUPABASE_CONFIG[1],
+    SUPABASE_CONFIG[2]
+  );
 
   useEffect(() => {
     if (gameData) {
@@ -98,9 +101,11 @@ export default function Index() {
         ...toggleUsers,
         toggle: true,
         orientation:
-          gameData.white_username == UserContext?.username ? "white" : "black",
+          gameData.white_username == UserContext?.rowData.username
+            ? "white"
+            : "black",
         oppUsername:
-          gameData.white_username == UserContext?.username
+          gameData.white_username == UserContext?.rowData.username
             ? gameData.black_username
             : gameData.white_username,
         myUsername: UserContext?.rowData.username,
@@ -117,16 +122,91 @@ export default function Index() {
             : gameData.white_rating[timeControl],
         myElo: UserContext?.rowData.rating[timeControl],
       });
+      if (gameData.pgn.length) {
+        const currGamePgn = gameData.pgn;
+
+        setActiveGame(
+          new Chess(currGamePgn[currGamePgn.length - 1].split("$")[0])
+        );
+        setMoveHistory(currGamePgn.map((item: string) => item.split("$")[1]));
+        setFenHistory(
+          currGamePgn.map((item: string) => new Chess(item.split("$")[0]))
+        );
+        setCurrentMoveIndex(moveHistory.length - 1);
+      }
     }
 
-    return () => {
-      true;
-    };
+    return () => {};
   }, [gameData]);
 
-  function onDrop(sourceSquare: string, targetSquare: string) {
+  useEffect(() => {
+    setGameConfig({
+      ...gameConfig,
+      ...JSON.parse(window.localStorage.getItem("pairing_info") || "{}"),
+    });
+    const channel = supabase2
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: `game_number_${gameData?.id || "0"}`,
+        },
+        async (payload: { eventType: string }) => {
+          if (payload.eventType === "UPDATE") {
+            try {
+              const { data, error } = await supabase
+                .from(`game_number_${gameData?.id || "0"}`)
+                .select("pgn")
+                .eq("id", gameData.id);
+              if (data) {
+                const newMovePgn = data[0].pgn;
+                const arrayLength = newMovePgn.length;
+                if (arrayLength > 0) {
+                    const lastFen = fenHistory[fenHistory.length - 1].trim();
+                    if (newMovePgn[newMovePgn.length-1].trim() !== lastFen) {
+                      setActiveGame(
+                        new Chess(
+                          newMovePgn[newMovePgn.length - 1].split("$")[0]
+                        )
+                      );
+                      setMoveHistory(
+                        newMovePgn.map((item: string) => item.split("$")[1])
+                      );
+                      setFenHistory(
+                        newMovePgn.map(
+                          (item: string) => new Chess(item.split("$")[0])
+                        )
+                      );
+                      setCurrentMoveIndex(moveHistory.length - 1);
+                    }
+                  }
+              }
+            } catch (error) {
+              console.error(error);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
-      if (!isReplay && !resign && !checkIfRepetition(fenHistory)) {
+      const actualGame =
+        fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
+      const actualTurn = actualGame.turn();
+      if (
+        !isReplay &&
+        !resign &&
+        !checkIfRepetition(fenHistory) &&
+        processIncomingPgn(actualTurn, toggleUsers.orientation)
+      ) {
         const gameCopy = new Chess(activeGame.fen());
         const move = gameCopy.move({
           from: sourceSquare,
@@ -139,6 +219,7 @@ export default function Index() {
         setMoveHistory([...moveHistory, move.san]);
         setFenHistory([...fenHistory, gameCopy]);
         setCurrentMoveIndex(moveHistory.length - 1);
+        await inserNewMoves(supabase, gameCopy.fen(), move.san, gameData.id);
 
         return true;
       }
@@ -242,6 +323,7 @@ export default function Index() {
 
   // Get the actual game turn
   const actualGameTurn = actualGame.turn();
+  console.log(actualGameTurn);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

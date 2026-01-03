@@ -186,3 +186,73 @@ export async function getMyHomeData({ request }: any) {
     }
   }
 }
+
+export async function getActiveGamesData({ request }: any) {
+  try {
+    const { client, headers } = createSupabaseServerClient(request);
+    const supabase = client;
+    const { data, error } = await supabase.auth.getClaims();
+    const userId = data?.claims?.sub;
+    const formData = await request.formData();
+    if (formData.get("intent") == "no_routing_id") {
+      const { data, error: activeGamesError } = await supabase.rpc(
+        "lookup_userdata_on_active_status",
+        {
+          user_id: userId,
+        }
+      );
+      if (error || activeGamesError) {
+        return Response.json(
+          { error: error || activeGamesError, go: false },
+          { headers }
+        );
+      } else {
+        return Response.json(
+          {
+            data,
+            message: "retrieved active game information on current user.",
+            go: true,
+            routing_id: data[0].id,
+          },
+          { headers }
+        );
+      }
+    } else {
+      return redirect(`/game/${formData.get("intent")}`);
+    }
+  } catch (error) {
+    return Response.json({ error });
+  }
+}
+
+export async function lookup_userdata_on_gameid(
+  supabase: any,
+  headers: any,
+  id: number,
+  userData: Record<any, any> | null
+) {
+  const sql_query = `select gm.id::INTEGER, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u."avatarURL" as 
+    white_avatar, u_t."avatarURL" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_number_${id} gm left join users u on 
+    gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text`;
+  try {
+    const { data, error } = await supabase.rpc(
+      `execute_sql_lookup_userdata_on_gameid`,
+      { sql_query }
+    );
+    if (error) {
+      return Response.json({ error }, { headers });
+    } else {
+      return Response.json(
+        {
+          go: true,
+          message: `retrieved game data on id: ${id}`,
+          data: data[0],
+          userData: userData?.claims.sub,
+        },
+        { headers }
+      );
+    }
+  } catch (error) {
+    return Response.json({ error }, { headers });
+  }
+}
