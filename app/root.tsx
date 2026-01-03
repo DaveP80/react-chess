@@ -12,7 +12,7 @@ import type { LinksFunction, LoaderFunction, LoaderFunctionArgs } from "@remix-r
 import stylesheet from "~/styles/tailwind.css?url";
 import Navigation from "./components/Navigation";
 import GlobalContextProvider, { GlobalContext } from "./context/globalcontext";
-import { getMyHomeData } from "./utils/apicalls";
+import { getMyHomeData } from "./utils/apicalls.server";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },

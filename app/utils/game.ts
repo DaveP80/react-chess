@@ -98,6 +98,7 @@ export async function handleInsertedNewGame(
           const response = await handleInsertStartGame(
             localSupabase,
             { joinedData: data_a[0] },
+            game_length,
             headers
           );
           return response;
@@ -147,6 +148,7 @@ export async function getNewGamePairing(pairing_info: any, supabase: any) {
 async function handleInsertStartGame(
   supabase: any,
   incomingData: any,
+  game_length: any,
   headers: any
 ) {
   //to determine game_id to use in foreign key.
@@ -171,6 +173,7 @@ async function handleInsertStartGame(
           result: "",
           whiteelo: joinedData.whiteelo,
           blackelo: joinedData.blackelo,
+          time_control: game_length
         },
       })
       .select();

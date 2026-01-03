@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import DemoUser from "./DemoUser";
 import { TbUserCog } from "react-icons/tb";
-import { NavLink, useNavigate, useRouteLoaderData } from "@remix-run/react";
+import { Form, NavLink, useActionData, useNavigate, useRouteLoaderData } from "@remix-run/react";
 import { loader } from "~/root";
 
 
@@ -54,8 +54,7 @@ export default function UserProfile() {
   //const GamePlayContext = useContext(GlobalContext);
   // const UserInfo = useContext(GlobalContext);
   const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");
-  const [UserInfo, setUserInfo] = useState({});
-  const [UserRowData, setUserRowData] = useState({});
+  const [formIntent, setformIntent] = useState("")
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,18 +72,12 @@ export default function UserProfile() {
         );
       }
     }
+    setformIntent(window.localStorage.getItem("pgnInfo") ? JSON.parse(window.localStorage.getItem("pgnInfo") || "{}")?.routing_id : "no_routing_id"); 
 
-    // if (user?.id) {
-    //  setUserInfo({...UserInfo, ...user});
-    // }
-    // if (rowData?.id) {
-    //  setUserRowData(rowData);
-    // }
     return () => {
       true;
     };
   }, [rowData, user]);
-
 
   const handleClick = () => {
     navigate("/settings");
@@ -121,8 +114,14 @@ export default function UserProfile() {
                   ></span>
                   <span className="text-sm text-gray-600">
                     {rowData?.isActive ? "Currently in a game" : "idle"}
-                    {rowData?.isActive && localStorage.getItem("pgnInfo") && <NavLink to={`/game/${JSON.parse(localStorage.getItem("pgnInfo") || "{}").routing_id}`}>Go To Game</NavLink>}
                   </span>
+                    {rowData?.isActive &&  (
+                      <Form method="post">
+                        <input name="intent" hidden value={formIntent}></input>
+                        <button type="submit">Go To Game</button>
+                      </Form>
+                    )
+                    }
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
                   <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">

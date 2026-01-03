@@ -185,4 +185,35 @@ export async function getMyHomeData({ request }: any) {
       } satisfies MyHomeData);
     }
   }
+};
+
+
+
+export async function getActiveGamesData({ request }: any) {
+  try {
+    const { client, headers } = createSupabaseServerClient(request);
+    const supabase = client;
+    const { data, error } = await supabase.auth.getClaims();
+    const userId = data?.claims?.sub;
+    const formData = await request.formData();
+    if (formData.get("intent") == "no_routing_id") {
+
+      const { data, error: activeGamesError } = await supabase.rpc("lookup_userdata_on_active_status", {
+        user_id: userId,
+      });
+      if (error || activeGamesError) {
+        return Response.json({ error: error || activeGamesError, go: false }, { headers });
+      } else {
+        return Response.json({ data, message: "retrieved active game information on current user.", go: true, routing_id: data[0].id }, { headers });
+        //return redirect(`/game/${data[0].id}`)
+      }
+      
+    }
+    else {
+      //return Response.json({go: true, message: "navigation with local saved active game data with game_id.", routing_id: formData.get("intent")})
+      return redirect(`/game/${formData.get("intent")}`)
+    }
+  } catch (error) {
+    return Response.json({ error });
+  }
 }

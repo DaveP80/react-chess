@@ -76,13 +76,11 @@ export default function Index() {
     oppElo: 1500,
     myElo: 1500,
   });
+  const [gameConfig, setGameConfig] = useState({timeControl: "unlimited", colorPreference: "white" });
   const { activeGame, setActiveGame } = useContext(GlobalContext);
   const { fenHistory, setFenHistory } = useContext(GlobalContext);
   const { moveHistory, setMoveHistory } = useContext(GlobalContext);
   const { data: gameData } = useLoaderData<typeof loader>();
-  const gameConfig = JSON.parse(
-    window.localStorage.getItem("pairing_info") || "{}"
-  );
   const [game_length, timeControl] = timeControlReducer(
     gameConfig?.timeControl || ""
   );
@@ -123,6 +121,16 @@ export default function Index() {
       true;
     };
   }, [gameData]);
+
+
+  useEffect(() => {
+    setGameConfig({...gameConfig, ...(JSON.parse(window.localStorage.getItem("pairing_info") || "{}"))});
+  
+    return () => {
+      true
+    }
+  }, [])
+  
 
   function onDrop(sourceSquare: string, targetSquare: string) {
     try {
