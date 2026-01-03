@@ -132,6 +132,16 @@ export default function Index() {
   }, [])
   
 
+  useEffect(() => {
+    
+  
+    return () => {
+      true
+    }
+  }, [moveHistory])
+  
+  
+
   function onDrop(sourceSquare: string, targetSquare: string) {
     try {
       if (!isReplay && !resign && !checkIfRepetition(fenHistory)) {

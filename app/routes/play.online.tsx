@@ -16,6 +16,7 @@ import {
   handleInsertedNewGame,
   updateActiveUserStatus,
 } from "~/utils/game";
+import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 /* ---------------- LOADER ---------------- */
@@ -88,16 +89,19 @@ export default function Index() {
   const NewGameContext = useContext(GlobalContext);
   const PlayContext = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
-  const supabase = createBrowserClient(
-    import.meta.env.VITE_SUPABASE_URL!,
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-    { isSingleton: false }
-  );
-  const supabase2 = createBrowserClient(
-    import.meta.env.VITE_SUPABASE_URL!,
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-    { isSingleton: false }
-  );
+  // const supabase = createBrowserClient(
+  //   import.meta.env.VITE_SUPABASE_URL!,
+  //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+  //   { isSingleton: false }
+  // );
+  // const supabase2 = createBrowserClient(
+  //   import.meta.env.VITE_SUPABASE_URL!,
+  //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
+  //   { isSingleton: false }
+  // );
+
+  const supabase = getSupabaseBrowserClient();
+  const supabase2 = getSupabaseBrowserClient();
 
   if (actionData?.go == true) {
     localStorage.setItem(
