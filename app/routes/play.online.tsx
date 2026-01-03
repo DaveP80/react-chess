@@ -100,8 +100,8 @@ export default function Index() {
   //   { isSingleton: false }
   // );
 
-  const supabase = getSupabaseBrowserClient();
-  const supabase2 = getSupabaseBrowserClient();
+  const supabase = getSupabaseBrowserClient(false);
+  const supabase2 = getSupabaseBrowserClient(false);
 
   if (actionData?.go == true) {
     localStorage.setItem(

@@ -23,7 +23,7 @@ export default function Index() {
   const [searchParams] = useSearchParams();
   const query = searchParams.get("query");
   //const UserContext = useContext(GlobalContext);
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSupabaseBrowserClient(true);
   const navigate = useNavigate();
 
   useEffect(() => {
