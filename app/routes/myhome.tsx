@@ -1,6 +1,6 @@
 import { useActionData, useNavigate, useRouteLoaderData } from "@remix-run/react";
 
-import { ActionFunctionArgs, LoaderFunction, redirect } from "@remix-run/node";
+import { ActionFunctionArgs, LoaderFunction } from "@remix-run/node";
 import { lazy, Suspense, useContext, useEffect } from "react";
 import { GlobalContext } from "~/context/globalcontext";
 import { getActiveGamesData } from "~/utils/apicalls.server";
@@ -8,13 +8,7 @@ const MyHome = lazy(() => import("~/components/MyHome"));
 
 export const loader: LoaderFunction = async ({ request }) => {
 
-  // const urlVerified = new URL(request.url).searchParams.get("verified");
-  // const urlIntent = new URL(request.url).searchParams.get("intent");
-  // const urlUsername = new URL(request.url).searchParams.get("username");
-  // const urlProvider = new URL(request.url).searchParams.get("provider");
   return Response.json({message: "user login and signup data fetched from root"});
-
-
 
 };
 
@@ -24,13 +18,6 @@ export async function action({ request }: ActionFunctionArgs) {
   
   return response;
 }
-
-
-
-
-
-
-
 
 export default function Index() {
   const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");

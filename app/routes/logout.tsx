@@ -22,7 +22,6 @@ export default function Index() {
   const { error, ok } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const query = searchParams.get("query");
-  //const UserContext = useContext(GlobalContext);
   const supabase = getSupabaseBrowserClient(true);
   const navigate = useNavigate();
 

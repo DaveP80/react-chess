@@ -7,7 +7,6 @@ import {
   useNavigation,
   useRouteLoaderData,
 } from "@remix-run/react";
-import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
 import {
@@ -89,16 +88,8 @@ export default function Index() {
   const NewGameContext = useContext(GlobalContext);
   const PlayContext = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
-  // const supabase = createBrowserClient(
-  //   import.meta.env.VITE_SUPABASE_URL!,
-  //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-  //   { isSingleton: false }
-  // );
-  // const supabase2 = createBrowserClient(
-  //   import.meta.env.VITE_SUPABASE_URL!,
-  //   import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-  //   { isSingleton: false }
-  // );
+  // const supabase = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
+  // const supabase2 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
 
   const supabase = getSupabaseBrowserClient(false);
   const supabase2 = getSupabaseBrowserClient(false);

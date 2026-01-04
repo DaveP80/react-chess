@@ -109,3 +109,5 @@ export function parseTimeControl(timeControl) {
 
   return [initialTimeInSeconds, increment];
 }
+
+export const SUPABASE_CONFIG = [String(import.meta.env.VITE_SUPABASE_URL), String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY), {isSingleton: false}];
