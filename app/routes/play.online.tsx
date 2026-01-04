@@ -7,6 +7,7 @@ import {
   useNavigation,
   useRouteLoaderData,
 } from "@remix-run/react";
+import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
 import { GlobalContext } from "~/context/globalcontext";
 import {
@@ -15,7 +16,7 @@ import {
   handleInsertedNewGame,
   updateActiveUserStatus,
 } from "~/utils/game";
-import { getSupabaseBrowserClient } from "~/utils/supabase.client";
+import { SUPABASE_CONFIG } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 /* ---------------- LOADER ---------------- */
@@ -88,11 +89,9 @@ export default function Index() {
   const NewGameContext = useContext(GlobalContext);
   const PlayContext = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
-  // const supabase = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
-  // const supabase2 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
 
-  const supabase = getSupabaseBrowserClient(false);
-  const supabase2 = getSupabaseBrowserClient(false);
+  const supabase = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
+  const supabase2 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
 
   if (actionData?.go == true) {
     localStorage.setItem(
@@ -119,7 +118,7 @@ export default function Index() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "games" },
-        async (payload) => {
+        async (payload: { eventType: string; }) => {
           if (payload.eventType === "INSERT") {
             const saved_pairing_info = localStorage.getItem("pairing_info");
             if (
@@ -156,7 +155,7 @@ export default function Index() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "game_moves" },
-        async (payload) => {
+        async (payload: { eventType: string; }) => {
           if (payload.eventType === "INSERT") {
             let pairingInfo = localStorage.getItem("pairing_info");
             pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;

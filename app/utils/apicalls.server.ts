@@ -205,12 +205,10 @@ export async function getActiveGamesData({ request }: any) {
         return Response.json({ error: error || activeGamesError, go: false }, { headers });
       } else {
         return Response.json({ data, message: "retrieved active game information on current user.", go: true, routing_id: data[0].id }, { headers });
-        //return redirect(`/game/${data[0].id}`)
       }
       
     }
     else {
-      //return Response.json({go: true, message: "navigation with local saved active game data with game_id.", routing_id: formData.get("intent")})
       return redirect(`/game/${formData.get("intent")}`)
     }
   } catch (error) {
