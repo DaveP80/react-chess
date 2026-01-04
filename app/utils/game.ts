@@ -173,7 +173,8 @@ async function handleInsertStartGame(
           result: "",
           whiteelo: joinedData.whiteelo,
           blackelo: joinedData.blackelo,
-          time_control: game_length
+          time_control: game_length,
+          pgn: []
         },
       })
       .select();

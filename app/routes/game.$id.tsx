@@ -19,6 +19,8 @@ import { GlobalContext } from "~/context/globalcontext";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { ChessClock } from "~/components/ChessClock";
+import { getSupabaseBrowserClient } from "~/utils/supabase.client";
+import { inserNewMoves } from "~/utils/supabase.gameplay";
 
 export const meta: MetaFunction = () => {
   return [
@@ -89,60 +91,62 @@ export default function Index() {
   );
   const [timeOut, setTimeOut] = useState<"white" | "black" | null>(null);
   const [gameStart, setGameStart] = useState<boolean>(false);
+  const supabase = getSupabaseBrowserClient(true);
 
+  
   useEffect(() => {
     if (gameData) {
       setToggleUsers({
         ...toggleUsers,
         toggle: true,
         orientation:
-          gameData.white_username == UserContext?.username ? "white" : "black",
+        gameData.white_username == UserContext?.rowData.username ? "white" : "black",
         oppUsername:
-          gameData.white_username == UserContext?.username
-            ? gameData.black_username
-            : gameData.white_username,
+        gameData.white_username == UserContext?.rowData.username
+        ? gameData.black_username
+        : gameData.white_username,
         myUsername: UserContext?.rowData.username,
         oppAvatarURL:
-          gameData.white_avatar == UserContext?.rowData.avatarURL
-            ? gameData.black_avatar
-            : gameData.white_avatar,
+        gameData.white_avatar == UserContext?.rowData.avatarURL
+        ? gameData.black_avatar
+        : gameData.white_avatar,
         myAvatarURL: UserContext?.rowData.avatarURL,
         gameTimeLength: game_length,
         oppElo:
-          gameData.white_rating[timeControl] ==
-          UserContext?.rowData.rating[timeControl]
-            ? gameData.black_rating[timeControl]
-            : gameData.white_rating[timeControl],
+        gameData.white_rating[timeControl] ==
+        UserContext?.rowData.rating[timeControl]
+        ? gameData.black_rating[timeControl]
+        : gameData.white_rating[timeControl],
         myElo: UserContext?.rowData.rating[timeControl],
       });
     }
-
+    
     return () => {
       true;
     };
   }, [gameData]);
-
-
+  
+  
   useEffect(() => {
     setGameConfig({...gameConfig, ...(JSON.parse(window.localStorage.getItem("pairing_info") || "{}"))});
-  
+    
     return () => {
       true
     }
   }, [])
   
-
+  
   useEffect(() => {
     
-  
+    
     return () => {
       true
     }
   }, [moveHistory])
   
   
-
-  function onDrop(sourceSquare: string, targetSquare: string) {
+  
+  async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
       if (!isReplay && !resign && !checkIfRepetition(fenHistory)) {
         const gameCopy = new Chess(activeGame.fen());
@@ -157,7 +161,9 @@ export default function Index() {
         setMoveHistory([...moveHistory, move.san]);
         setFenHistory([...fenHistory, gameCopy]);
         setCurrentMoveIndex(moveHistory.length - 1);
-
+        const response = await inserNewMoves(supabase, move.san, gameData.id);
+        console.log(response);
+        
         return true;
       }
     } catch (error) {

@@ -16,6 +16,7 @@ export default function GlobalContextProvider({
   const [activeGame, setActiveGame] = useState(new Chess());
   const [fenHistory, setFenHistory] = useState<any[]>([]);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [moveHistoryDB, setMoveHistoryDB] = useState<string[]>([]);
   const [pgnInfo, setPGNInfo] = useState({
     date: new Date().toISOString(),
     //game_moves id
@@ -39,6 +40,8 @@ export default function GlobalContextProvider({
         setFenHistory,
         moveHistory,
         setMoveHistory,
+        moveHistoryDB,
+        setMoveHistoryDB,
         pgnInfo,
         setPGNInfo
       }}
