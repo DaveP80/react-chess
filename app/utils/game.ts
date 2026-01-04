@@ -163,6 +163,7 @@ async function handleInsertStartGame(
       .insert({
         game_id: Math.min(+joinedData.id, +joinedData.id_gt),
         game_id_b: Math.max(+joinedData.id, joinedData.id_gt),
+        pgn: [],
         pgn_info: {
           date: new Date().toISOString(),
           //game_moves id
@@ -174,7 +175,6 @@ async function handleInsertStartGame(
           whiteelo: joinedData.whiteelo,
           blackelo: joinedData.blackelo,
           time_control: game_length,
-          pgn: []
         },
       })
       .select();
