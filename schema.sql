@@ -127,3 +127,11 @@ select z.* from cte join (
 select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u."avatarURL" as white_avatar, u_t."avatarURL" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_moves gm left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text where u."isActive" = true and u_t."isActive" = true
 ) z on cte.id = z.id order by z.id;
 $$;
+
+create or replace function update_live_game_moves_pgn (
+  move_san text, move_timestamp text, game_id int
+) returns void language sql security definer as $$
+UPDATE game_moves
+SET pgn = array_cat(pgn, ARRAY[move_san, move_timestamp])
+WHERE id = game_id;
+$$

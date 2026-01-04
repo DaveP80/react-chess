@@ -1,12 +1,7 @@
 export async function inserNewMoves(supabase: any, move: string, id: number) {
-    const insert_time = new Date().toISOString();
+    const move_timestamp = new Date().toISOString();
     try {
-        const { data, error } = await supabase
-        .from('game_moves')
-        .update({ 
-          moves: supabase.raw(`array_cat(moves, ARRAY['${move}', '${insert_time}'])`) 
-        })
-        .eq('id', id);
+        const { data, error } = await supabase.rpc(`update_live_game_moves_pgn`, {move_san: move, move_timestamp, game_id: id});
         return true;
     } catch (error) {
 
