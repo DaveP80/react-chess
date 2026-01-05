@@ -135,7 +135,7 @@ export default function Index() {
                 const {data, error} = await supabase.from(`game_number_${gameData.id}`).select("pgn").eq("id", gameData.id);
                 if (data) {
                   const newMovePgn = data[0].pgn;
-                  const arrayLength = newMovePgn.pgn.length;
+                  const arrayLength = newMovePgn.length;
                   if (arrayLength > 0) {
                         if (gameData && toggleUsers.oppUsername) {
                           let localOrientation =  gameData.white_username == UserContext?.rowData.username ? "white" : "black";
