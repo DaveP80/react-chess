@@ -124,69 +124,63 @@ export default function Index() {
         : gameData.white_rating[timeControl],
         myElo: UserContext?.rowData.rating[timeControl],
       });
-      channel = supabase2
-      .channel("realtime-messages")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: `game_number_${gameData.id}` },
-        async (payload: { eventType: string; }) => {
-            if (payload.eventType === "UPDATE") {
-              try {
-                const {data, error} = await supabase.from(`game_number_${gameData.id}`).select("pgn").eq("id", gameData.id);
-                if (data) {
-                  const newMovePgn = data[0].pgn;
-                  const arrayLength = newMovePgn.length;
-                  if (arrayLength > 0) {
-                        if (gameData && toggleUsers.oppUsername) {
-                          let localOrientation =  gameData.white_username == UserContext?.rowData.username ? "white" : "black";
-                          const actualGame =
-                          fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
-                          const actualTurn = actualGame.turn();
-                          if (!processIncomingPgn(actualTurn, localOrientation)) {
-                            setActiveGame(newMovePgn[newMovePgn.length-1].split("$")[0]);
-                            //setMoveHistory([...moveHistory, newMovePgn[newMovePgn.length-1].split("$")[1]]);
-                            setMoveHistory(newMovePgn.map((item: string) => item.split("$")[1]));
-                            //setFenHistory([...fenHistory, new Chess(newMovePgn[newMovePgn.length-1].split("$")[0])]);
-                            setFenHistory(newMovePgn.map((item: string) => new Chess(item.split("$")[0])));
-                            setCurrentMoveIndex(moveHistory.length-1);
-    
-    
-                          }
-                          
-                        }
-    
-                      }
-    
-                    }
-                    
-                    
-                  } catch (error) {
-                      console.error(error);
-                  }
-    
-            
-              }
-          }
-      )
-          .subscribe();
     };
     
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-      else {
-        true;
-      }
     };
   }, [gameData]);
   
   
   useEffect(() => {
     setGameConfig({...gameConfig, ...(JSON.parse(window.localStorage.getItem("pairing_info") || "{}"))});
+    const channel = supabase2
+    .channel("realtime-messages")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: `game_number_${gameData?.id || "0"}` },
+      async (payload: { eventType: string; }) => {
+        if (payload.eventType === "UPDATE") {
+          try {
+            const {data, error} = await supabase.from(`game_number_${gameData?.id || "0"}`).select("pgn").eq("id", gameData.id);
+            if (data) {
+              const newMovePgn = data[0].pgn;
+              const arrayLength = newMovePgn.length;
+              if (arrayLength > 0) {
+                if (gameData && toggleUsers.oppUsername) {
+                  let localOrientation =  gameData.white_username == UserContext?.rowData.username ? "white" : "black";
+                  const actualGame =
+                  fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
+                  const actualTurn = actualGame.turn();
+                  if (!processIncomingPgn(actualTurn, localOrientation)) {
+                    setActiveGame(newMovePgn[newMovePgn.length-1].split("$")[0]);
+                    //setMoveHistory([...moveHistory, newMovePgn[newMovePgn.length-1].split("$")[1]]);
+                    setMoveHistory(newMovePgn.map((item: string) => item.split("$")[1]));
+                    //setFenHistory([...fenHistory, new Chess(newMovePgn[newMovePgn.length-1].split("$")[0])]);
+                    setFenHistory(newMovePgn.map((item: string) => new Chess(item.split("$")[0])));
+                    setCurrentMoveIndex(moveHistory.length-1);
+                    
+                    
+                  }
+                  
+                }
+                
+              }
+              
+            }
+            
+            
+          } catch (error) {
+            console.error(error);
+          }
+          
+          
+        }
+      }
+    )
+    .subscribe();
     
     return () => {
-       true; 
+        supabase.removeChannel(channel);
     }
   }, [])
 
