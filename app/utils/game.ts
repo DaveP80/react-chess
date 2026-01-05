@@ -189,7 +189,7 @@ async function handleInsertStartGame(
         { headers }
       );
     } else if (data) {
-      const {data: newTableData, error: newTableError} = await createNewGameTable(supabase, data.id);
+      const {data: newTableData, error: newTableError} = await createNewGameTable(supabase, data[0].id);
       if (newTableError) {
         return Response.json(
           {
@@ -204,7 +204,7 @@ async function handleInsertStartGame(
       return Response.json(
         {
           go: true,
-          message: "successfully entered new row on games start table and made a new table game_number_table_" + data.id, 
+          message: "successfully entered new row on games start table and made a new table game_number_table_" + data[0].id, 
         },
         { headers }
       );
