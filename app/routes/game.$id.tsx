@@ -24,6 +24,7 @@ import { ChessClock } from "~/components/ChessClock";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { inserNewMoves } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
+import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -42,9 +43,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const { client, headers } = createSupabaseServerClient(request);
     const { data: userData } = await client.auth.getClaims();
     //returns userdata and the current game data.
-    const { data, error } = await client.rpc("lookup_userdata_on_gameid", {
-      game_id_f: gameId,
-    });
+    const { data, error } = await lookup_userdata_on_gameid(client, Number(gameId));
 
     if (error) {
       return Response.json({ error }, { headers });
@@ -99,7 +98,6 @@ export default function Index() {
 
   
   useEffect(() => {
-    let channel = null;
     if (gameData) {
       setToggleUsers({
         ...toggleUsers,
@@ -124,6 +122,15 @@ export default function Index() {
         : gameData.white_rating[timeControl],
         myElo: UserContext?.rowData.rating[timeControl],
       });
+      if (gameData.pgn.length) {
+        const currGamePgn = gameData.pgn;
+
+        setActiveGame(currGamePgn[currGamePgn.length-1].split("$")[0]);
+        setMoveHistory(currGamePgn.map((item: string) => item.split("$")[1]));
+        setFenHistory(currGamePgn.map((item: string) => new Chess(item.split("$")[0])));
+        setCurrentMoveIndex(moveHistory.length-1);
+      }
+
     };
     
     return () => {

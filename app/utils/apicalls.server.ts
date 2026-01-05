@@ -215,3 +215,15 @@ export async function getActiveGamesData({ request }: any) {
     return Response.json({ error });
   }
 }
+
+export async function lookup_userdata_on_gameid(supabase: any, id = 0) {
+  const sql_query = `select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u."avatarURL" as 
+    white_avatar, u_t."avatarURL" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_number_${id} gm left join users u on 
+    gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text;`;
+  try {
+    const response = await supabase.rpc(`execute_sql`, { sql_query });
+    return response;
+  } catch (error) {
+    return {data: null, error}
+  }
+};
