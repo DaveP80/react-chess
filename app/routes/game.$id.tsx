@@ -43,21 +43,13 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const { client, headers } = createSupabaseServerClient(request);
     const { data: userData } = await client.auth.getClaims();
     //returns userdata and the current game data.
-    const { data, error } = await lookup_userdata_on_gameid(client, Number(gameId));
-
-    if (error) {
-      return Response.json({ error }, { headers });
-    } else {
-      return Response.json(
-        {
-          go: true,
-          message: `retrieved game data on id: ${gameId}`,
-          data: data[0],
-          userData: userData?.claims.sub,
-        },
-        { headers }
-      );
-    }
+    const response = await lookup_userdata_on_gameid(
+      client,
+      headers,
+      Number(gameId),
+      userData
+    );
+    return response;
   } catch (error) {
     const headers = new Headers();
     return Response.json({ error }, { headers });
@@ -80,7 +72,10 @@ export default function Index() {
     oppElo: 1500,
     myElo: 1500,
   });
-  const [gameConfig, setGameConfig] = useState({timeControl: "unlimited", colorPreference: "white" });
+  const [gameConfig, setGameConfig] = useState({
+    timeControl: "unlimited",
+    colorPreference: "white",
+  });
   const { activeGame, setActiveGame } = useContext(GlobalContext);
   const { fenHistory, setFenHistory } = useContext(GlobalContext);
   const { moveHistory, setMoveHistory } = useContext(GlobalContext);
@@ -94,114 +89,136 @@ export default function Index() {
   const [timeOut, setTimeOut] = useState<"white" | "black" | null>(null);
   const [gameStart, setGameStart] = useState<boolean>(false);
   const supabase = getSupabaseBrowserClient(true);
-  const supabase2 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
+  const supabase2 = createBrowserClient(
+    SUPABASE_CONFIG[0],
+    SUPABASE_CONFIG[1],
+    SUPABASE_CONFIG[2]
+  );
 
-  
   useEffect(() => {
     if (gameData) {
       setToggleUsers({
         ...toggleUsers,
         toggle: true,
         orientation:
-        gameData.white_username == UserContext?.rowData.username ? "white" : "black",
+          gameData.white_username == UserContext?.rowData.username
+            ? "white"
+            : "black",
         oppUsername:
-        gameData.white_username == UserContext?.rowData.username
-        ? gameData.black_username
-        : gameData.white_username,
+          gameData.white_username == UserContext?.rowData.username
+            ? gameData.black_username
+            : gameData.white_username,
         myUsername: UserContext?.rowData.username,
         oppAvatarURL:
-        gameData.white_avatar == UserContext?.rowData.avatarURL
-        ? gameData.black_avatar
-        : gameData.white_avatar,
+          gameData.white_avatar == UserContext?.rowData.avatarURL
+            ? gameData.black_avatar
+            : gameData.white_avatar,
         myAvatarURL: UserContext?.rowData.avatarURL,
         gameTimeLength: game_length,
         oppElo:
-        gameData.white_rating[timeControl] ==
-        UserContext?.rowData.rating[timeControl]
-        ? gameData.black_rating[timeControl]
-        : gameData.white_rating[timeControl],
+          gameData.white_rating[timeControl] ==
+          UserContext?.rowData.rating[timeControl]
+            ? gameData.black_rating[timeControl]
+            : gameData.white_rating[timeControl],
         myElo: UserContext?.rowData.rating[timeControl],
       });
       if (gameData.pgn.length) {
         const currGamePgn = gameData.pgn;
 
-        setActiveGame(currGamePgn[currGamePgn.length-1].split("$")[0]);
+        setActiveGame(
+          new Chess(currGamePgn[currGamePgn.length - 1].split("$")[0])
+        );
         setMoveHistory(currGamePgn.map((item: string) => item.split("$")[1]));
-        setFenHistory(currGamePgn.map((item: string) => new Chess(item.split("$")[0])));
-        setCurrentMoveIndex(moveHistory.length-1);
+        setFenHistory(
+          currGamePgn.map((item: string) => new Chess(item.split("$")[0]))
+        );
+        setCurrentMoveIndex(moveHistory.length - 1);
       }
-
-    };
-    
-    return () => {
-    };
-  }, [gameData]);
-  
-  
-  useEffect(() => {
-    setGameConfig({...gameConfig, ...(JSON.parse(window.localStorage.getItem("pairing_info") || "{}"))});
-    const channel = supabase2
-    .channel("realtime-messages")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: `game_number_${gameData?.id || "0"}` },
-      async (payload: { eventType: string; }) => {
-        if (payload.eventType === "UPDATE") {
-          try {
-            const {data, error} = await supabase.from(`game_number_${gameData?.id || "0"}`).select("pgn").eq("id", gameData.id);
-            if (data) {
-              const newMovePgn = data[0].pgn;
-              const arrayLength = newMovePgn.length;
-              if (arrayLength > 0) {
-                if (gameData && toggleUsers.oppUsername) {
-                  let localOrientation =  gameData.white_username == UserContext?.rowData.username ? "white" : "black";
-                  const actualGame =
-                  fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
-                  const actualTurn = actualGame.turn();
-                  if (!processIncomingPgn(actualTurn, localOrientation)) {
-                    setActiveGame(newMovePgn[newMovePgn.length-1].split("$")[0]);
-                    //setMoveHistory([...moveHistory, newMovePgn[newMovePgn.length-1].split("$")[1]]);
-                    setMoveHistory(newMovePgn.map((item: string) => item.split("$")[1]));
-                    //setFenHistory([...fenHistory, new Chess(newMovePgn[newMovePgn.length-1].split("$")[0])]);
-                    setFenHistory(newMovePgn.map((item: string) => new Chess(item.split("$")[0])));
-                    setCurrentMoveIndex(moveHistory.length-1);
-                    
-                    
-                  }
-                  
-                }
-                
-              }
-              
-            }
-            
-            
-          } catch (error) {
-            console.error(error);
-          }
-          
-          
-        }
-      }
-    )
-    .subscribe();
-    
-    return () => {
-        supabase.removeChannel(channel);
     }
-  }, [])
 
-  
-  
-  
+    return () => {};
+  }, [gameData]);
+
+  useEffect(() => {
+    setGameConfig({
+      ...gameConfig,
+      ...JSON.parse(window.localStorage.getItem("pairing_info") || "{}"),
+    });
+    const channel = supabase2
+      .channel("realtime-messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: `game_number_${gameData?.id || "0"}`,
+        },
+        async (payload: { eventType: string }) => {
+          if (payload.eventType === "UPDATE") {
+            try {
+              const { data, error } = await supabase
+                .from(`game_number_${gameData?.id || "0"}`)
+                .select("pgn")
+                .eq("id", gameData.id);
+              if (data) {
+                const newMovePgn = data[0].pgn;
+                const arrayLength = newMovePgn.length;
+                if (arrayLength > 0) {
+                  if (gameData && toggleUsers.oppUsername) {
+                    let localOrientation =
+                      gameData.white_username == UserContext?.rowData.username
+                        ? "white"
+                        : "black";
+                    const actualGame =
+                      fenHistory.length > 0
+                        ? fenHistory[fenHistory.length - 1]
+                        : new Chess();
+                    const actualTurn = actualGame.turn();
+                    if (!processIncomingPgn(actualTurn, localOrientation)) {
+                      setActiveGame(
+                        new Chess(
+                          newMovePgn[newMovePgn.length - 1].split("$")[0]
+                        )
+                      );
+                      setMoveHistory(
+                        newMovePgn.map((item: string) => item.split("$")[1])
+                      );
+                      setFenHistory(
+                        newMovePgn.map(
+                          (item: string) => new Chess(item.split("$")[0])
+                        )
+                      );
+                      setCurrentMoveIndex(moveHistory.length - 1);
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error(error);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
       const actualGame =
-      fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
+        fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
       const actualTurn = actualGame.turn();
-      if (!isReplay && !resign && !checkIfRepetition(fenHistory) && processIncomingPgn(actualTurn, toggleUsers.orientation)) {
+      if (
+        !isReplay &&
+        !resign &&
+        !checkIfRepetition(fenHistory) &&
+        processIncomingPgn(actualTurn, toggleUsers.orientation)
+      ) {
         const gameCopy = new Chess(activeGame.fen());
-        console.log(typeof gameCopy)
+        console.log(typeof gameCopy);
         const move = gameCopy.move({
           from: sourceSquare,
           to: targetSquare,
@@ -214,7 +231,7 @@ export default function Index() {
         setFenHistory([...fenHistory, gameCopy]);
         setCurrentMoveIndex(moveHistory.length - 1);
         await inserNewMoves(supabase, gameCopy.fen(), move.san, gameData.id);
-        
+
         return true;
       }
     } catch (error) {
@@ -317,7 +334,7 @@ export default function Index() {
 
   // Get the actual game turn
   const actualGameTurn = actualGame.turn();
-  console.log(actualGameTurn)
+  console.log(actualGameTurn);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

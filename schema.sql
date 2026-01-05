@@ -143,3 +143,23 @@ BEGIN
   EXECUTE sql_query;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.execute_sql_lookup_userdata_on_gameid(sql_query text)
+RETURNS TABLE (
+  id int,
+  pgn_info jsonb,
+  pgn text[],
+  white_username text,
+  black_username text,
+  white_avatar text,
+  black_avatar text,
+  white_rating jsonb,
+  black_rating jsonb
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY EXECUTE sql_query;
+END;
+$$;
