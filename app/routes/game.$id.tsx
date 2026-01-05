@@ -139,10 +139,15 @@ export default function Index() {
                   if (arrayLength > 0) {
                         if (gameData && toggleUsers.oppUsername) {
                           let localOrientation =  gameData.white_username == UserContext?.rowData.username ? "white" : "black";
-                          if (!processIncomingPgn(arrayLength, localOrientation)) {
+                          const actualGame =
+                          fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
+                          const actualTurn = actualGame.turn();
+                          if (!processIncomingPgn(actualTurn, localOrientation)) {
                             setActiveGame(newMovePgn[newMovePgn.length-1].split("$")[0]);
-                            setMoveHistory([...moveHistory, newMovePgn[newMovePgn.length-1].split("$")[1]]);
-                            setFenHistory([...fenHistory, new Chess(newMovePgn[newMovePgn.length-1].split("$")[0])]);
+                            //setMoveHistory([...moveHistory, newMovePgn[newMovePgn.length-1].split("$")[1]]);
+                            setMoveHistory(newMovePgn.map((item: string) => item.split("$")[1]));
+                            //setFenHistory([...fenHistory, new Chess(newMovePgn[newMovePgn.length-1].split("$")[0])]);
+                            setFenHistory(newMovePgn.map((item: string) => new Chess(item.split("$")[0])));
                             setCurrentMoveIndex(moveHistory.length-1);
     
     
@@ -190,7 +195,10 @@ export default function Index() {
   
   async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
-      if (!isReplay && !resign && !checkIfRepetition(fenHistory) && processIncomingPgn(moveHistory.length, toggleUsers.orientation)) {
+      const actualGame =
+      fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
+      const actualTurn = actualGame.turn();
+      if (!isReplay && !resign && !checkIfRepetition(fenHistory) && processIncomingPgn(actualTurn, toggleUsers.orientation)) {
         const gameCopy = new Chess(activeGame.fen());
         console.log(typeof gameCopy)
         const move = gameCopy.move({
@@ -308,6 +316,7 @@ export default function Index() {
 
   // Get the actual game turn
   const actualGameTurn = actualGame.turn();
+  console.log(actualGameTurn)
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

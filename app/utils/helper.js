@@ -110,14 +110,14 @@ export function parseTimeControl(timeControl) {
   return [initialTimeInSeconds, increment];
 }
 
-export function processIncomingPgn(arrayLength, orientation) {
-  if (arrayLength%2 == 0 && orientation == "white") {
+export function processIncomingPgn(gameTurn, orientation) {
+  if (gameTurn == "w" && orientation == "white") {
     return true;
   }
-  if (arrayLength%2 == 1  && orientation == "black") {
+  if (gameTurn == "b" && orientation == "black") {
     return true;
   }
-  return false
+  return false;
 }
 
 export const SUPABASE_CONFIG = [String(import.meta.env.VITE_SUPABASE_URL), String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY), {isSingleton: false}];
