@@ -41,7 +41,6 @@ export async function inserNewMoves(supabase: any, fen: string, move: string, id
 
 export async function createNewGameTable(supabase: any, id: number) {
         const sql_query = `
-BEGIN;
 create table public.game_number_${id} as
 select *
 from public.game_moves
@@ -62,7 +61,6 @@ to public
 
 
 using ( true );
-COMMIT;
 `;
         try {
             const { data, error } = await supabase.rpc(`execute_sql`, {sql_query});
