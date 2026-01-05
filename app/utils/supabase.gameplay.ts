@@ -45,6 +45,7 @@ create table public.game_number_${id} as
 select *
 from public.game_moves
 where id = ${id};
+ALTER TABLE public.game_number_${id} ENABLE ROW LEVEL SECURITY;
 create policy "game_number_${id}_policy"
 
 
@@ -61,6 +62,7 @@ to public
 
 
 using ( true );
+ALTER PUBLICATION supabase_realtime ADD TABLE public.game_number_${id};
 `;
         try {
             const { data, error } = await supabase.rpc(`execute_sql`, {sql_query});
