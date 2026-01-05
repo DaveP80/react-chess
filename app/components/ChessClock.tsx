@@ -8,6 +8,10 @@ interface ChessClockProps {
   isGameOver: boolean;
   onTimeOut: (player: "white" | "black") => void;
   moveCount: number; // The actual number of moves made in the game
+  whiteTime?: number; // Current white time in seconds (controlled from parent)
+  blackTime?: number; // Current black time in seconds (controlled from parent)
+  onTimeUpdate?: (whiteTime: number, blackTime: number) => void;
+  isReplay?: boolean; // Whether we're in replay mode
 }
 
 export function ChessClock({
@@ -17,12 +21,29 @@ export function ChessClock({
   isGameOver,
   onTimeOut,
   moveCount,
+  whiteTime: externalWhiteTime,
+  blackTime: externalBlackTime,
+  onTimeUpdate,
+  isReplay = false,
 }: ChessClockProps) {
-  const [whiteTime, setWhiteTime] = useState(initialTime);
-  const [blackTime, setBlackTime] = useState(initialTime);
+  const [whiteTime, setWhiteTime] = useState(externalWhiteTime ?? initialTime);
+  const [blackTime, setBlackTime] = useState(externalBlackTime ?? initialTime);
   const [isActive, setIsActive] = useState(false);
   const lastMoveCountRef = useRef(moveCount);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync with external time values (for persistence and websocket updates)
+  useEffect(() => {
+    if (externalWhiteTime !== undefined) {
+      setWhiteTime(externalWhiteTime);
+    }
+  }, [externalWhiteTime]);
+
+  useEffect(() => {
+    if (externalBlackTime !== undefined) {
+      setBlackTime(externalBlackTime);
+    }
+  }, [externalBlackTime]);
 
   // Reset clock when game resets
   useEffect(() => {
@@ -33,14 +54,14 @@ export function ChessClock({
     }
   }, [moveCount, initialTime]);
 
-  // Start clock on first move, only pause on game over
+  // Start clock on first move, pause on game over or replay
   useEffect(() => {
-    if (isGameOver) {
+    if (isGameOver || isReplay) {
       setIsActive(false);
     } else if (moveCount > 0) {
       setIsActive(true);
     }
-  }, [moveCount, isGameOver]);
+  }, [moveCount, isGameOver, isReplay]);
 
   // Handle increment when turn changes
   useEffect(() => {
@@ -48,13 +69,31 @@ export function ChessClock({
       // A move was just made, add increment to the player who just moved
       const previousTurn = currentTurn === "w" ? "b" : "w";
       if (previousTurn === "w") {
-        setWhiteTime((prev) => prev + increment);
+        setWhiteTime((prev) => {
+          const newTime = prev + increment;
+          if (onTimeUpdate) {
+            setBlackTime((blackPrev) => {
+              onTimeUpdate(newTime, blackPrev);
+              return blackPrev;
+            });
+          }
+          return newTime;
+        });
       } else {
-        setBlackTime((prev) => prev + increment);
+        setBlackTime((prev) => {
+          const newTime = prev + increment;
+          if (onTimeUpdate) {
+            setWhiteTime((whitePrev) => {
+              onTimeUpdate(whitePrev, newTime);
+              return whitePrev;
+            });
+          }
+          return newTime;
+        });
       }
     }
     lastMoveCountRef.current = moveCount;
-  }, [moveCount, currentTurn, increment]);
+  }, [moveCount, currentTurn, increment, onTimeUpdate]);
 
   // Countdown timer
   useEffect(() => {
@@ -74,7 +113,15 @@ export function ChessClock({
             onTimeOut("white");
             return 0;
           }
-          return prev - 0.1;
+          const newTime = prev - 0.1;
+          // Notify parent of time update
+          if (onTimeUpdate) {
+            setBlackTime((blackPrev) => {
+              onTimeUpdate(newTime, blackPrev);
+              return blackPrev;
+            });
+          }
+          return newTime;
         });
       } else {
         setBlackTime((prev) => {
@@ -83,7 +130,15 @@ export function ChessClock({
             onTimeOut("black");
             return 0;
           }
-          return prev - 0.1;
+          const newTime = prev - 0.1;
+          // Notify parent of time update
+          if (onTimeUpdate) {
+            setWhiteTime((whitePrev) => {
+              onTimeUpdate(whitePrev, newTime);
+              return whitePrev;
+            });
+          }
+          return newTime;
         });
       }
     }, 100);

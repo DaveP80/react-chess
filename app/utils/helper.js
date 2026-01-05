@@ -120,4 +120,20 @@ export function processIncomingPgn(gameTurn, orientation) {
   return false;
 }
 
+/**
+ * Parse a PGN entry that may include time data
+ * @param {string} pgnEntry - Format: "fen$move$timestamp" or "fen$move$timestamp$whiteTime$blackTime"
+ * @returns {object} - {fen, move, timestamp, whiteTime, blackTime}
+ */
+export function parsePgnEntry(pgnEntry) {
+  const parts = pgnEntry.split("$");
+  return {
+    fen: parts[0],
+    move: parts[1] || "",
+    timestamp: parts[2] || "",
+    whiteTime: parts[3] ? parseFloat(parts[3]) : null,
+    blackTime: parts[4] ? parseFloat(parts[4]) : null,
+  };
+}
+
 export const SUPABASE_CONFIG = [String(import.meta.env.VITE_SUPABASE_URL), String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY), {isSingleton: false}];

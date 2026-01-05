@@ -2,10 +2,16 @@ export async function inserNewMoves(
   supabase: any,
   fen: string,
   move: string,
-  id: number
+  id: number,
+  whiteTime?: number,
+  blackTime?: number
 ) {
   const move_timestamp = new Date().toISOString();
-  const new_move = `${fen}$${move}$${move_timestamp}`;
+  // Include time remaining if provided (format: fen$move$timestamp$whiteTime$blackTime)
+  const timeData = whiteTime !== undefined && blackTime !== undefined
+    ? `$${whiteTime}$${blackTime}`
+    : '';
+  const new_move = `${fen}$${move}$${move_timestamp}${timeData}`;
   const sql_query = `UPDATE game_number_${id} SET pgn = array_append(pgn, '${new_move}') WHERE id = ${id}`;
   try {
     const { data, error } = await supabase.rpc(`execute_sql`, { sql_query });
