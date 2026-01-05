@@ -110,4 +110,14 @@ export function parseTimeControl(timeControl) {
   return [initialTimeInSeconds, increment];
 }
 
+export function processIncomingPgn(arrayLength, orientation) {
+  if (arrayLength%2 == 0 && orientation == "white") {
+    return true;
+  }
+  if (arrayLength%2 == 1  && orientation == "black") {
+    return true;
+  }
+  return false
+}
+
 export const SUPABASE_CONFIG = [String(import.meta.env.VITE_SUPABASE_URL), String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY), {isSingleton: false}];
