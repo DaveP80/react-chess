@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Clock } from "lucide-react";
 
 interface ChessClockProps {
@@ -8,42 +8,63 @@ interface ChessClockProps {
   isGameOver: boolean;
   onTimeOut: (player: "white" | "black") => void;
   moveCount: number; // The actual number of moves made in the game
-  whiteTime?: number; // Current white time in seconds (controlled from parent)
-  blackTime?: number; // Current black time in seconds (controlled from parent)
-  onTimeUpdate?: (whiteTime: number, blackTime: number) => void;
   isReplay?: boolean; // Whether we're in replay mode
+  loadedWhiteTime?: number; // Time to load from database
+  loadedBlackTime?: number; // Time to load from database
 }
 
-export function ChessClock({
+export interface ChessClockHandle {
+  getCurrentTimes: () => { whiteTime: number; blackTime: number };
+}
+
+export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
   initialTime,
   increment,
   currentTurn,
   isGameOver,
   onTimeOut,
   moveCount,
-  whiteTime: externalWhiteTime,
-  blackTime: externalBlackTime,
-  onTimeUpdate,
   isReplay = false,
-}: ChessClockProps) {
-  const [whiteTime, setWhiteTime] = useState(externalWhiteTime ?? initialTime);
-  const [blackTime, setBlackTime] = useState(externalBlackTime ?? initialTime);
+  loadedWhiteTime,
+  loadedBlackTime,
+}, ref) => {
+  const [whiteTime, setWhiteTime] = useState(loadedWhiteTime ?? initialTime);
+  const [blackTime, setBlackTime] = useState(loadedBlackTime ?? initialTime);
   const [isActive, setIsActive] = useState(false);
   const lastMoveCountRef = useRef(moveCount);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const whiteTimeRef = useRef(whiteTime);
+  const blackTimeRef = useRef(blackTime);
 
-  // Sync with external time values (for persistence and websocket updates)
+  // Keep refs in sync with state
   useEffect(() => {
-    if (externalWhiteTime !== undefined) {
-      setWhiteTime(externalWhiteTime);
-    }
-  }, [externalWhiteTime]);
+    whiteTimeRef.current = whiteTime;
+  }, [whiteTime]);
 
   useEffect(() => {
-    if (externalBlackTime !== undefined) {
-      setBlackTime(externalBlackTime);
+    blackTimeRef.current = blackTime;
+  }, [blackTime]);
+
+  // Expose method to get current times
+  useImperativeHandle(ref, () => ({
+    getCurrentTimes: () => ({
+      whiteTime: whiteTimeRef.current,
+      blackTime: blackTimeRef.current,
+    }),
+  }));
+
+  // Sync with loaded time values (for persistence and websocket updates)
+  useEffect(() => {
+    if (loadedWhiteTime !== undefined && loadedWhiteTime !== whiteTime) {
+      setWhiteTime(loadedWhiteTime);
     }
-  }, [externalBlackTime]);
+  }, [loadedWhiteTime]);
+
+  useEffect(() => {
+    if (loadedBlackTime !== undefined && loadedBlackTime !== blackTime) {
+      setBlackTime(loadedBlackTime);
+    }
+  }, [loadedBlackTime]);
 
   // Reset clock when game resets
   useEffect(() => {
@@ -69,31 +90,13 @@ export function ChessClock({
       // A move was just made, add increment to the player who just moved
       const previousTurn = currentTurn === "w" ? "b" : "w";
       if (previousTurn === "w") {
-        setWhiteTime((prev) => {
-          const newTime = prev + increment;
-          if (onTimeUpdate) {
-            setBlackTime((blackPrev) => {
-              onTimeUpdate(newTime, blackPrev);
-              return blackPrev;
-            });
-          }
-          return newTime;
-        });
+        setWhiteTime((prev) => prev + increment);
       } else {
-        setBlackTime((prev) => {
-          const newTime = prev + increment;
-          if (onTimeUpdate) {
-            setWhiteTime((whitePrev) => {
-              onTimeUpdate(whitePrev, newTime);
-              return whitePrev;
-            });
-          }
-          return newTime;
-        });
+        setBlackTime((prev) => prev + increment);
       }
     }
     lastMoveCountRef.current = moveCount;
-  }, [moveCount, currentTurn, increment, onTimeUpdate]);
+  }, [moveCount, currentTurn, increment]);
 
   // Countdown timer
   useEffect(() => {
@@ -113,15 +116,7 @@ export function ChessClock({
             onTimeOut("white");
             return 0;
           }
-          const newTime = prev - 0.1;
-          // Notify parent of time update
-          if (onTimeUpdate) {
-            setBlackTime((blackPrev) => {
-              onTimeUpdate(newTime, blackPrev);
-              return blackPrev;
-            });
-          }
-          return newTime;
+          return prev - 0.1;
         });
       } else {
         setBlackTime((prev) => {
@@ -130,15 +125,7 @@ export function ChessClock({
             onTimeOut("black");
             return 0;
           }
-          const newTime = prev - 0.1;
-          // Notify parent of time update
-          if (onTimeUpdate) {
-            setWhiteTime((whitePrev) => {
-              onTimeUpdate(whitePrev, newTime);
-              return whitePrev;
-            });
-          }
-          return newTime;
+          return prev - 0.1;
         });
       }
     }, 100);
@@ -238,4 +225,6 @@ export function ChessClock({
       )}
     </div>
   );
-}
+});
+
+ChessClock.displayName = "ChessClock";

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
@@ -21,7 +21,7 @@ import {
 import { GlobalContext } from "~/context/globalcontext";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
-import { ChessClock } from "~/components/ChessClock";
+import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { inserNewMoves } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
@@ -97,8 +97,9 @@ export default function Index() {
   );
   const [timeOut, setTimeOut] = useState<"white" | "black" | null>(null);
   const [gameStart, setGameStart] = useState<boolean>(false);
-  const [whiteTimeRemaining, setWhiteTimeRemaining] = useState<number>(initialTime);
-  const [blackTimeRemaining, setBlackTimeRemaining] = useState<number>(initialTime);
+  const [loadedWhiteTime, setLoadedWhiteTime] = useState<number | undefined>(undefined);
+  const [loadedBlackTime, setLoadedBlackTime] = useState<number | undefined>(undefined);
+  const chessClockRef = useRef<ChessClockHandle>(null);
   const supabase = getSupabaseBrowserClient(true);
   const supabase2 = createBrowserClient(
     SUPABASE_CONFIG[0],
@@ -146,8 +147,8 @@ export default function Index() {
 
         // Set clock times from the last move if available
         if (lastEntry.whiteTime !== null && lastEntry.blackTime !== null) {
-          setWhiteTimeRemaining(lastEntry.whiteTime);
-          setBlackTimeRemaining(lastEntry.blackTime);
+          setLoadedWhiteTime(lastEntry.whiteTime);
+          setLoadedBlackTime(lastEntry.blackTime);
         }
       }
     }
@@ -195,8 +196,8 @@ export default function Index() {
 
                       // Update clock times from opponent's move
                       if (lastEntry.whiteTime !== null && lastEntry.blackTime !== null) {
-                        setWhiteTimeRemaining(lastEntry.whiteTime);
-                        setBlackTimeRemaining(lastEntry.blackTime);
+                        setLoadedWhiteTime(lastEntry.whiteTime);
+                        setLoadedBlackTime(lastEntry.blackTime);
                       }
                     }
                   }
@@ -238,14 +239,15 @@ export default function Index() {
         setFenHistory([...fenHistory, gameCopy]);
         setCurrentMoveIndex(moveHistory.length - 1);
 
-        // Send move with current clock times
+        // Send move with current clock times from the ref
+        const currentTimes = chessClockRef.current?.getCurrentTimes();
         await inserNewMoves(
           supabase,
           gameCopy.fen(),
           move.san,
           gameData.id,
-          whiteTimeRemaining,
-          blackTimeRemaining
+          currentTimes?.whiteTime,
+          currentTimes?.blackTime
         );
 
         return true;
@@ -262,8 +264,8 @@ export default function Index() {
     setCurrentMoveIndex(-1);
     setResign(false);
     setTimeOut(null);
-    setWhiteTimeRemaining(initialTime);
-    setBlackTimeRemaining(initialTime);
+    setLoadedWhiteTime(undefined);
+    setLoadedBlackTime(undefined);
   }
 
   function handleTimeOut(player: "white" | "black") {
@@ -439,18 +441,15 @@ export default function Index() {
 
                 {/* Chess Clock */}
                 <ChessClock
+                  ref={chessClockRef}
                   initialTime={initialTime}
                   increment={increment}
                   currentTurn={actualGameTurn}
                   isGameOver={isGameOver}
                   onTimeOut={handleTimeOut}
                   moveCount={moveHistory.length}
-                  whiteTime={whiteTimeRemaining}
-                  blackTime={blackTimeRemaining}
-                  onTimeUpdate={(white: number, black: number) => {
-                    setWhiteTimeRemaining(white);
-                    setBlackTimeRemaining(black);
-                  }}
+                  loadedWhiteTime={loadedWhiteTime}
+                  loadedBlackTime={loadedBlackTime}
                   isReplay={isReplay !== null}
                 />
 
