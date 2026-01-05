@@ -164,17 +164,8 @@ export default function Index() {
                 const newMovePgn = data[0].pgn;
                 const arrayLength = newMovePgn.length;
                 if (arrayLength > 0) {
-                  if (gameData && toggleUsers.oppUsername) {
-                    let localOrientation =
-                      gameData.white_username == UserContext?.rowData.username
-                        ? "white"
-                        : "black";
-                    const actualGame =
-                      fenHistory.length > 0
-                        ? fenHistory[fenHistory.length - 1]
-                        : new Chess();
-                    const actualTurn = actualGame.turn();
-                    if (!processIncomingPgn(actualTurn, localOrientation)) {
+                    const lastFen = fenHistory[fenHistory.length - 1].trim();
+                    if (newMovePgn[newMovePgn.length-1].trim() !== lastFen) {
                       setActiveGame(
                         new Chess(
                           newMovePgn[newMovePgn.length - 1].split("$")[0]
@@ -191,7 +182,6 @@ export default function Index() {
                       setCurrentMoveIndex(moveHistory.length - 1);
                     }
                   }
-                }
               }
             } catch (error) {
               console.error(error);
@@ -218,7 +208,6 @@ export default function Index() {
         processIncomingPgn(actualTurn, toggleUsers.orientation)
       ) {
         const gameCopy = new Chess(activeGame.fen());
-        console.log(typeof gameCopy);
         const move = gameCopy.move({
           from: sourceSquare,
           to: targetSquare,
