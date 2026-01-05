@@ -134,7 +134,7 @@ export default function Index() {
               try {
                 const {data, error} = await supabase.from(`game_number_${gameData.id}`).select("pgn").eq("id", gameData.id);
                 if (data) {
-                  const newMovePgn = data[0];
+                  const newMovePgn = data[0].pgn;
                   const arrayLength = newMovePgn.pgn.length;
                   if (arrayLength > 0) {
                         if (gameData && toggleUsers.oppUsername) {
