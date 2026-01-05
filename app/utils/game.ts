@@ -1,4 +1,5 @@
 import { timeControlReducer } from "./helper";
+import { createNewGameTable } from "./supabase.gameplay";
 
 export async function gamesNewRequestOnUserColor(
   localSupabase: any,
@@ -183,15 +184,27 @@ async function handleInsertStartGame(
         {
           go: false,
           error,
-          message: "error on entering new row on games table",
+          message: "unknown supabase error on handleInsertStartGame",
         },
         { headers }
       );
     } else if (data) {
+      const {data: newTableData, error: newTableError} = await createNewGameTable(supabase, data.id);
+      if (newTableError) {
+        return Response.json(
+          {
+            go: false,
+            error,
+            message: "error on creating new game number table",
+          },
+          { headers }
+        );
+
+      }
       return Response.json(
         {
           go: true,
-          message: "successfully entered new row on games start table.",
+          message: "successfully entered new row on games start table and made a new table game_number_table_" + data.id, 
         },
         { headers }
       );

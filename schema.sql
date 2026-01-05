@@ -129,9 +129,17 @@ select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as
 $$;
 
 create or replace function update_live_game_moves_pgn (
-  move_san text, move_timestamp text, game_id int
+  new_move text, game_id int
 ) returns void language sql security definer as $$
 UPDATE game_moves
-SET pgn = array_cat(pgn, ARRAY[move_san, move_timestamp])
+SET pgn = pgn || new_move
 WHERE id = game_id;
 $$
+
+-- Create a generic raw SQL executor (one-time setup)
+CREATE OR REPLACE FUNCTION execute_sql(sql_query text)
+RETURNS void AS $$
+BEGIN
+  EXECUTE sql_query;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

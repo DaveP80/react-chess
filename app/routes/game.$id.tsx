@@ -150,6 +150,7 @@ export default function Index() {
     try {
       if (!isReplay && !resign && !checkIfRepetition(fenHistory)) {
         const gameCopy = new Chess(activeGame.fen());
+        console.log(typeof gameCopy)
         const move = gameCopy.move({
           from: sourceSquare,
           to: targetSquare,
@@ -161,8 +162,7 @@ export default function Index() {
         setMoveHistory([...moveHistory, move.san]);
         setFenHistory([...fenHistory, gameCopy]);
         setCurrentMoveIndex(moveHistory.length - 1);
-        const response = await inserNewMoves(supabase, move.san, gameData.id);
-        console.log(response);
+        const response = await inserNewMoves(supabase, gameCopy.fen(), move.san, gameData.id);
         
         return true;
       }
