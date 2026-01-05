@@ -139,7 +139,7 @@ export default function Index() {
                   if (arrayLength > 0) {
                         if (gameData && toggleUsers.oppUsername) {
                           let localOrientation =  gameData.white_username == UserContext?.rowData.username ? "white" : "black";
-                          if (processIncomingPgn(arrayLength, localOrientation)) {
+                          if (!processIncomingPgn(arrayLength, localOrientation)) {
                             setActiveGame(newMovePgn[newMovePgn.length-1].split("$")[0]);
                             setMoveHistory([...moveHistory, newMovePgn[newMovePgn.length-1].split("$")[1]]);
                             setFenHistory([...fenHistory, new Chess(newMovePgn[newMovePgn.length-1].split("$")[0])]);
