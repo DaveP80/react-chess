@@ -8,7 +8,6 @@ interface ChessClockProps {
   isGameOver: boolean;
   onTimeOut: (player: "white" | "black") => void;
   moveCount: number; // The actual number of moves made in the game
-  isReplay?: boolean; // Whether we're in replay mode
   loadedWhiteTime?: number; // Time to load from database
   loadedBlackTime?: number; // Time to load from database
 }
@@ -24,7 +23,6 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
   isGameOver,
   onTimeOut,
   moveCount,
-  isReplay = false,
   loadedWhiteTime,
   loadedBlackTime,
 }, ref) => {
@@ -75,14 +73,14 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
     }
   }, [moveCount, initialTime]);
 
-  // Start clock on first move, pause on game over or replay
+  // Start clock on first move, pause only on game over
   useEffect(() => {
-    if (isGameOver || isReplay) {
+    if (isGameOver) {
       setIsActive(false);
     } else if (moveCount > 0) {
       setIsActive(true);
     }
-  }, [moveCount, isGameOver, isReplay]);
+  }, [moveCount, isGameOver]);
 
   // Handle increment when turn changes
   useEffect(() => {

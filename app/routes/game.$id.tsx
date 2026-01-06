@@ -450,7 +450,6 @@ export default function Index() {
                   moveCount={moveHistory.length}
                   loadedWhiteTime={loadedWhiteTime}
                   loadedBlackTime={loadedBlackTime}
-                  isReplay={isReplay !== null}
                 />
 
                 <h3 className="text-xl font-bold text-slate-800 mb-4 mt-6">
