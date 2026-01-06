@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
@@ -16,11 +16,12 @@ import {
   parseTimeControl,
   processIncomingPgn,
   SUPABASE_CONFIG,
+  parsePgnEntry,
 } from "~/utils/helper";
 import { GlobalContext } from "~/context/globalcontext";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
-import { ChessClock } from "~/components/ChessClock";
+import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { inserNewMoves } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
@@ -72,9 +73,17 @@ export default function Index() {
     oppElo: 1500,
     myElo: 1500,
   });
-  const [gameConfig, setGameConfig] = useState({
-    timeControl: "unlimited",
-    colorPreference: "white",
+  const [gameConfig, setGameConfig] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("pairing_info");
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    }
+    return {
+      timeControl: "unlimited",
+      colorPreference: "white",
+    };
   });
   const { activeGame, setActiveGame } = useContext(GlobalContext);
   const { fenHistory, setFenHistory } = useContext(GlobalContext);
@@ -88,6 +97,9 @@ export default function Index() {
   );
   const [timeOut, setTimeOut] = useState<"white" | "black" | null>(null);
   const [gameStart, setGameStart] = useState<boolean>(false);
+  const [loadedWhiteTime, setLoadedWhiteTime] = useState<number | undefined>(undefined);
+  const [loadedBlackTime, setLoadedBlackTime] = useState<number | undefined>(undefined);
+  const chessClockRef = useRef<ChessClockHandle>(null);
   const supabase = getSupabaseBrowserClient(true);
   const supabase2 = createBrowserClient(
     SUPABASE_CONFIG[0],
@@ -124,15 +136,20 @@ export default function Index() {
       });
       if (gameData.pgn.length) {
         const currGamePgn = gameData.pgn;
+        const lastEntry = parsePgnEntry(currGamePgn[currGamePgn.length - 1]);
 
-        setActiveGame(
-          new Chess(currGamePgn[currGamePgn.length - 1].split("$")[0])
-        );
-        setMoveHistory(currGamePgn.map((item: string) => item.split("$")[1]));
+        setActiveGame(new Chess(lastEntry.fen));
+        setMoveHistory(currGamePgn.map((item: string) => parsePgnEntry(item).move));
         setFenHistory(
-          currGamePgn.map((item: string) => new Chess(item.split("$")[0]))
+          currGamePgn.map((item: string) => new Chess(parsePgnEntry(item).fen))
         );
         setCurrentMoveIndex(moveHistory.length - 1);
+
+        // Set clock times from the last move if available
+        if (lastEntry.whiteTime !== null && lastEntry.blackTime !== null) {
+          setLoadedWhiteTime(lastEntry.whiteTime);
+          setLoadedBlackTime(lastEntry.blackTime);
+        }
       }
     }
 
@@ -140,10 +157,6 @@ export default function Index() {
   }, [gameData]);
 
   useEffect(() => {
-    setGameConfig({
-      ...gameConfig,
-      ...JSON.parse(window.localStorage.getItem("pairing_info") || "{}"),
-    });
     const channel = supabase2
       .channel("realtime-messages")
       .on(
@@ -164,22 +177,28 @@ export default function Index() {
                 const newMovePgn = data[0].pgn;
                 const arrayLength = newMovePgn.length;
                 if (arrayLength > 0) {
-                    const lastFen = fenHistory[fenHistory.length - 1].trim();
-                    if (newMovePgn[newMovePgn.length-1].trim() !== lastFen) {
-                      setActiveGame(
-                        new Chess(
-                          newMovePgn[newMovePgn.length - 1].split("$")[0]
-                        )
-                      );
+                    const lastEntry = parsePgnEntry(newMovePgn[newMovePgn.length - 1]);
+                    const currentLastFen = fenHistory.length > 0
+                      ? fenHistory[fenHistory.length - 1].fen()
+                      : "";
+
+                    if (lastEntry.fen !== currentLastFen) {
+                      setActiveGame(new Chess(lastEntry.fen));
                       setMoveHistory(
-                        newMovePgn.map((item: string) => item.split("$")[1])
+                        newMovePgn.map((item: string) => parsePgnEntry(item).move)
                       );
                       setFenHistory(
                         newMovePgn.map(
-                          (item: string) => new Chess(item.split("$")[0])
+                          (item: string) => new Chess(parsePgnEntry(item).fen)
                         )
                       );
-                      setCurrentMoveIndex(moveHistory.length - 1);
+                      setCurrentMoveIndex(newMovePgn.length - 1);
+
+                      // Update clock times from opponent's move
+                      if (lastEntry.whiteTime !== null && lastEntry.blackTime !== null) {
+                        setLoadedWhiteTime(lastEntry.whiteTime);
+                        setLoadedBlackTime(lastEntry.blackTime);
+                      }
                     }
                   }
               }
@@ -219,7 +238,17 @@ export default function Index() {
         setMoveHistory([...moveHistory, move.san]);
         setFenHistory([...fenHistory, gameCopy]);
         setCurrentMoveIndex(moveHistory.length - 1);
-        await inserNewMoves(supabase, gameCopy.fen(), move.san, gameData.id);
+
+        // Send move with current clock times from the ref
+        const currentTimes = chessClockRef.current?.getCurrentTimes();
+        await inserNewMoves(
+          supabase,
+          gameCopy.fen(),
+          move.san,
+          gameData.id,
+          currentTimes?.whiteTime,
+          currentTimes?.blackTime
+        );
 
         return true;
       }
@@ -235,6 +264,8 @@ export default function Index() {
     setCurrentMoveIndex(-1);
     setResign(false);
     setTimeOut(null);
+    setLoadedWhiteTime(undefined);
+    setLoadedBlackTime(undefined);
   }
 
   function handleTimeOut(player: "white" | "black") {
@@ -410,12 +441,15 @@ export default function Index() {
 
                 {/* Chess Clock */}
                 <ChessClock
+                  ref={chessClockRef}
                   initialTime={initialTime}
                   increment={increment}
                   currentTurn={actualGameTurn}
                   isGameOver={isGameOver}
                   onTimeOut={handleTimeOut}
                   moveCount={moveHistory.length}
+                  loadedWhiteTime={loadedWhiteTime}
+                  loadedBlackTime={loadedBlackTime}
                 />
 
                 <h3 className="text-xl font-bold text-slate-800 mb-4 mt-6">

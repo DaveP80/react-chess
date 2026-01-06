@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Clock } from "lucide-react";
 
 interface ChessClockProps {
@@ -8,21 +8,61 @@ interface ChessClockProps {
   isGameOver: boolean;
   onTimeOut: (player: "white" | "black") => void;
   moveCount: number; // The actual number of moves made in the game
+  loadedWhiteTime?: number; // Time to load from database
+  loadedBlackTime?: number; // Time to load from database
 }
 
-export function ChessClock({
+export interface ChessClockHandle {
+  getCurrentTimes: () => { whiteTime: number; blackTime: number };
+}
+
+export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
   initialTime,
   increment,
   currentTurn,
   isGameOver,
   onTimeOut,
   moveCount,
-}: ChessClockProps) {
-  const [whiteTime, setWhiteTime] = useState(initialTime);
-  const [blackTime, setBlackTime] = useState(initialTime);
+  loadedWhiteTime,
+  loadedBlackTime,
+}, ref) => {
+  const [whiteTime, setWhiteTime] = useState(loadedWhiteTime ?? initialTime);
+  const [blackTime, setBlackTime] = useState(loadedBlackTime ?? initialTime);
   const [isActive, setIsActive] = useState(false);
   const lastMoveCountRef = useRef(moveCount);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const whiteTimeRef = useRef(whiteTime);
+  const blackTimeRef = useRef(blackTime);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    whiteTimeRef.current = whiteTime;
+  }, [whiteTime]);
+
+  useEffect(() => {
+    blackTimeRef.current = blackTime;
+  }, [blackTime]);
+
+  // Expose method to get current times
+  useImperativeHandle(ref, () => ({
+    getCurrentTimes: () => ({
+      whiteTime: whiteTimeRef.current,
+      blackTime: blackTimeRef.current,
+    }),
+  }));
+
+  // Sync with loaded time values (for persistence and websocket updates)
+  useEffect(() => {
+    if (loadedWhiteTime !== undefined && loadedWhiteTime !== whiteTime) {
+      setWhiteTime(loadedWhiteTime);
+    }
+  }, [loadedWhiteTime]);
+
+  useEffect(() => {
+    if (loadedBlackTime !== undefined && loadedBlackTime !== blackTime) {
+      setBlackTime(loadedBlackTime);
+    }
+  }, [loadedBlackTime]);
 
   // Reset clock when game resets
   useEffect(() => {
@@ -33,7 +73,7 @@ export function ChessClock({
     }
   }, [moveCount, initialTime]);
 
-  // Start clock on first move, only pause on game over
+  // Start clock on first move, pause only on game over
   useEffect(() => {
     if (isGameOver) {
       setIsActive(false);
@@ -183,4 +223,6 @@ export function ChessClock({
       )}
     </div>
   );
-}
+});
+
+ChessClock.displayName = "ChessClock";
