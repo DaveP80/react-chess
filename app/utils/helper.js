@@ -9,7 +9,6 @@ export function checkIfRepetition(positions) {
     if (c === 3) return true;
     counts.set(subFEN, c);
   }
-  console.log(counts);
 
   return false;
 }
@@ -134,6 +133,37 @@ export function parsePgnEntry(pgnEntry) {
     whiteTime: parts[3] ? parseFloat(parts[3]) : null,
     blackTime: parts[4] ? parseFloat(parts[4]) : null,
   };
+}
+
+export function setFenHistoryHelper(gameCopy, fenHistory, move_san, moveHistory) {
+  if (!fenHistory.length) {
+    return [true, [gameCopy], [move_san]];
+  }
+
+  const lastItem = fenHistory[fenHistory.length - 1];
+  if (lastItem.fen() === gameCopy.fen()) {
+    return [false, fenHistory, moveHistory];
+  }
+  else {
+    return [true, [...fenHistory, gameCopy], [...moveHistory, move_san]];
+  }
+}
+
+
+export function timeOutGameOverReducer(args) {
+  switch(args) {
+    case "white": {
+      return "Black";
+    }
+    case "black": {
+      return "White"
+    }
+    case "game over": {
+      return null
+    }
+    default: return null;
+    
+  }
 }
 
 export const SUPABASE_CONFIG = [String(import.meta.env.VITE_SUPABASE_URL), String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY), {isSingleton: false}];

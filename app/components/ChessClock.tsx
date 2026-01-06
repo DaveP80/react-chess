@@ -8,6 +8,8 @@ interface ChessClockProps {
   isGameOver: boolean;
   onTimeOut: (player: "white" | "black") => void;
   moveCount: number; // The actual number of moves made in the game
+  isThreeFoldRepit: boolean;
+  isResign: boolean;
   loadedWhiteTime?: number; // Time to load from database
   loadedBlackTime?: number; // Time to load from database
 }
@@ -25,6 +27,8 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
   moveCount,
   loadedWhiteTime,
   loadedBlackTime,
+  isThreeFoldRepit,
+  isResign
 }, ref) => {
   const [whiteTime, setWhiteTime] = useState(loadedWhiteTime ?? initialTime);
   const [blackTime, setBlackTime] = useState(loadedBlackTime ?? initialTime);
@@ -75,12 +79,12 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
 
   // Start clock on first move, pause only on game over
   useEffect(() => {
-    if (isGameOver) {
+    if (isGameOver || isThreeFoldRepit || isResign) {
       setIsActive(false);
     } else if (moveCount > 0) {
       setIsActive(true);
     }
-  }, [moveCount, isGameOver]);
+  }, [moveCount, isGameOver, isThreeFoldRepit]);
 
   // Handle increment when turn changes
   useEffect(() => {
@@ -109,6 +113,11 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
     intervalRef.current = setInterval(() => {
       if (currentTurn === "w") {
         setWhiteTime((prev) => {
+          if (isGameOver || isThreeFoldRepit || isResign) {
+            setIsActive(false);
+            onTimeOut("game over");
+            return 0;
+          }
           if (prev <= 0) {
             setIsActive(false);
             onTimeOut("white");
@@ -118,6 +127,11 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
         });
       } else {
         setBlackTime((prev) => {
+          if (isGameOver || isThreeFoldRepit || isResign) {
+            setIsActive(false);
+            onTimeOut("game over");
+            return 0;
+          }
           if (prev <= 0) {
             setIsActive(false);
             onTimeOut("black");

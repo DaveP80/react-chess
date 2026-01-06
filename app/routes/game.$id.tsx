@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
@@ -17,8 +17,9 @@ import {
   processIncomingPgn,
   SUPABASE_CONFIG,
   parsePgnEntry,
+  setFenHistoryHelper,
+  timeOutGameOverReducer,
 } from "~/utils/helper";
-import { GlobalContext } from "~/context/globalcontext";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
@@ -85,9 +86,10 @@ export default function Index() {
       colorPreference: "white",
     };
   });
-  const { activeGame, setActiveGame } = useContext(GlobalContext);
-  const { fenHistory, setFenHistory } = useContext(GlobalContext);
-  const { moveHistory, setMoveHistory } = useContext(GlobalContext);
+
+  const [activeGame, setActiveGame] = useState(new Chess());
+  const [fenHistory, setFenHistory] = useState<(typeof Chess)[] | any[]>([]);
+  const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const { data: gameData } = useLoaderData<typeof loader>();
   const [game_length, timeControl] = timeControlReducer(
     gameConfig?.timeControl || ""
@@ -95,10 +97,15 @@ export default function Index() {
   const [initialTime, increment] = parseTimeControl(
     gameConfig?.timeControl || "unlimited"
   );
-  const [timeOut, setTimeOut] = useState<"white" | "black" | null>(null);
-  const [gameStart, setGameStart] = useState<boolean>(false);
-  const [loadedWhiteTime, setLoadedWhiteTime] = useState<number | undefined>(undefined);
-  const [loadedBlackTime, setLoadedBlackTime] = useState<number | undefined>(undefined);
+  const [timeOut, setTimeOut] = useState<
+    "white" | "black" | "game over" | null
+  >(null);
+  const [loadedWhiteTime, setLoadedWhiteTime] = useState<number | undefined>(
+    undefined
+  );
+  const [loadedBlackTime, setLoadedBlackTime] = useState<number | undefined>(
+    undefined
+  );
   const chessClockRef = useRef<ChessClockHandle>(null);
   const supabase = getSupabaseBrowserClient(true);
   const supabase2 = createBrowserClient(
@@ -139,16 +146,55 @@ export default function Index() {
         const lastEntry = parsePgnEntry(currGamePgn[currGamePgn.length - 1]);
 
         setActiveGame(new Chess(lastEntry.fen));
-        setMoveHistory(currGamePgn.map((item: string) => parsePgnEntry(item).move));
+        setMoveHistory(
+          currGamePgn.map((item: string) => parsePgnEntry(item).move)
+        );
         setFenHistory(
           currGamePgn.map((item: string) => new Chess(parsePgnEntry(item).fen))
         );
         setCurrentMoveIndex(moveHistory.length - 1);
 
         // Set clock times from the last move if available
-        if (lastEntry.whiteTime !== null && lastEntry.blackTime !== null) {
-          setLoadedWhiteTime(lastEntry.whiteTime);
-          setLoadedBlackTime(lastEntry.blackTime);
+        if (
+          lastEntry.whiteTime !== null &&
+          lastEntry.blackTime !== null &&
+          lastEntry.timestamp
+        ) {
+          // Calculate elapsed time since the last move
+          const lastMoveTime = new Date(lastEntry.timestamp).getTime();
+          const now = Date.now();
+          const elapsedSeconds = (now - lastMoveTime) / 1000;
+
+          // Determine whose turn it is (that player's clock has been running)
+          const currentGame = new Chess(lastEntry.fen);
+          const currentTurn = currentGame.turn();
+
+          let adjustedWhiteTime = lastEntry.whiteTime;
+          let adjustedBlackTime = lastEntry.blackTime;
+
+          // Subtract elapsed time from the current player's clock
+          if (currentTurn === "w") {
+            adjustedWhiteTime = Math.max(
+              0,
+              lastEntry.whiteTime - elapsedSeconds
+            );
+            // Check if white ran out of time while away
+            if (adjustedWhiteTime === 0 && lastEntry.whiteTime > 0) {
+              handleTimeOut("white");
+            }
+          } else {
+            adjustedBlackTime = Math.max(
+              0,
+              lastEntry.blackTime - elapsedSeconds
+            );
+            // Check if black ran out of time while away
+            if (adjustedBlackTime === 0 && lastEntry.blackTime > 0) {
+              handleTimeOut("black");
+            }
+          }
+
+          setLoadedWhiteTime(adjustedWhiteTime);
+          setLoadedBlackTime(adjustedBlackTime);
         }
       }
     }
@@ -177,30 +223,78 @@ export default function Index() {
                 const newMovePgn = data[0].pgn;
                 const arrayLength = newMovePgn.length;
                 if (arrayLength > 0) {
-                    const lastEntry = parsePgnEntry(newMovePgn[newMovePgn.length - 1]);
-                    const currentLastFen = fenHistory.length > 0
+                  const lastEntry = parsePgnEntry(
+                    newMovePgn[newMovePgn.length - 1]
+                  );
+                  const currentLastFen =
+                    fenHistory.length > 0
                       ? fenHistory[fenHistory.length - 1].fen()
                       : "";
 
-                    if (lastEntry.fen !== currentLastFen) {
-                      setActiveGame(new Chess(lastEntry.fen));
-                      setMoveHistory(
-                        newMovePgn.map((item: string) => parsePgnEntry(item).move)
-                      );
-                      setFenHistory(
-                        newMovePgn.map(
-                          (item: string) => new Chess(parsePgnEntry(item).fen)
-                        )
-                      );
-                      setCurrentMoveIndex(newMovePgn.length - 1);
+                  if (lastEntry.fen !== currentLastFen) {
+                    setActiveGame(new Chess(lastEntry.fen));
+                    setMoveHistory(
+                      newMovePgn.map((item: string) => parsePgnEntry(item).move)
+                    );
+                    setFenHistory(
+                      newMovePgn.map(
+                        (item: string) => new Chess(parsePgnEntry(item).fen)
+                      )
+                    );
+                    setCurrentMoveIndex(newMovePgn.length - 1);
 
-                      // Update clock times from opponent's move
-                      if (lastEntry.whiteTime !== null && lastEntry.blackTime !== null) {
-                        setLoadedWhiteTime(lastEntry.whiteTime);
-                        setLoadedBlackTime(lastEntry.blackTime);
+                    // Update clock times from opponent's move
+                    if (
+                      lastEntry.whiteTime !== null &&
+                      lastEntry.blackTime !== null &&
+                      lastEntry.timestamp
+                    ) {
+                      // Calculate elapsed time since the opponent made their move
+                      const lastMoveTime = new Date(
+                        lastEntry.timestamp
+                      ).getTime();
+                      const now = Date.now();
+                      const elapsedSeconds = (now - lastMoveTime) / 1000;
+
+                      // Determine whose turn it is now (that player's clock has been running)
+                      const currentGame = new Chess(lastEntry.fen);
+                      const currentTurn = currentGame.turn();
+
+                      let adjustedWhiteTime = lastEntry.whiteTime;
+                      let adjustedBlackTime = lastEntry.blackTime;
+
+                      // Subtract elapsed time from the current player's clock
+                      if (currentTurn === "w") {
+                        adjustedWhiteTime = Math.max(
+                          0,
+                          lastEntry.whiteTime - elapsedSeconds
+                        );
+                        // Check if white ran out of time while away
+                        if (
+                          adjustedWhiteTime === 0 &&
+                          lastEntry.whiteTime > 0
+                        ) {
+                          handleTimeOut("white");
+                        }
+                      } else {
+                        adjustedBlackTime = Math.max(
+                          0,
+                          lastEntry.blackTime - elapsedSeconds
+                        );
+                        // Check if black ran out of time while away
+                        if (
+                          adjustedBlackTime === 0 &&
+                          lastEntry.blackTime > 0
+                        ) {
+                          handleTimeOut("black");
+                        }
                       }
+
+                      setLoadedWhiteTime(adjustedWhiteTime);
+                      setLoadedBlackTime(adjustedBlackTime);
                     }
                   }
+                }
               }
             } catch (error) {
               console.error(error);
@@ -224,7 +318,8 @@ export default function Index() {
         !isReplay &&
         !resign &&
         !checkIfRepetition(fenHistory) &&
-        processIncomingPgn(actualTurn, toggleUsers.orientation)
+        processIncomingPgn(actualTurn, toggleUsers.orientation) &&
+        timeOut === null
       ) {
         const gameCopy = new Chess(activeGame.fen());
         const move = gameCopy.move({
@@ -234,41 +329,38 @@ export default function Index() {
         });
 
         if (move === null) return false;
-        setActiveGame(gameCopy);
-        setMoveHistory([...moveHistory, move.san]);
-        setFenHistory([...fenHistory, gameCopy]);
-        setCurrentMoveIndex(moveHistory.length - 1);
-
-        // Send move with current clock times from the ref
         const currentTimes = chessClockRef.current?.getCurrentTimes();
-        await inserNewMoves(
-          supabase,
-          gameCopy.fen(),
+        const [fha, fhb, mhc] = setFenHistoryHelper(
+          gameCopy,
+          fenHistory,
           move.san,
-          gameData.id,
-          currentTimes?.whiteTime,
-          currentTimes?.blackTime
+          moveHistory
         );
-
-        return true;
+        if (fha) {
+          setActiveGame(gameCopy);
+          setMoveHistory(mhc);
+          setFenHistory(fhb);
+          setCurrentMoveIndex(moveHistory.length - 1);
+          await inserNewMoves(
+            supabase,
+            gameCopy.fen(),
+            move.san,
+            gameData.id,
+            fenHistory,
+            currentTimes?.whiteTime,
+            currentTimes?.blackTime
+          );
+          return true;
+        } else {
+          return false;
+        }
       }
     } catch (error) {
       return false;
     }
   }
 
-  function resetGame() {
-    setActiveGame(new Chess());
-    setMoveHistory([]);
-    setFenHistory([]);
-    setCurrentMoveIndex(-1);
-    setResign(false);
-    setTimeOut(null);
-    setLoadedWhiteTime(undefined);
-    setLoadedBlackTime(undefined);
-  }
-
-  function handleTimeOut(player: "white" | "black") {
+  function handleTimeOut(player: "white" | "black" | "game over") {
     setTimeOut(player);
   }
   function resignGame() {
@@ -354,8 +446,6 @@ export default function Index() {
 
   // Get the actual game turn
   const actualGameTurn = actualGame.turn();
-  console.log(actualGameTurn);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="container mx-auto px-4 py-8">
@@ -388,13 +478,7 @@ export default function Index() {
                       </span>
                     )}
                   </div>
-                  <button
-                    onClick={resetGame}
-                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    <RotateCcw size={20} />
-                    New Game
-                  </button>
+
                   <button
                     onClick={resignGame}
                     className="flex items-center gap-2 bg-red-900 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -450,6 +534,8 @@ export default function Index() {
                   moveCount={moveHistory.length}
                   loadedWhiteTime={loadedWhiteTime}
                   loadedBlackTime={loadedBlackTime}
+                  isThreeFoldRepit={isThreeFoldRepit}
+                  isResign={resign}
                 />
 
                 <h3 className="text-xl font-bold text-slate-800 mb-4 mt-6">
@@ -520,25 +606,25 @@ export default function Index() {
                   <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
                     <p className="font-bold text-lg mb-2">Game Over!</p>
                     <p className="text-slate-300">
-                      {timeOut
-                        ? `${
-                            timeOut === "white" ? "Black" : "White"
-                          } wins on time!`
-                        : actualGame.isCheckmate() && !resign
-                        ? `${actualGameTurn === "w" ? "Black" : "White"} wins!`
-                        : !resign
-                        ? "The game is a draw."
-                        : ""}
-                    </p>
-                    <p className="text-slate-300">
+                      {isCheckmate &&
+                        `${
+                          actualGameTurn === "w"
+                            ? "Checkmate: Black"
+                            : "Checkmate: White"
+                        } wins!`}
+                      {isThreeFoldRepit && `Draw!! Three Fold Repitition.`}
+
                       {actualGameTurn === "w" && resign && "White Resigns!"}
                       {actualGameTurn === "b" && resign && "Black Resigns!"}
+                      {isGameOver && !isCheckmate && "The game is a draw."}
                     </p>
+                  </div>
+                )}
+                {timeOutGameOverReducer(timeOut) !== null && (
+                  <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
+                    <p className="font-bold text-lg mb-2">Game Over!</p>
                     <p className="text-slate-300">
-                      {isThreeFoldRepit &&
-                        !resign &&
-                        !timeOut &&
-                        `Draw!! Three Fold Repitition.`}
+                      {timeOut === "white" ? "Black" : "White"} wins on time!
                     </p>
                   </div>
                 )}

@@ -3,46 +3,23 @@ export async function inserNewMoves(
   fen: string,
   move: string,
   id: number,
+  fenHistory: any[],
   whiteTime?: number,
-  blackTime?: number
+  blackTime?: number,
 ) {
   const move_timestamp = new Date().toISOString();
   // Include time remaining if provided (format: fen$move$timestamp$whiteTime$blackTime)
   const timeData = whiteTime !== undefined && blackTime !== undefined
     ? `$${whiteTime}$${blackTime}`
-    : '';
+    : null;
   const new_move = `${fen}$${move}$${move_timestamp}${timeData}`;
   const sql_query = `UPDATE game_number_${id} SET pgn = array_append(pgn, '${new_move}') WHERE id = ${id}`;
   try {
-    const { data, error } = await supabase.rpc(`execute_sql`, { sql_query });
-    return true;
+      const { data, error } = await supabase.rpc(`execute_sql`, { sql_query });
   } catch (error) {
-    return false;
+    return console.error(error);
   }
 }
-
-// export async function onDropApiHandler(supabase: any, row_id: number, new_move_response: any) {
-//     const channel = supabase
-//     .channel("realtime-messages")
-//     .on(
-//       "postgres_changes",
-//       { event: "*", schema: "public", table: `game_number_${row_id}` },
-//       async (payload: { eventType: string; }) => {
-//           if (payload.eventType === "UPDATE") {
-//               try {
-//                   new_move_response = await supabase.from(`game_number_${row_id}`).select("pgn").eq("id", row_id);
-//                   return new_move_response;
-
-//                 } catch (error) {
-//                     console.error(error);
-//                     return {go: false, message: "error retrieving broadcasted new move"}
-//                 }
-
-//             }
-//         }
-//     )
-//         .subscribe();
-//     }
 
 export async function createNewGameTable(supabase: any, id: number) {
   const sql_query = `
