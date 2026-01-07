@@ -435,14 +435,16 @@ export default function Index() {
   const actualGame =
     fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
 
-  // Game over state is based on the actual game, not the displayed position
-  const isGameOver = actualGame.isGameOver() || timeOut !== null;
+  // Check for threefold repetition
+  const isThreeFoldRepit = checkIfRepetition(fenHistory);
+
+  // Game over state is based on ALL game-ending conditions
+  const isGameOver = actualGame.isGameOver() || timeOut !== null || resign || isThreeFoldRepit;
 
   // Display indicators are based on what's currently shown on the board
   const isCheckmate = activeGame.isCheckmate();
   const isDraw = activeGame.isDraw();
   const isCheck = activeGame.isCheck();
-  const isThreeFoldRepit = checkIfRepetition(fenHistory);
 
   // Get the actual game turn
   const actualGameTurn = actualGame.turn();
