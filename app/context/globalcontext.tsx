@@ -24,6 +24,7 @@ export default function GlobalContextProvider({
     white: "",
     black: "",
     result: "",
+    termination: "",
     whiteelo: 1500,
     blackelo: 1500,
   });

@@ -173,6 +173,7 @@ async function handleInsertStartGame(
           white: joinedData.white_id,
           black: joinedData.black_id,
           result: "",
+          termination: "",
           whiteelo: joinedData.whiteelo,
           blackelo: joinedData.blackelo,
           time_control: game_length,

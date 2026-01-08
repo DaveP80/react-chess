@@ -3,7 +3,6 @@ import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import {
-  RotateCcw,
   ChevronsLeft,
   ChevronLeft,
   ChevronRight,
@@ -19,6 +18,7 @@ import {
   parsePgnEntry,
   setFenHistoryHelper,
   timeOutGameOverReducer,
+  gameStartFinishReducer,
 } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
@@ -61,7 +61,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export default function Index() {
   const [isReplay, setIsReplay] = useState<null | number>(null);
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
-  const [resign, setResign] = useState(false);
+  const [resign, setResign] = useState<boolean | string>(false);
   const UserContext = useRouteLoaderData<typeof loader>("root");
   const [toggleUsers, setToggleUsers] = useState({
     toggle: false,
@@ -90,6 +90,7 @@ export default function Index() {
   const [activeGame, setActiveGame] = useState(new Chess());
   const [fenHistory, setFenHistory] = useState<(typeof Chess)[] | any[]>([]);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [result, setResult] = useState<Record<string,string>>({result: "", termination: ""});
   const { data: gameData } = useLoaderData<typeof loader>();
   const [game_length, timeControl] = timeControlReducer(
     gameConfig?.timeControl || ""
@@ -164,7 +165,7 @@ export default function Index() {
           const lastMoveTime = new Date(lastEntry.timestamp).getTime();
           const now = Date.now();
           const elapsedSeconds = (now - lastMoveTime) / 1000;
-
+          const resultData = [gameData.pgn_info.result, gameData.pgn_info.termination];
           // Determine whose turn it is (that player's clock has been running)
           const currentGame = new Chess(lastEntry.fen);
           const currentTurn = currentGame.turn();
@@ -179,7 +180,7 @@ export default function Index() {
               lastEntry.whiteTime - elapsedSeconds
             );
             // Check if white ran out of time while away
-            if (adjustedWhiteTime === 0 && lastEntry.whiteTime > 0) {
+            if (adjustedWhiteTime === 0 && lastEntry.whiteTime > 0 && !resultData[0]) {
               handleTimeOut("white");
             }
           } else {
@@ -188,7 +189,7 @@ export default function Index() {
               lastEntry.blackTime - elapsedSeconds
             );
             // Check if black ran out of time while away
-            if (adjustedBlackTime === 0 && lastEntry.blackTime > 0) {
+            if (adjustedBlackTime === 0 && lastEntry.blackTime > 0 && !resultData[0]) {
               handleTimeOut("black");
             }
           }
@@ -196,6 +197,29 @@ export default function Index() {
           setLoadedWhiteTime(adjustedWhiteTime);
           setLoadedBlackTime(adjustedBlackTime);
         }
+      }
+      if (gameData.pgn_info.result) {
+        setResult({result: gameData.pgn_info.result, termination: gameData.pgn_info.termination});
+        const endGameData = gameData.pgn_info;
+        setTimeOut("game over");
+        switch(endGameData.result) {
+          case "1-0": {
+            if (endGameData.termination.includes("resignation")) {
+              setResign("Black");
+            }
+          }
+          case "0-1": {
+            if (endGameData.termination.includes("resignation")) {
+              setResign("White");
+            }
+          }
+          case "1/2-1/2": {
+            if (endGameData.termination.includes("Draw")) {
+              console.log("draw")
+            }
+          }
+        }
+
       }
     }
 
@@ -217,7 +241,7 @@ export default function Index() {
             try {
               const { data, error } = await supabase
                 .from(`game_number_${gameData?.id || "0"}`)
-                .select("pgn")
+                .select("*")
                 .eq("id", gameData.id);
               if (data) {
                 const newMovePgn = data[0].pgn;
@@ -289,9 +313,39 @@ export default function Index() {
                           handleTimeOut("black");
                         }
                       }
+                      if (!data[0].pgn_info.result) {
+                                            setLoadedWhiteTime(adjustedWhiteTime);
+                                            setLoadedBlackTime(adjustedBlackTime);
+                                          } else {
+                      setLoadedWhiteTime(lastEntry.whiteTime);
+                      setLoadedBlackTime(lastEntry.blackTime);
+                      setResult({result: data[0].pgn_info.result, termination: data[0].pgn_info.termination});
 
-                      setLoadedWhiteTime(adjustedWhiteTime);
-                      setLoadedBlackTime(adjustedBlackTime);
+                    }
+                    }
+                  }
+                  else {
+                    if (data[0].pgn_info.result) {
+                      const endGameData = data[0].pgn_info;
+                      setResult({result: endGameData.result, termination: endGameData.termination });
+                      setTimeOut("game over");
+                      switch(endGameData.result) {
+                        case "1-0": {
+                          if (endGameData.termination.includes("resignation")) {
+                            setResign("Black");
+                          }
+                        }
+                        case "0-1": {
+                          if (endGameData.termination.includes("resignation")) {
+                            setResign("White");
+                          }
+                        }
+                        case "1/2-1/2": {
+                          if (endGameData.termination.includes("Draw")) {
+                            console.log("draw")
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -309,6 +363,23 @@ export default function Index() {
     };
   }, []);
 
+  useEffect(() => {
+
+  // when a user times out, persist to the database that a user lost from timeout.
+    const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign);
+    if (result && termination && !gameData.pgn_info.result) {
+      try {
+        async() => await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
+        
+      } catch (error) {
+        console.error(error);
+        
+      }
+    }
+
+  }, [timeOut])
+  
+
   async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
       const actualGame =
@@ -320,6 +391,8 @@ export default function Index() {
         !checkIfRepetition(fenHistory) &&
         processIncomingPgn(actualTurn, toggleUsers.orientation) &&
         timeOut === null
+        &&
+        !result.result
       ) {
         const gameCopy = new Chess(activeGame.fen());
         const move = gameCopy.move({
@@ -350,6 +423,16 @@ export default function Index() {
             currentTimes?.whiteTime,
             currentTimes?.blackTime
           );
+          const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign);
+          if (result && termination && !gameData.pgn_info.result) {
+            try {
+              async() => await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
+              
+            } catch (error) {
+              console.error(error);
+              
+            }
+          }
           return true;
         } else {
           return false;
@@ -363,7 +446,7 @@ export default function Index() {
   function handleTimeOut(player: "white" | "black" | "game over") {
     setTimeOut(player);
   }
-  function resignGame() {
+  async function resignGame() {
     // Check the actual game state, not the displayed position
     const actualGame =
       fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
@@ -375,7 +458,18 @@ export default function Index() {
       return null;
     }
     if (!resign && moveHistory.length > 0) {
-      setResign(true);
+      const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, gameConfig.colorPreference);
+      console.log(result, termination)
+      if (result && termination && !gameData.pgn_info.result) {
+        try {
+          await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
+          
+        } catch (error) {
+          console.error(error);
+          
+        }
+      }
+      setResign(gameConfig.colorPreference);
     }
   }
 
@@ -435,14 +529,16 @@ export default function Index() {
   const actualGame =
     fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
 
-  // Game over state is based on the actual game, not the displayed position
-  const isGameOver = actualGame.isGameOver() || timeOut !== null;
+  // Check for threefold repetition
+  const isThreeFoldRepit = checkIfRepetition(fenHistory);
+
+  // Game over state is based on ALL game-ending conditions
+  const isGameOver = actualGame.isGameOver() || timeOut !== null || resign || isThreeFoldRepit || result.result;
 
   // Display indicators are based on what's currently shown on the board
   const isCheckmate = activeGame.isCheckmate();
   const isDraw = activeGame.isDraw();
   const isCheck = activeGame.isCheck();
-  const isThreeFoldRepit = checkIfRepetition(fenHistory);
 
   // Get the actual game turn
   const actualGameTurn = actualGame.turn();
@@ -531,6 +627,7 @@ export default function Index() {
                   currentTurn={actualGameTurn}
                   isGameOver={isGameOver}
                   onTimeOut={handleTimeOut}
+                  hasResult={result.result}
                   moveCount={moveHistory.length}
                   loadedWhiteTime={loadedWhiteTime}
                   loadedBlackTime={loadedBlackTime}
@@ -602,7 +699,7 @@ export default function Index() {
                     </button>
                   </div>
                 </div>
-                {(isGameOver || isThreeFoldRepit || resign) && (
+                {(isGameOver || isThreeFoldRepit || resign || isDraw) && (
                   <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
                     <p className="font-bold text-lg mb-2">Game Over!</p>
                     <p className="text-slate-300">
@@ -614,13 +711,12 @@ export default function Index() {
                         } wins!`}
                       {isThreeFoldRepit && `Draw!! Three Fold Repitition.`}
 
-                      {actualGameTurn === "w" && resign && "White Resigns!"}
-                      {actualGameTurn === "b" && resign && "Black Resigns!"}
-                      {isGameOver && !isCheckmate && "The game is a draw."}
+                      {resign && `${resign} Resigns!`}
+                      {isDraw && "The game is a draw."}
                     </p>
                   </div>
                 )}
-                {timeOutGameOverReducer(timeOut) !== null && (
+                {timeOutGameOverReducer(timeOut) == "Black" || timeOutGameOverReducer(timeOut) == "White" && (
                   <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
                     <p className="font-bold text-lg mb-2">Game Over!</p>
                     <p className="text-slate-300">
@@ -628,6 +724,7 @@ export default function Index() {
                     </p>
                   </div>
                 )}
+                {result.result}
               </div>
             </div>
           </div>
