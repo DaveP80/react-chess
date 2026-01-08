@@ -364,19 +364,19 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-
-  // when a user times out, persist to the database that a user lost from timeout.
-    const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign);
-    if (result && termination && !gameData.pgn_info.result) {
-      try {
-        async() => await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
-        
-      } catch (error) {
-        console.error(error);
-        
+    // when a user times out, persist to the database that a user lost from timeout.
+    const updateGameResult = async () => {
+      const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign);
+      if (result && termination && !gameData.pgn_info.result) {
+        try {
+          await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
+        } catch (error) {
+          console.error(error);
+        }
       }
-    }
+    };
 
+    updateGameResult();
   }, [timeOut])
   
 
@@ -426,11 +426,9 @@ export default function Index() {
           const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign);
           if (result && termination && !gameData.pgn_info.result) {
             try {
-              async() => await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
-              
+              await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
             } catch (error) {
               console.error(error);
-              
             }
           }
           return true;
