@@ -231,7 +231,7 @@ export async function lookup_userdata_on_gameid(
   id: number,
   userData: Record<any, any> | null
 ) {
-  const sql_query = `select gm.id::INTEGER, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u."avatarURL" as 
+  const sql_query = `select gm.id::INTEGER, gm.pgn_info, gm.pgn, gm.draw_offer, u.username as white_username, u_t.username as black_username, u."avatarURL" as 
     white_avatar, u_t."avatarURL" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_number_${id} gm left join users u on 
     gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text`;
   try {

@@ -34,8 +34,6 @@ export default function Index() {
       console.error(error);
     } finally {
       localStorage.removeItem("auth");
-      localStorage.removeItem("pairing_info");
-      localStorage.removeItem("pgnInfo");
 
       navigate("/login");
     }
