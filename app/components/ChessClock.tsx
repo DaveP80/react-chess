@@ -6,10 +6,11 @@ interface ChessClockProps {
   increment: number; // in seconds
   currentTurn: "w" | "b"; // The actual game turn, not the displayed position
   isGameOver: boolean;
-  onTimeOut: (player: "white" | "black") => void;
+  hasResult: string;
+  onTimeOut: (player: "white" | "black" | "game over") => void;
   moveCount: number; // The actual number of moves made in the game
   isThreeFoldRepit: boolean;
-  isResign: boolean;
+  isResign: boolean | string;
   loadedWhiteTime?: number; // Time to load from database
   loadedBlackTime?: number; // Time to load from database
 }
@@ -24,6 +25,7 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
   currentTurn,
   isGameOver,
   onTimeOut,
+  hasResult,
   moveCount,
   loadedWhiteTime,
   loadedBlackTime,
@@ -79,12 +81,12 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
 
   // Start clock on first move, pause only on game over
   useEffect(() => {
-    if (isGameOver || isThreeFoldRepit || isResign) {
+    if (isGameOver || isThreeFoldRepit || isResign || hasResult) {
       setIsActive(false);
     } else if (moveCount > 0) {
       setIsActive(true);
     }
-  }, [moveCount, isGameOver, isThreeFoldRepit]);
+  }, [moveCount, isGameOver, isThreeFoldRepit, hasResult, isResign]);
 
   // Handle increment when turn changes
   useEffect(() => {
@@ -113,7 +115,7 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
     intervalRef.current = setInterval(() => {
       if (currentTurn === "w") {
         setWhiteTime((prev) => {
-          if (isGameOver || isThreeFoldRepit || isResign) {
+          if (isGameOver || isThreeFoldRepit || isResign || hasResult) {
             setIsActive(false);
             onTimeOut("game over");
             return 0;
@@ -127,7 +129,7 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
         });
       } else {
         setBlackTime((prev) => {
-          if (isGameOver || isThreeFoldRepit || isResign) {
+          if (isGameOver || isThreeFoldRepit || isResign || hasResult) {
             setIsActive(false);
             onTimeOut("game over");
             return 0;

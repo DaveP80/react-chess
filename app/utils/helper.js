@@ -1,6 +1,5 @@
 export function checkIfRepetition(positions) {
   const counts = new Map();
-  console.log(positions);
 
   for (const pos of positions) {
     let ss = pos.fen().indexOf("-");
@@ -164,6 +163,101 @@ export function timeOutGameOverReducer(args) {
     default: return null;
     
   }
+}
+
+export function gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign) {
+  const actualGame =
+  fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : null;
+  if (!actualGame) return [null, null];
+
+// Check for threefold repetition
+const isThreeFoldRepit = checkIfRepetition(fenHistory);
+
+// Game over state is based on ALL game-ending conditions
+const isGameOver = actualGame.isGameOver() || timeOut !== null || resign || isThreeFoldRepit;
+
+// Display indicators are based on what's currently shown on the board
+const isCheckmate = activeGame.isCheckmate();
+const isDraw = activeGame.isDraw();
+const actualGameTurn = actualGame.turn();
+let result = "1/2-1/2";
+let termination = "";
+switch(actualGameTurn) {
+  case "w": {
+    if (isCheckmate) {
+      result = "0-1";
+      termination = `${gameData.black_username} won by checkmate`
+    } else if (isThreeFoldRepit || isDraw) {
+      result = "1/2-1/2";
+      if (isThreeFoldRepit) {
+        termination = "Three Fold repetition."
+      } else {
+        termination = "Draw insufficient mating material."
+      }
+    } else if (timeOut == "white" || timeOut == "black") {
+      if (timeOut == "white") {
+        result = "0-1";
+        termination = `${gameData.black_username} won on time`
+      };
+      if (timeOut == "black") {
+        result = "1-0";
+        termination = `${gameData.white_username} won on time`
+      };
+    } else if (resign) {
+      if (resign == "white") {
+        result = "0-1";
+        termination = `${gameData.black_username} won by resignation`;
+      } else if (resign == "black") {
+        result = "1-0";
+        termination = `${gameData.white_username} won by resignation`;
+      }
+    }
+    else {
+      result = null;
+      termination = null;
+    }
+    break;
+
+  }
+  case "b": {
+    if (isCheckmate) {
+      result = "1-0";
+      termination = `${gameData.white_username} won by checkmate`
+    } else if (isThreeFoldRepit || isDraw) {
+      result = "1/2-1/2";
+      if (isThreeFoldRepit) {
+        termination = "Three Fold repetition; Draw."
+      } else {
+        termination = "Draw insufficient mating material."
+      }
+    } else if (timeOut == "white" || timeOut == "black") {
+      if (timeOut == "white") {
+        result = "0-1";
+        termination = `${gameData.black_username} won on time`
+      };
+      if (timeOut == "black") {
+        result = "1-0";
+        termination = `${gameData.white_username} won on time`
+      };
+    } else if (resign) {
+      if (resign == "white") {
+        result = "0-1";
+        termination = `${gameData.black_username} won by resignation`;
+      } else {
+        result = "1-0";
+        termination = `${gameData.white_username} won by resignation`;
+      }
+    } else {
+      result = null;
+      termination = null;
+    }
+    break;
+
+  }
+  default: {result = null; termination = null;}
+}
+return [result, termination];
+
 }
 
 export const SUPABASE_CONFIG = [String(import.meta.env.VITE_SUPABASE_URL), String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY), {isSingleton: false}];
