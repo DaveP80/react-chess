@@ -24,7 +24,7 @@ import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
-import { cancelDrawOffer, inserNewMoves } from "~/utils/supabase.gameplay";
+import { inserNewMoves } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
 import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
 import OfferDraw from "~/components/OfferDraw";
@@ -372,7 +372,9 @@ export default function Index() {
                       result: endGameData.result,
                       termination: endGameData.termination,
                     });
-                    setTimeOut("game over");
+                    if (!endGameData.termination.includes("time")) {
+                      setTimeOut("game over");
+                    };
                     switch (endGameData.result) {
                       case "1-0": {
                         if (endGameData.termination.includes("resignation")) {
@@ -434,7 +436,7 @@ export default function Index() {
         gameData,
         resign
       );
-      if (result && termination && (timeOut == "white" || timeOut == "black") && !gameData.pgn_info.result) {
+      if (result && termination && (timeOut == "white" || timeOut == "black") && !gameData.pgn_info.result && processIncomingPgn(activeGame.turn(), toggleUsers.orientation)) {
         try {
           await supabase
             .from(`game_number_${gameData.id}`)
@@ -604,14 +606,12 @@ export default function Index() {
   };
 
   // Get the actual game state (from the real current position, not the displayed position during replay)
-  const actualGame =
-    fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
 
   // Check for threefold repetition
   const isThreeFoldRepit = checkIfRepetition(fenHistory);
   // Game over state is based on ALL game-ending conditions
   const isGameOver =
-    actualGame.isGameOver() ||
+    activeGame.isGameOver() ||
     timeOut !== null ||
     resign ||
     isThreeFoldRepit ||
@@ -625,7 +625,7 @@ export default function Index() {
   const isFiftyMove = activeGame.isDrawByFiftyMoves();
   const isInsufficient = activeGame.isInsufficientMaterial();
 
-  const actualGameTurn = actualGame.turn();
+  const actualGameTurn = activeGame.turn();
   const drawAgreement =
     result?.termination && result.termination.includes("Agreement")
       ? true
@@ -823,16 +823,14 @@ export default function Index() {
                     <p className="text-slate-300">Draw By Aggrement.</p>
                   </div>
                 )}
-                {timeOutGameOverReducer(timeOut) == "Black" ||
-                  (timeOutGameOverReducer(timeOut) == "White" && (
+                {(timeOutGameOverReducer(timeOut) == "Black" || timeOutGameOverReducer(timeOut) == "White") && (
                     <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
                       <p className="text-slate-300">
                         {timeOut === "white" ? "Black" : "White"} wins on time!
                       </p>
                     </div>
-                  ))}
+                  )}
                 {result.result}
-                "foobar"
               </div>
             </div>
           </div>

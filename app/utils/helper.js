@@ -153,19 +153,24 @@ export function setFenHistoryHelper(
 }
 
 export function timeOutGameOverReducer(args) {
+  let r = null;
   switch (args) {
     case "white": {
-      return "Black";
+      r = "Black";
+      break;
     }
     case "black": {
-      return "White";
+      r = "White";
+      break;
     }
     case "game over": {
-      return null;
+      r = null;
+      break;
     }
     default:
-      return null;
+      "pass";
   }
+  return r;
 }
 
 export function gameStartFinishReducer(
