@@ -5,7 +5,6 @@ import { processIncomingPgn } from "~/utils/helper";
 export default function OfferDraw({ context }) {
   const {
     draw,
-    setDraw,
     gameData,
     UserContext,
     moveHistory,

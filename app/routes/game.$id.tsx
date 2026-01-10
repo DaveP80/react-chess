@@ -482,15 +482,6 @@ export default function Index() {
           setMoveHistory(mhc);
           setFenHistory(fhb);
           setCurrentMoveIndex(moveHistory.length - 1);
-          await inserNewMoves(
-            supabase,
-            gameCopy.fen(),
-            move.san,
-            gameData.id,
-            fenHistory,
-            currentTimes?.whiteTime,
-            currentTimes?.blackTime
-          );
           const [result, termination] = gameStartFinishReducer(
             fenHistory,
             activeGame,
@@ -498,21 +489,33 @@ export default function Index() {
             gameData,
             resign
           );
-          if (draw) {
-            cancelDrawOffer(supabase, gameData, setDraw);
-          }
-          if (result && termination && !gameData.pgn_info.result) {
-            try {
-              await supabase
-                .from(`game_number_${gameData.id}`)
-                .update({
-                  pgn_info: { ...gameData.pgn_info, result, termination },
-                })
-                .eq("id", gameData.id);
-            } catch (error) {
-              console.error(error);
-            }
-          }
+          await inserNewMoves(
+            supabase,
+            gameCopy.fen(),
+            move.san,
+            gameData.id,
+            draw,
+            result,
+            termination,
+            gameData,
+            currentTimes?.whiteTime,
+            currentTimes?.blackTime
+          );
+          // if (draw) {
+          //   cancelDrawOffer(supabase, gameData, setDraw);
+          // }
+          // if (result && termination && !gameData.pgn_info.result) {
+          //   try {
+          //     await supabase
+          //       .from(`game_number_${gameData.id}`)
+          //       .update({
+          //         pgn_info: { ...gameData.pgn_info, result, termination },
+          //       })
+          //       .eq("id", gameData.id);
+          //   } catch (error) {
+          //     console.error(error);
+          //   }
+          // }
           return true;
         } else {
           return false;
@@ -685,7 +688,6 @@ export default function Index() {
                     <OfferDraw
                       context={{
                         draw,
-                        setDraw,
                         gameData,
                         UserContext,
                         moveHistory,

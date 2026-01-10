@@ -3,7 +3,10 @@ export async function inserNewMoves(
   fen: string,
   move: string,
   id: number,
-  fenHistory: any[],
+  draw: string,
+  result: string | null,
+  termination: string | null,
+  gameData: Record<string, any>,
   whiteTime?: number,
   blackTime?: number,
 ) {
@@ -13,7 +16,12 @@ export async function inserNewMoves(
     ? `$${whiteTime}$${blackTime}`
     : null;
   const new_move = `${fen}$${move}$${move_timestamp}${timeData}`;
-  const sql_query = `UPDATE game_number_${id} SET pgn = array_append(pgn, '${new_move}') WHERE id = ${id}`;
+  const drawConcat = draw ? ", draw_offer = NULL" : "";
+  let pgn_infoConcat = "";
+  if (result && termination && !gameData.pgn_info.result) {
+    pgn_infoConcat = `, pgn_info = ${JSON.stringify({...gameData.pgn_info, result, termination})}`
+  } 
+  const sql_query = `UPDATE game_number_${id} SET pgn = array_append(pgn, '${new_move}')${drawConcat}${pgn_infoConcat} WHERE id = ${id}`;
   try {
       const { data, error } = await supabase.rpc(`execute_sql`, { sql_query });
   } catch (error) {
