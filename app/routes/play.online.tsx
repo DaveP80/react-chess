@@ -255,7 +255,7 @@ export default function Index() {
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 readOnly={true}
                 onChange={() => {
-                  if (PlayContext?.rowData?.isActive) {
+                  if (!PlayContext?.rowData?.isActive) {
                     localStorage.setItem(
                       "pairing_info",
                       JSON.stringify({

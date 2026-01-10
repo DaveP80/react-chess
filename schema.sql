@@ -56,7 +56,7 @@ returns table (
 language sql
 security definer
 as $$
-INSERT INTO games (turn, status, whiteelo, blackelo, timecontrol, white_id, black_id) values ('white', 'pairing',
+INSERT INTO games (turn, status, whiteelo, blackelo, timecontrol, white_id, black_id) values (color_flag, 'pairing',
 case when color_flag = 'white' then (SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id limit 1) else null end, case when color_flag = 'black' then (SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id limit 1) else null end, game_length, 
 case when color_flag = 'white' then u_id else null end, case when color_flag = 'black' then u_id else null end) returning *;
 $$;
@@ -105,7 +105,7 @@ as $$
 select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u."avatarURL" as white_avatar, u_t."avatarURL" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_moves gm left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text where id = game_id_f;
 $$;
 
-create or replace function lookup_userdata_on_active_status(user_id int)
+create or replace function lookup_userdata_on_active_status(user_id text)
 returns table (
   id int,
   pgn_info jsonb,
@@ -147,6 +147,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.execute_sql_lookup_userdata_on_gameid(sql_query text)
 RETURNS TABLE (
   id int,
+  game_id int,
   pgn_info jsonb,
   pgn text[],
   draw_offer text,
@@ -155,7 +156,9 @@ RETURNS TABLE (
   white_avatar text,
   black_avatar text,
   white_rating jsonb,
-  black_rating jsonb
+  black_rating jsonb,
+  white_count bigint,
+  black_count bigint
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -163,4 +166,35 @@ AS $$
 BEGIN
   RETURN QUERY EXECUTE sql_query;
 END;
+$$;
+
+SELECT n.nspname AS schema,
+       p.proname  AS function,
+       pg_get_function_identity_arguments(p.oid) AS args,
+       pg_get_function_result(p.oid) AS return_type,
+       pg_get_functiondef(p.oid) AS definition
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname = 'purge_old_game_rows';
+
+create or replace function lookup_games_played_by_userid(user_id text)
+returns table (
+  id int,
+  created_at text,
+  status text,
+  whiteelo int,
+  blackelo int,
+  timecontrol text,
+  white_id uuid,
+  black_id uuid,
+  white_username text,
+  black_username text,
+  game_id int,
+  pgn_info jsonb,
+  pgn text[]
+)
+language sql
+security definer
+as $$
+select gm.id, gm.created_at, status, whiteelo, blackelo, timecontrol, white_id, black_id, u.username as white_username, ut.username as black_username, game_id, pgn_info, pgn from games g join game_moves gm on g.id = gm.game_id join users u on u.u_id = g.white_id join users ut on ut.u_id = g.black_id where white_id = user_id::uuid or black_id = user_id::uuid;
 $$;

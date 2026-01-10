@@ -5,7 +5,6 @@ import {
   useNavigation,
   useRouteLoaderData,
 } from "@remix-run/react";
-import { GlobalContext } from "~/context/globalcontext";
 import SignInButtons from "~/components/SignInButtons";
 import { ActionFunctionArgs, LoaderFunction, redirect } from "@remix-run/node";
 import { createSupabaseServerClient } from "~/utils/supabase.server";

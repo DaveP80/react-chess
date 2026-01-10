@@ -19,15 +19,20 @@ import {
   setFenHistoryHelper,
   timeOutGameOverReducer,
   gameStartFinishReducer,
+  EloEstimate,
 } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
-import { inserNewMoves } from "~/utils/supabase.gameplay";
+import {
+  inserNewMoves,
+  updateTablesOnGameOver,
+} from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
 import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
 import OfferDraw from "~/components/OfferDraw";
+import RatingInfo from "~/components/RatingInfo";
 
 export const meta: MetaFunction = () => {
   return [
@@ -96,6 +101,7 @@ export default function Index() {
     result: "",
     termination: "",
   });
+  const [finalGameData, setFinalGameData] = useState({});
   const { data: gameData } = useLoaderData<typeof loader>();
   const [game_length, timeControl] = timeControlReducer(
     gameConfig?.timeControl || ""
@@ -240,7 +246,7 @@ export default function Index() {
           }
           case "1/2-1/2": {
             if (endGameData.termination.includes("Draw")) {
-              setDraw("")
+              setDraw("");
             }
             break;
           }
@@ -252,10 +258,14 @@ export default function Index() {
       if (gameData.draw_offer) {
         const drawAgreement = gameData.draw_offer
           ? gameData.draw_offer.split("$")
-          : null;
-        if (drawAgreement?.length == 1) {
+          : [];
+        if (drawAgreement.length == 1) {
           setDraw(gameData.draw_offer);
+        } else if (drawAgreement.length == 2) {
+          setDraw("");
         }
+      } else if (!gameData.draw_offer) {
+        setDraw("");
       }
     }
 
@@ -355,10 +365,6 @@ export default function Index() {
                       } else {
                         setLoadedWhiteTime(lastEntry.whiteTime);
                         setLoadedBlackTime(lastEntry.blackTime);
-                        setResult({
-                          result: data[0].pgn_info.result,
-                          termination: data[0].pgn_info.termination,
-                        });
                       }
                     }
                   }
@@ -368,7 +374,10 @@ export default function Index() {
                       result: endGameData.result,
                       termination: endGameData.termination,
                     });
-                    setTimeOut("game over");
+                    setFinalGameData(data[0]);
+                    if (!endGameData.termination.includes("time")) {
+                      setTimeOut("game over");
+                    }
                     switch (endGameData.result) {
                       case "1-0": {
                         if (endGameData.termination.includes("resignation")) {
@@ -388,7 +397,9 @@ export default function Index() {
                         }
                         break;
                       }
-                      default: {"default case"}
+                      default: {
+                        ("default case");
+                      }
                     }
                   }
                   if (data[0].draw_offer) {
@@ -397,7 +408,11 @@ export default function Index() {
                       : [];
                     if (drawAgreement.length == 1) {
                       setDraw(data[0].draw_offer);
+                    } else if (drawAgreement.length == 2) {
+                      setDraw("");
                     }
+                  } else if (!data[0].draw_offer) {
+                    setDraw("");
                   }
                 }
               }
@@ -424,7 +439,13 @@ export default function Index() {
         gameData,
         resign
       );
-      if (result && termination && !gameData.pgn_info.result) {
+      if (
+        result &&
+        termination &&
+        (timeOut == "white" || timeOut == "black") &&
+        !gameData.pgn_info.result &&
+        processIncomingPgn(activeGame.turn(), toggleUsers.orientation)
+      ) {
         try {
           await supabase
             .from(`game_number_${gameData.id}`)
@@ -438,6 +459,53 @@ export default function Index() {
 
     updateGameResult();
   }, [timeOut]);
+
+  useEffect(() => {
+    if (result?.result) {
+      try {
+        let winner_insert;
+        switch (result.result) {
+          case "1-0": {
+            winner_insert = "white";
+            break;
+          }
+          case "0-1": {
+            winner_insert = "black";
+            break;
+          }
+          case "1/2-1/2": {
+            winner_insert = "draw";
+            break;
+          }
+        }
+        const [player_w, player_b] = EloEstimate({
+          white_elo: gameData.pgn_info.whiteelo,
+          black_elo: gameData.pgn_info.blackelo,
+          winner: winner_insert,
+          game_counts: [gameData.white_count, gameData.black_count],
+        });
+        if ((processIncomingPgn(activeGame.turn(), toggleUsers.orientation) && timeOut !== "white" && timeOut !== "black") || (!processIncomingPgn(activeGame.turn(), toggleUsers.orientation) && (timeOut == "white" || timeOut == "black"))) {
+          updateTablesOnGameOver(
+            supabase,
+            gameData.game_id,
+            {
+              ...finalGameData?.pgn_info,
+              whiteelo: player_w,
+              blackelo: player_b,
+            },
+            finalGameData?.pgn,
+            gameData.pgn_info.white,
+            gameData.pgn_info.black,
+            player_w,
+            player_b,
+            gameConfig.timeControl,
+            gameData.id
+          );
+
+        }
+      } catch (error) {}
+    }
+  }, [result, finalGameData]);
 
   async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
@@ -472,34 +540,26 @@ export default function Index() {
           setMoveHistory(mhc);
           setFenHistory(fhb);
           setCurrentMoveIndex(moveHistory.length - 1);
+          const [result, termination] = gameStartFinishReducer(
+            fhb,
+            gameCopy,
+            timeOut,
+            gameData,
+            resign
+          );
           await inserNewMoves(
             supabase,
             gameCopy.fen(),
             move.san,
             gameData.id,
-            fenHistory,
+            draw,
+            result,
+            termination,
+            gameData,
             currentTimes?.whiteTime,
             currentTimes?.blackTime
           );
-          const [result, termination] = gameStartFinishReducer(
-            fenHistory,
-            activeGame,
-            timeOut,
-            gameData,
-            resign
-          );
-          if (result && termination && !gameData.pgn_info.result) {
-            try {
-              await supabase
-                .from(`game_number_${gameData.id}`)
-                .update({
-                  pgn_info: { ...gameData.pgn_info, result, termination },
-                })
-                .eq("id", gameData.id);
-            } catch (error) {
-              console.error(error);
-            }
-          }
+
           return true;
         } else {
           return false;
@@ -515,13 +575,12 @@ export default function Index() {
   }
   async function resignGame() {
     // Check the actual game state, not the displayed position
-    const actualGame =
-      fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
-
-    if (actualGame.isGameOver()) {
-      return null;
-    }
-    if (checkIfRepetition(fenHistory)) {
+    const isGameOver =
+      activeGame.isGameOver() ||
+      timeOut !== null ||
+      isThreeFoldRepit ||
+      result.result;
+    if (isGameOver) {
       return null;
     }
     if (moveHistory.length < 1) {
@@ -602,14 +661,12 @@ export default function Index() {
   };
 
   // Get the actual game state (from the real current position, not the displayed position during replay)
-  const actualGame =
-    fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
 
   // Check for threefold repetition
   const isThreeFoldRepit = checkIfRepetition(fenHistory);
   // Game over state is based on ALL game-ending conditions
   const isGameOver =
-    actualGame.isGameOver() ||
+    activeGame.isGameOver() ||
     timeOut !== null ||
     resign ||
     isThreeFoldRepit ||
@@ -622,9 +679,12 @@ export default function Index() {
   const isStalemate = activeGame.isStalemate();
   const isFiftyMove = activeGame.isDrawByFiftyMoves();
   const isInsufficient = activeGame.isInsufficientMaterial();
-  
-  const actualGameTurn = actualGame.turn();
-  const drawAgreement = result?.termination && result.termination.includes("Agreement") ? true : false;
+
+  const actualGameTurn = activeGame.turn();
+  const drawAgreement =
+    result?.termination && result.termination.includes("Agreement")
+      ? true
+      : false;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="container mx-auto px-4 py-8">
@@ -665,11 +725,10 @@ export default function Index() {
                     <FlagIcon size={20} />
                     Resign
                   </button>
-                  {!result.result && (
+                  {!isGameOver && (
                     <OfferDraw
                       context={{
                         draw,
-                        setDraw,
                         gameData,
                         UserContext,
                         moveHistory,
@@ -712,9 +771,10 @@ export default function Index() {
 
             <div className="lg:col-span-1">
               <div className="bg-white rounded-2xl shadow-2xl p-6">
-                <h2 className="text-2xl font-bold text-slate-800 mb-4">
+                <h2 className="text-2xl font-bold text-slate-800 mb-1">
                   Game Info
                 </h2>
+                <RatingInfo gameData={gameData} winner={result?.result || ""} />
 
                 {/* Chess Clock */}
                 <ChessClock
@@ -731,7 +791,7 @@ export default function Index() {
                   isResign={resign}
                 />
 
-                <h3 className="text-xl font-bold text-slate-800 mb-4 mt-6">
+                <h3 className="text-xl font-bold text-slate-800 mb-3 mt-3">
                   Move History
                 </h3>
                 <div className="bg-slate-50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
@@ -819,14 +879,14 @@ export default function Index() {
                     <p className="text-slate-300">Draw By Aggrement.</p>
                   </div>
                 )}
-                {timeOutGameOverReducer(timeOut) == "Black" ||
-                  (timeOutGameOverReducer(timeOut) == "White" && (
-                    <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
-                      <p className="text-slate-300">
-                        {timeOut === "white" ? "Black" : "White"} wins on time!
-                      </p>
-                    </div>
-                  ))}
+                {(timeOutGameOverReducer(timeOut) == "Black" ||
+                  timeOutGameOverReducer(timeOut) == "White") && (
+                  <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
+                    <p className="text-slate-300">
+                      {timeOut === "white" ? "Black" : "White"} wins on time!
+                    </p>
+                  </div>
+                )}
                 {result.result}
               </div>
             </div>
