@@ -439,6 +439,29 @@ export default function Index() {
     updateGameResult();
   }, [timeOut]);
 
+  useEffect(() => {
+    if (draw) {
+      async function cancelDrawOffer() {
+        try {
+          await supabase
+            .from(`game_number_${gameData.id}`)
+            .update({ draw_offer: null })
+            .eq("id", gameData.id);
+            setDraw("");
+          //close draw flow
+        } catch (error) {
+          console.error(error);
+        }
+      }
+      cancelDrawOffer();
+    }
+  
+    return () => {
+      true;
+    }
+  }, [moveHistory])
+  
+
   async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
       const actualGame =
@@ -665,7 +688,7 @@ export default function Index() {
                     <FlagIcon size={20} />
                     Resign
                   </button>
-                  {!result.result && (
+                  {!isGameOver && (
                     <OfferDraw
                       context={{
                         draw,
