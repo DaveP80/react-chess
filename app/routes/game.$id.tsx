@@ -483,7 +483,7 @@ export default function Index() {
           setFenHistory(fhb);
           setCurrentMoveIndex(moveHistory.length - 1);
           const [result, termination] = gameStartFinishReducer(
-            fenHistory,
+            fhb,
             activeGame,
             timeOut,
             gameData,
