@@ -8,22 +8,30 @@ export async function inserNewMoves(
   termination: string | null,
   gameData: Record<string, any>,
   whiteTime?: number,
-  blackTime?: number,
+  blackTime?: number
 ) {
   const move_timestamp = new Date().toISOString();
   // Include time remaining if provided (format: fen$move$timestamp$whiteTime$blackTime)
-  const timeData = whiteTime !== undefined && blackTime !== undefined
-    ? `$${whiteTime}$${blackTime}`
-    : null;
+  const timeData =
+    whiteTime !== undefined && blackTime !== undefined
+      ? `$${whiteTime}$${blackTime}`
+      : null;
   const new_move = `${fen}$${move}$${move_timestamp}${timeData}`;
   const drawConcat = draw ? ", draw_offer = NULL" : "";
   let pgn_infoConcat = "";
   if (result && termination && !gameData.pgn_info.result) {
-    pgn_infoConcat = `, pgn_info = ${JSON.stringify({...gameData.pgn_info, result, termination})}`
-  } 
+    // Convert to JSON string and escape single quotes for PostgreSQL
+    const jsonString = JSON.stringify({
+      ...gameData.pgn_info,
+      result,
+      termination,
+    });
+    const escapedJson = jsonString.replace(/'/g, "''");
+    pgn_infoConcat = `, pgn_info = '${escapedJson}'::jsonb`;
+  }
   const sql_query = `UPDATE game_number_${id} SET pgn = array_append(pgn, '${new_move}')${drawConcat}${pgn_infoConcat} WHERE id = ${id}`;
   try {
-      const { data, error } = await supabase.rpc(`execute_sql`, { sql_query });
+    const { data, error } = await supabase.rpc(`execute_sql`, { sql_query });
   } catch (error) {
     return console.error(error);
   }
@@ -68,8 +76,6 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.game_number_${id};
   }
 }
 
-
-
 export async function lookup_userdata_on_active_status(
   supabase: any,
   id: number,
@@ -90,14 +96,17 @@ u_t.u_id::text where u."isActive" = true and u_t."isActive" = true ) z on cte.id
   }
 }
 
-export async function cancelDrawOffer(supabase: any, gameData: Record<string,number>, setDraw: (x: string) => void) 
-{
+export async function cancelDrawOffer(
+  supabase: any,
+  gameData: Record<string, number>,
+  setDraw: (x: string) => void
+) {
   try {
     await supabase
       .from(`game_number_${gameData.id}`)
       .update({ draw_offer: null })
       .eq("id", gameData.id);
-      setDraw("");
+    setDraw("");
     //close draw flow
   } catch (error) {
     console.error(error);
