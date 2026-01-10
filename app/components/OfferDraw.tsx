@@ -59,7 +59,6 @@ export default function OfferDraw({ context }) {
         .from(`game_number_${gameData.id}`)
         .update({ draw_offer: null })
         .eq("id", gameData.id);
-        setDraw("");
       //close draw flow
     } catch (error) {
       console.error(error);
@@ -68,8 +67,7 @@ export default function OfferDraw({ context }) {
 
   return (
     <>
-      {!gameData.draw_offer &&
-        moveHistory.length > 0 &&
+      { moveHistory.length > 0 &&
         processIncomingPgn(actualTurn, orientation) && (
           <button
             onClick={offerDraw}

@@ -252,9 +252,11 @@ export default function Index() {
       if (gameData.draw_offer) {
         const drawAgreement = gameData.draw_offer
           ? gameData.draw_offer.split("$")
-          : null;
-        if (drawAgreement?.length == 1) {
+          : [];
+        if (drawAgreement.length == 1) {
           setDraw(gameData.draw_offer);
+        } else if (drawAgreement.length == 2) {
+          setDraw("");
         }
       } else if (!gameData.draw_offer && draw) {
         setDraw("");
@@ -401,6 +403,8 @@ export default function Index() {
                       : [];
                     if (drawAgreement.length == 1) {
                       setDraw(data[0].draw_offer);
+                    } else if (drawAgreement.length == 2) {
+                      setDraw("");
                     }
                   } else if (!data[0].draw_offer && draw) {
                     setDraw("");
