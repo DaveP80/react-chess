@@ -81,3 +81,17 @@ u_t.u_id::text where u."isActive" = true and u_t."isActive" = true ) z on cte.id
     return false;
   }
 }
+
+export async function cancelDrawOffer(supabase: any, gameData: Record<string,number>, setDraw: (x: string) => void) 
+{
+  try {
+    await supabase
+      .from(`game_number_${gameData.id}`)
+      .update({ draw_offer: null })
+      .eq("id", gameData.id);
+      setDraw("");
+    //close draw flow
+  } catch (error) {
+    console.error(error);
+  }
+}

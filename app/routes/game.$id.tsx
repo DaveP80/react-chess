@@ -24,7 +24,7 @@ import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
-import { inserNewMoves } from "~/utils/supabase.gameplay";
+import { cancelDrawOffer, inserNewMoves } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
 import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
 import OfferDraw from "~/components/OfferDraw";
@@ -240,7 +240,7 @@ export default function Index() {
           }
           case "1/2-1/2": {
             if (endGameData.termination.includes("Draw")) {
-              setDraw("")
+              setDraw("");
             }
             break;
           }
@@ -388,7 +388,9 @@ export default function Index() {
                         }
                         break;
                       }
-                      default: {"default case"}
+                      default: {
+                        ("default case");
+                      }
                     }
                   }
                   if (data[0].draw_offer) {
@@ -439,29 +441,6 @@ export default function Index() {
     updateGameResult();
   }, [timeOut]);
 
-  useEffect(() => {
-    if (draw) {
-      async function cancelDrawOffer() {
-        try {
-          await supabase
-            .from(`game_number_${gameData.id}`)
-            .update({ draw_offer: null })
-            .eq("id", gameData.id);
-            setDraw("");
-          //close draw flow
-        } catch (error) {
-          console.error(error);
-        }
-      }
-      cancelDrawOffer();
-    }
-  
-    return () => {
-      true;
-    }
-  }, [moveHistory])
-  
-
   async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
       const actualGame =
@@ -511,6 +490,9 @@ export default function Index() {
             gameData,
             resign
           );
+          if (draw) {
+            cancelDrawOffer(supabase, gameData, setDraw);
+          }
           if (result && termination && !gameData.pgn_info.result) {
             try {
               await supabase
@@ -645,9 +627,12 @@ export default function Index() {
   const isStalemate = activeGame.isStalemate();
   const isFiftyMove = activeGame.isDrawByFiftyMoves();
   const isInsufficient = activeGame.isInsufficientMaterial();
-  
+
   const actualGameTurn = actualGame.turn();
-  const drawAgreement = result?.termination && result.termination.includes("Agreement") ? true : false;
+  const drawAgreement =
+    result?.termination && result.termination.includes("Agreement")
+      ? true
+      : false;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="container mx-auto px-4 py-8">
