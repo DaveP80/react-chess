@@ -489,6 +489,7 @@ export default function Index() {
             gameData,
             resign
           );
+          console.log(result,termination);
           await inserNewMoves(
             supabase,
             gameCopy.fen(),
@@ -846,6 +847,7 @@ export default function Index() {
                     </div>
                   ))}
                 {result.result}
+                "foobar"
               </div>
             </div>
           </div>
