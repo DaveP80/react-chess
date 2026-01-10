@@ -258,7 +258,7 @@ export default function Index() {
         } else if (drawAgreement.length == 2) {
           setDraw("");
         }
-      } else if (!gameData.draw_offer && draw) {
+      } else if (!gameData.draw_offer) {
         setDraw("");
       }
     }
@@ -408,7 +408,7 @@ export default function Index() {
                     } else if (drawAgreement.length == 2) {
                       setDraw("");
                     }
-                  } else if (!data[0].draw_offer && draw) {
+                  } else if (!data[0].draw_offer) {
                     setDraw("");
                   }
                 }
@@ -519,13 +519,12 @@ export default function Index() {
   }
   async function resignGame() {
     // Check the actual game state, not the displayed position
-    const actualGame =
-      fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
-
-    if (actualGame.isGameOver()) {
-      return null;
-    }
-    if (checkIfRepetition(fenHistory)) {
+    const isGameOver =
+    activeGame.isGameOver() ||
+    timeOut !== null ||
+    isThreeFoldRepit ||
+    result.result;
+    if (isGameOver) {
       return null;
     }
     if (moveHistory.length < 1) {
