@@ -434,7 +434,7 @@ export default function Index() {
         gameData,
         resign
       );
-      if (result && termination && !gameData.pgn_info.result) {
+      if (result && termination && (timeOut == "white" || timeOut == "black") && !gameData.pgn_info.result) {
         try {
           await supabase
             .from(`game_number_${gameData.id}`)
@@ -501,21 +501,7 @@ export default function Index() {
             currentTimes?.whiteTime,
             currentTimes?.blackTime
           );
-          // if (draw) {
-          //   cancelDrawOffer(supabase, gameData, setDraw);
-          // }
-          // if (result && termination && !gameData.pgn_info.result) {
-          //   try {
-          //     await supabase
-          //       .from(`game_number_${gameData.id}`)
-          //       .update({
-          //         pgn_info: { ...gameData.pgn_info, result, termination },
-          //       })
-          //       .eq("id", gameData.id);
-          //   } catch (error) {
-          //     console.error(error);
-          //   }
-          // }
+
           return true;
         } else {
           return false;
