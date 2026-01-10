@@ -484,12 +484,11 @@ export default function Index() {
           setCurrentMoveIndex(moveHistory.length - 1);
           const [result, termination] = gameStartFinishReducer(
             fhb,
-            activeGame,
+            gameCopy,
             timeOut,
             gameData,
             resign
           );
-          console.log(result,termination);
           await inserNewMoves(
             supabase,
             gameCopy.fen(),
