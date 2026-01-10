@@ -70,11 +70,6 @@ export async function action({ request }: ActionFunctionArgs) {
     return Response.json({ error: "Invalid time control" }, { status: 400 });
   }
 
-  // TODO:
-  // 1. Create matchmaking request OR game
-  // 2. Assign opponent
-  // 3. Create game row
-
   return Response.json({});
 }
 
@@ -85,7 +80,6 @@ export default function Index() {
     [key: string]: any;
   } | null>(null);
   const navigation = useNavigation();
-  //const PlayContext = useContext(GlobalContext);
   const NewGameContext = useContext(GlobalContext);
   const PlayContext = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
@@ -169,7 +163,6 @@ export default function Index() {
                   supabase2
                 );
                 if (update_res && update_res.go) {
-                  //PlayContext.setPlayingGame(true);
                   setRequestAlert(response);
                   NewGameContext.setPGNInfo({
                     ...NewGameContext.pgnInfo,
@@ -260,16 +253,19 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                readOnly={true}
                 onChange={() => {
-                  localStorage.setItem(
-                    "pairing_info",
-                    JSON.stringify({
-                      ...JSON.parse(
-                        localStorage.getItem("pairing_info") || "{}"
-                      ),
-                      timeControl: option.value,
-                    })
-                  );
+                  if (PlayContext?.rowData?.isActive) {
+                    localStorage.setItem(
+                      "pairing_info",
+                      JSON.stringify({
+                        ...JSON.parse(
+                          localStorage.getItem("pairing_info") || "{}"
+                        ),
+                        timeControl: option.value,
+                      })
+                    );
+                  }
                 }}
               />
               <span className="text-sm font-medium text-gray-800">
@@ -299,16 +295,20 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                readOnly={true}
                 onChange={() => {
-                  localStorage.setItem(
-                    "pairing_info",
-                    JSON.stringify({
-                      ...JSON.parse(
-                        localStorage.getItem("pairing_info") || "{}"
-                      ),
-                      colorPreference: option.value,
-                    })
-                  );
+                  if (!PlayContext?.rowData?.isActive) {
+                    localStorage.setItem(
+                      "pairing_info",
+                      JSON.stringify({
+                        ...JSON.parse(
+                          localStorage.getItem("pairing_info") || "{}"
+                        ),
+                        colorPreference: option.value,
+                      })
+                    );
+
+                  }
                 }}
               />
               <span className="text-sm font-medium text-gray-800">

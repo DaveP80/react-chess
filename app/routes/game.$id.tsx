@@ -27,6 +27,7 @@ import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { inserNewMoves } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
 import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
+import OfferDraw from "~/components/OfferDraw";
 
 export const meta: MetaFunction = () => {
   return [
@@ -90,7 +91,11 @@ export default function Index() {
   const [activeGame, setActiveGame] = useState(new Chess());
   const [fenHistory, setFenHistory] = useState<(typeof Chess)[] | any[]>([]);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
-  const [result, setResult] = useState<Record<string,string>>({result: "", termination: ""});
+  const [draw, setDraw] = useState("");
+  const [result, setResult] = useState<Record<string, string>>({
+    result: "",
+    termination: "",
+  });
   const { data: gameData } = useLoaderData<typeof loader>();
   const [game_length, timeControl] = timeControlReducer(
     gameConfig?.timeControl || ""
@@ -165,7 +170,10 @@ export default function Index() {
           const lastMoveTime = new Date(lastEntry.timestamp).getTime();
           const now = Date.now();
           const elapsedSeconds = (now - lastMoveTime) / 1000;
-          const resultData = [gameData.pgn_info.result, gameData.pgn_info.termination];
+          const resultData = [
+            gameData.pgn_info.result,
+            gameData.pgn_info.termination,
+          ];
           // Determine whose turn it is (that player's clock has been running)
           const currentGame = new Chess(lastEntry.fen);
           const currentTurn = currentGame.turn();
@@ -180,7 +188,11 @@ export default function Index() {
               lastEntry.whiteTime - elapsedSeconds
             );
             // Check if white ran out of time while away
-            if (adjustedWhiteTime === 0 && lastEntry.whiteTime > 0 && !resultData[0]) {
+            if (
+              adjustedWhiteTime === 0 &&
+              lastEntry.whiteTime > 0 &&
+              !resultData[0]
+            ) {
               handleTimeOut("white");
             }
           } else {
@@ -189,37 +201,61 @@ export default function Index() {
               lastEntry.blackTime - elapsedSeconds
             );
             // Check if black ran out of time while away
-            if (adjustedBlackTime === 0 && lastEntry.blackTime > 0 && !resultData[0]) {
+            if (
+              adjustedBlackTime === 0 &&
+              lastEntry.blackTime > 0 &&
+              !resultData[0]
+            ) {
               handleTimeOut("black");
             }
           }
-
-          setLoadedWhiteTime(adjustedWhiteTime);
-          setLoadedBlackTime(adjustedBlackTime);
+          if (!gameData.pgn_info.result) {
+            setLoadedWhiteTime(adjustedWhiteTime);
+            setLoadedBlackTime(adjustedBlackTime);
+          } else {
+            setLoadedWhiteTime(lastEntry.whiteTime);
+            setLoadedBlackTime(lastEntry.blackTime);
+          }
         }
       }
       if (gameData.pgn_info.result) {
-        setResult({result: gameData.pgn_info.result, termination: gameData.pgn_info.termination});
+        setResult({
+          result: gameData.pgn_info.result,
+          termination: gameData.pgn_info.termination,
+        });
         const endGameData = gameData.pgn_info;
         setTimeOut("game over");
-        switch(endGameData.result) {
+        switch (endGameData.result) {
           case "1-0": {
             if (endGameData.termination.includes("resignation")) {
               setResign("Black");
             }
+            break;
           }
           case "0-1": {
             if (endGameData.termination.includes("resignation")) {
               setResign("White");
             }
+            break;
           }
           case "1/2-1/2": {
             if (endGameData.termination.includes("Draw")) {
-              console.log("draw")
+              setDraw("")
             }
+            break;
+          }
+          default: {
+            console.log("out of bounds result in pgn_info");
           }
         }
-
+      }
+      if (gameData.draw_offer) {
+        const drawAgreement = gameData.draw_offer
+          ? gameData.draw_offer.split("$")
+          : null;
+        if (drawAgreement?.length == 1) {
+          setDraw(gameData.draw_offer);
+        }
       }
     }
 
@@ -314,38 +350,53 @@ export default function Index() {
                         }
                       }
                       if (!data[0].pgn_info.result) {
-                                            setLoadedWhiteTime(adjustedWhiteTime);
-                                            setLoadedBlackTime(adjustedBlackTime);
-                                          } else {
-                      setLoadedWhiteTime(lastEntry.whiteTime);
-                      setLoadedBlackTime(lastEntry.blackTime);
-                      setResult({result: data[0].pgn_info.result, termination: data[0].pgn_info.termination});
-
-                    }
+                        setLoadedWhiteTime(adjustedWhiteTime);
+                        setLoadedBlackTime(adjustedBlackTime);
+                      } else {
+                        setLoadedWhiteTime(lastEntry.whiteTime);
+                        setLoadedBlackTime(lastEntry.blackTime);
+                        setResult({
+                          result: data[0].pgn_info.result,
+                          termination: data[0].pgn_info.termination,
+                        });
+                      }
                     }
                   }
-                  else {
-                    if (data[0].pgn_info.result) {
-                      const endGameData = data[0].pgn_info;
-                      setResult({result: endGameData.result, termination: endGameData.termination });
-                      setTimeOut("game over");
-                      switch(endGameData.result) {
-                        case "1-0": {
-                          if (endGameData.termination.includes("resignation")) {
-                            setResign("Black");
-                          }
+                  if (data[0].pgn_info.result) {
+                    const endGameData = data[0].pgn_info;
+                    setResult({
+                      result: endGameData.result,
+                      termination: endGameData.termination,
+                    });
+                    setTimeOut("game over");
+                    switch (endGameData.result) {
+                      case "1-0": {
+                        if (endGameData.termination.includes("resignation")) {
+                          !resign && setResign("Black");
                         }
-                        case "0-1": {
-                          if (endGameData.termination.includes("resignation")) {
-                            setResign("White");
-                          }
-                        }
-                        case "1/2-1/2": {
-                          if (endGameData.termination.includes("Draw")) {
-                            console.log("draw")
-                          }
-                        }
+                        break;
                       }
+                      case "0-1": {
+                        if (endGameData.termination.includes("resignation")) {
+                          !resign && setResign("White");
+                        }
+                        break;
+                      }
+                      case "1/2-1/2": {
+                        if (endGameData.termination.includes("Draw")) {
+                          setDraw("");
+                        }
+                        break;
+                      }
+                      default: {"default case"}
+                    }
+                  }
+                  if (data[0].draw_offer) {
+                    const drawAgreement = data[0].draw_offer
+                      ? data[0].draw_offer.split("$")
+                      : [];
+                    if (drawAgreement.length == 1) {
+                      setDraw(data[0].draw_offer);
                     }
                   }
                 }
@@ -364,21 +415,29 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-
-  // when a user times out, persist to the database that a user lost from timeout.
-    const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign);
-    if (result && termination && !gameData.pgn_info.result) {
-      try {
-        async() => await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
-        
-      } catch (error) {
-        console.error(error);
-        
+    // when a user times out, persist to the database that a user lost from timeout.
+    const updateGameResult = async () => {
+      const [result, termination] = gameStartFinishReducer(
+        fenHistory,
+        activeGame,
+        timeOut,
+        gameData,
+        resign
+      );
+      if (result && termination && !gameData.pgn_info.result) {
+        try {
+          await supabase
+            .from(`game_number_${gameData.id}`)
+            .update({ pgn_info: { ...gameData.pgn_info, result, termination } })
+            .eq("id", gameData.id);
+        } catch (error) {
+          console.error(error);
+        }
       }
-    }
+    };
 
-  }, [timeOut])
-  
+    updateGameResult();
+  }, [timeOut]);
 
   async function onDrop(sourceSquare: string, targetSquare: string) {
     try {
@@ -390,8 +449,7 @@ export default function Index() {
         !resign &&
         !checkIfRepetition(fenHistory) &&
         processIncomingPgn(actualTurn, toggleUsers.orientation) &&
-        timeOut === null
-        &&
+        timeOut === null &&
         !result.result
       ) {
         const gameCopy = new Chess(activeGame.fen());
@@ -423,14 +481,23 @@ export default function Index() {
             currentTimes?.whiteTime,
             currentTimes?.blackTime
           );
-          const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign);
+          const [result, termination] = gameStartFinishReducer(
+            fenHistory,
+            activeGame,
+            timeOut,
+            gameData,
+            resign
+          );
           if (result && termination && !gameData.pgn_info.result) {
             try {
-              async() => await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
-              
+              await supabase
+                .from(`game_number_${gameData.id}`)
+                .update({
+                  pgn_info: { ...gameData.pgn_info, result, termination },
+                })
+                .eq("id", gameData.id);
             } catch (error) {
               console.error(error);
-              
             }
           }
           return true;
@@ -457,16 +524,25 @@ export default function Index() {
     if (checkIfRepetition(fenHistory)) {
       return null;
     }
-    if (!resign && moveHistory.length > 0) {
-      const [result, termination] = gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, gameConfig.colorPreference);
-      console.log(result, termination)
+    if (moveHistory.length < 1) {
+      return null;
+    }
+    if (!resign) {
+      const [result, termination] = gameStartFinishReducer(
+        fenHistory,
+        activeGame,
+        timeOut,
+        gameData,
+        gameConfig.colorPreference
+      );
       if (result && termination && !gameData.pgn_info.result) {
         try {
-          await supabase.from(`game_number_${gameData.id}`).update({pgn_info: {...gameData.pgn_info, result, termination}}).eq("id", gameData.id);
-          
+          await supabase
+            .from(`game_number_${gameData.id}`)
+            .update({ pgn_info: { ...gameData.pgn_info, result, termination } })
+            .eq("id", gameData.id);
         } catch (error) {
           console.error(error);
-          
         }
       }
       setResign(gameConfig.colorPreference);
@@ -531,17 +607,24 @@ export default function Index() {
 
   // Check for threefold repetition
   const isThreeFoldRepit = checkIfRepetition(fenHistory);
-
   // Game over state is based on ALL game-ending conditions
-  const isGameOver = actualGame.isGameOver() || timeOut !== null || resign || isThreeFoldRepit || result.result;
+  const isGameOver =
+    actualGame.isGameOver() ||
+    timeOut !== null ||
+    resign ||
+    isThreeFoldRepit ||
+    result.result;
 
   // Display indicators are based on what's currently shown on the board
   const isCheckmate = activeGame.isCheckmate();
   const isDraw = activeGame.isDraw();
   const isCheck = activeGame.isCheck();
-
-  // Get the actual game turn
+  const isStalemate = activeGame.isStalemate();
+  const isFiftyMove = activeGame.isDrawByFiftyMoves();
+  const isInsufficient = activeGame.isInsufficientMaterial();
+  
   const actualGameTurn = actualGame.turn();
+  const drawAgreement = result?.termination && result.termination.includes("Agreement") ? true : false;
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="container mx-auto px-4 py-8">
@@ -582,6 +665,20 @@ export default function Index() {
                     <FlagIcon size={20} />
                     Resign
                   </button>
+                  {!result.result && (
+                    <OfferDraw
+                      context={{
+                        draw,
+                        setDraw,
+                        gameData,
+                        UserContext,
+                        moveHistory,
+                        actualTurn: actualGameTurn,
+                        orientation: toggleUsers.orientation,
+                        supabase,
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="mb-1 flex justify-start">
                   {toggleUsers.toggle && (
@@ -631,7 +728,6 @@ export default function Index() {
                   moveCount={moveHistory.length}
                   loadedWhiteTime={loadedWhiteTime}
                   loadedBlackTime={loadedBlackTime}
-                  isThreeFoldRepit={isThreeFoldRepit}
                   isResign={resign}
                 />
 
@@ -699,7 +795,7 @@ export default function Index() {
                     </button>
                   </div>
                 </div>
-                {(isGameOver || isThreeFoldRepit || resign || isDraw) && (
+                {(isGameOver || isThreeFoldRepit || resign) && (
                   <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
                     <p className="font-bold text-lg mb-2">Game Over!</p>
                     <p className="text-slate-300">
@@ -710,20 +806,27 @@ export default function Index() {
                             : "Checkmate: White"
                         } wins!`}
                       {isThreeFoldRepit && `Draw!! Three Fold Repitition.`}
+                      {isFiftyMove && `Draw!! 50 move limit reached.`}
+                      {isStalemate && `Draw!! Stalemate.`}
+                      {isInsufficient && `Draw!! Insufficient mating material.`}
 
                       {resign && `${resign} Resigns!`}
-                      {isDraw && "The game is a draw."}
                     </p>
                   </div>
                 )}
-                {timeOutGameOverReducer(timeOut) == "Black" || timeOutGameOverReducer(timeOut) == "White" && (
+                {drawAgreement && (
                   <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
-                    <p className="font-bold text-lg mb-2">Game Over!</p>
-                    <p className="text-slate-300">
-                      {timeOut === "white" ? "Black" : "White"} wins on time!
-                    </p>
+                    <p className="text-slate-300">Draw By Aggrement.</p>
                   </div>
                 )}
+                {timeOutGameOverReducer(timeOut) == "Black" ||
+                  (timeOutGameOverReducer(timeOut) == "White" && (
+                    <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
+                      <p className="text-slate-300">
+                        {timeOut === "white" ? "Black" : "White"} wins on time!
+                      </p>
+                    </div>
+                  ))}
                 {result.result}
               </div>
             </div>

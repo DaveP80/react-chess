@@ -149,6 +149,7 @@ RETURNS TABLE (
   id int,
   pgn_info jsonb,
   pgn text[],
+  draw_offer text,
   white_username text,
   black_username text,
   white_avatar text,

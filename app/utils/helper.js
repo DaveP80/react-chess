@@ -134,7 +134,12 @@ export function parsePgnEntry(pgnEntry) {
   };
 }
 
-export function setFenHistoryHelper(gameCopy, fenHistory, move_san, moveHistory) {
+export function setFenHistoryHelper(
+  gameCopy,
+  fenHistory,
+  move_san,
+  moveHistory
+) {
   if (!fenHistory.length) {
     return [true, [gameCopy], [move_san]];
   }
@@ -142,122 +147,136 @@ export function setFenHistoryHelper(gameCopy, fenHistory, move_san, moveHistory)
   const lastItem = fenHistory[fenHistory.length - 1];
   if (lastItem.fen() === gameCopy.fen()) {
     return [false, fenHistory, moveHistory];
-  }
-  else {
+  } else {
     return [true, [...fenHistory, gameCopy], [...moveHistory, move_san]];
   }
 }
 
-
 export function timeOutGameOverReducer(args) {
-  switch(args) {
+  switch (args) {
     case "white": {
       return "Black";
     }
     case "black": {
-      return "White"
+      return "White";
     }
     case "game over": {
-      return null
+      return null;
     }
-    default: return null;
-    
+    default:
+      return null;
   }
 }
 
-export function gameStartFinishReducer(fenHistory, activeGame, timeOut, gameData, resign) {
+export function gameStartFinishReducer(
+  fenHistory,
+  activeGame,
+  timeOut,
+  gameData,
+  resign
+) {
   const actualGame =
-  fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : null;
+    fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : null;
   if (!actualGame) return [null, null];
 
-// Check for threefold repetition
-const isThreeFoldRepit = checkIfRepetition(fenHistory);
-
-// Game over state is based on ALL game-ending conditions
-const isGameOver = actualGame.isGameOver() || timeOut !== null || resign || isThreeFoldRepit;
-
-// Display indicators are based on what's currently shown on the board
-const isCheckmate = activeGame.isCheckmate();
-const isDraw = activeGame.isDraw();
-const actualGameTurn = actualGame.turn();
-let result = "1/2-1/2";
-let termination = "";
-switch(actualGameTurn) {
-  case "w": {
-    if (isCheckmate) {
-      result = "0-1";
-      termination = `${gameData.black_username} won by checkmate`
-    } else if (isThreeFoldRepit || isDraw) {
-      result = "1/2-1/2";
-      if (isThreeFoldRepit) {
-        termination = "Three Fold repetition."
+  // Check for threefold repetition
+  const isThreeFoldRepit = checkIfRepetition(fenHistory);
+  // Display indicators are based on what's currently shown on the board
+  const isCheckmate = activeGame.isCheckmate();
+  const isDraw = activeGame.isDraw();
+  const isStalemate = activeGame.isStalemate();
+  const isFiftyMove = activeGame.isDrawByFiftyMoves();
+  const isInsufficient = activeGame.isInsufficientMaterial();
+  const actualGameTurn = actualGame.turn();
+  let result = "1/2-1/2";
+  let termination = "";
+  switch (actualGameTurn) {
+    case "w": {
+      if (isCheckmate) {
+        result = "0-1";
+        termination = `${gameData.black_username} won by checkmate`;
+      } else if (isThreeFoldRepit || isDraw) {
+        result = "1/2-1/2";
+        if (isThreeFoldRepit) {
+          termination = "Three Fold repetition.";
+        } else if (isStalemate) {
+          termination = "Draw stalemate.";
+        } else if (isFiftyMove) {
+          termination = "Draw fifty move rule.";
+        } else if (isInsufficient) {
+          termination = "Draw insufficient mating material.";
+        }
+      } else if (timeOut == "white" || timeOut == "black") {
+        if (timeOut == "white") {
+          result = "0-1";
+          termination = `${gameData.black_username} won on time`;
+        }
+        if (timeOut == "black") {
+          result = "1-0";
+          termination = `${gameData.white_username} won on time`;
+        }
+      } else if (resign) {
+        if (resign == "white") {
+          result = "0-1";
+          termination = `${gameData.black_username} won by resignation`;
+        } else if (resign == "black") {
+          result = "1-0";
+          termination = `${gameData.white_username} won by resignation`;
+        }
       } else {
-        termination = "Draw insufficient mating material."
+        result = null;
+        termination = null;
       }
-    } else if (timeOut == "white" || timeOut == "black") {
-      if (timeOut == "white") {
-        result = "0-1";
-        termination = `${gameData.black_username} won on time`
-      };
-      if (timeOut == "black") {
-        result = "1-0";
-        termination = `${gameData.white_username} won on time`
-      };
-    } else if (resign) {
-      if (resign == "white") {
-        result = "0-1";
-        termination = `${gameData.black_username} won by resignation`;
-      } else if (resign == "black") {
-        result = "1-0";
-        termination = `${gameData.white_username} won by resignation`;
-      }
+      break;
     }
-    else {
+    case "b": {
+      if (isCheckmate) {
+        result = "1-0";
+        termination = `${gameData.white_username} won by checkmate`;
+      } else if (isThreeFoldRepit || isDraw) {
+        result = "1/2-1/2";
+        if (isThreeFoldRepit) {
+          termination = "Three Fold repetition; Draw.";
+        } else if (isStalemate) {
+          termination = "Draw stalemate.";
+        } else if (isFiftyMove) {
+          termination = "Draw fifty move rule.";
+        } else if (isInsufficient) {
+          termination = "Draw insufficient mating material.";
+        }
+      } else if (timeOut == "white" || timeOut == "black") {
+        if (timeOut == "white") {
+          result = "0-1";
+          termination = `${gameData.black_username} won on time`;
+        }
+        if (timeOut == "black") {
+          result = "1-0";
+          termination = `${gameData.white_username} won on time`;
+        }
+      } else if (resign) {
+        if (resign == "white") {
+          result = "0-1";
+          termination = `${gameData.black_username} won by resignation`;
+        } else {
+          result = "1-0";
+          termination = `${gameData.white_username} won by resignation`;
+        }
+      } else {
+        result = null;
+        termination = null;
+      }
+      break;
+    }
+    default: {
       result = null;
       termination = null;
     }
-    break;
-
   }
-  case "b": {
-    if (isCheckmate) {
-      result = "1-0";
-      termination = `${gameData.white_username} won by checkmate`
-    } else if (isThreeFoldRepit || isDraw) {
-      result = "1/2-1/2";
-      if (isThreeFoldRepit) {
-        termination = "Three Fold repetition; Draw."
-      } else {
-        termination = "Draw insufficient mating material."
-      }
-    } else if (timeOut == "white" || timeOut == "black") {
-      if (timeOut == "white") {
-        result = "0-1";
-        termination = `${gameData.black_username} won on time`
-      };
-      if (timeOut == "black") {
-        result = "1-0";
-        termination = `${gameData.white_username} won on time`
-      };
-    } else if (resign) {
-      if (resign == "white") {
-        result = "0-1";
-        termination = `${gameData.black_username} won by resignation`;
-      } else {
-        result = "1-0";
-        termination = `${gameData.white_username} won by resignation`;
-      }
-    } else {
-      result = null;
-      termination = null;
-    }
-    break;
-
-  }
-  default: {result = null; termination = null;}
-}
-return [result, termination];
-
+  return [result, termination];
 }
 
-export const SUPABASE_CONFIG = [String(import.meta.env.VITE_SUPABASE_URL), String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY), {isSingleton: false}];
+export const SUPABASE_CONFIG = [
+  String(import.meta.env.VITE_SUPABASE_URL),
+  String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY),
+  { isSingleton: false },
+];
