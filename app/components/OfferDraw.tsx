@@ -5,7 +5,6 @@ import { processIncomingPgn } from "~/utils/helper";
 export default function OfferDraw({ context }) {
   const {
     draw,
-    setDraw,
     gameData,
     UserContext,
     moveHistory,
@@ -32,6 +31,7 @@ export default function OfferDraw({ context }) {
   };
 
   const acceptDraw = async () => {
+    if (draw.length == 2) return;
     try {
       const oppId =
         gameData.pgn_info.white == UserContext?.user.id
@@ -59,7 +59,6 @@ export default function OfferDraw({ context }) {
         .from(`game_number_${gameData.id}`)
         .update({ draw_offer: null })
         .eq("id", gameData.id);
-        setDraw("");
       //close draw flow
     } catch (error) {
       console.error(error);
@@ -68,12 +67,11 @@ export default function OfferDraw({ context }) {
 
   return (
     <>
-      {!gameData.draw_offer &&
-        moveHistory.length > 0 &&
+      { moveHistory.length > 0 &&
         processIncomingPgn(actualTurn, orientation) && (
           <button
             onClick={offerDraw}
-            className="flex items-center gap-2 bg-green-800 hover:bg-green-400 text-white px-4 py-2 rounded-lg transition-colors"
+            className={`flex items-center gap-2 ${draw ? "bg-green-200 hover:bg-green-300" : "bg-green-300 hover:bg-green-400"} text-gray px-4 py-2 rounded-lg transition-colors`}
           >
             <Handshake />
             Offer Draw

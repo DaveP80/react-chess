@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from "react";
 import DemoUser from "./DemoUser";
 import { TbUserCog } from "react-icons/tb";
-import { Form, NavLink, useActionData, useNavigate, useRouteLoaderData } from "@remix-run/react";
+import {
+  Form,
+  useLoaderData,
+  useNavigate,
+  useRouteLoaderData,
+} from "@remix-run/react";
 import { loader } from "~/root";
-
 
 // Mock data for demonstration purposes
 const Mockuser = {
@@ -19,42 +23,14 @@ const Mockuser = {
   },
 };
 
-const gameHistory = [
-  {
-    id: 1,
-    opponent: "GrandmasterJoe",
-    result: "Win",
-    moves: 42,
-    date: "2023-10-26",
-  },
-  {
-    id: 2,
-    opponent: "RookieRook",
-    result: "Win",
-    moves: 35,
-    date: "2023-10-25",
-  },
-  {
-    id: 3,
-    opponent: "PawnProphet",
-    result: "Loss",
-    moves: 50,
-    date: "2023-10-24",
-  },
-  {
-    id: 4,
-    opponent: "KnightRider",
-    result: "Draw",
-    moves: 68,
-    date: "2023-10-23",
-  },
-];
 
 export default function UserProfile() {
   //const GamePlayContext = useContext(GlobalContext);
   // const UserInfo = useContext(GlobalContext);
   const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");
-  const [formIntent, setformIntent] = useState("")
+  const Data = useLoaderData();
+  const [formIntent, setformIntent] = useState("");
+  const [gameHistory, setGameHistory] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -72,15 +48,32 @@ export default function UserProfile() {
         );
       }
     }
-    setformIntent(window.localStorage.getItem("pgnInfo") ? JSON.parse(window.localStorage.getItem("pgnInfo") || "{}")?.routing_id : "no_routing_id"); 
+    if (Data?.data) {
+      const arrayData = Data?.data.filter(
+        (item: Record<string, any>) => item.status == "end"
+      );
+      setGameHistory(arrayData);
+    }
+    setformIntent(
+      window.localStorage.getItem("pgnInfo")
+        ? JSON.parse(window.localStorage.getItem("pgnInfo") || "{}")?.routing_id
+        : "no_routing_id"
+    );
 
     return () => {
       true;
     };
-  }, [rowData, user]);
+  }, [rowData, user, Data]);
 
   const handleClick = () => {
     navigate("/settings");
+  };
+
+  let orientation = "";
+  if (Data?.data[0]?.white_id == user?.id) {
+    orientation = "white";
+  } else {
+    orientation = "black";
   }
 
   return (
@@ -97,14 +90,18 @@ export default function UserProfile() {
               />
               <div className="sm:ml-6 mt-4 sm:mt-0 text-center sm:text-left">
                 <div className="flex justify-evenly">
-                <h1 className="text-3xl font-bold text-gray-800">
-                  {rowData?.username || `chessplayer_`.concat(Math.floor((Math.random() * (100 - 1 + 1)) + 1).toString())}
-                </h1>
-                <button className="sm:px-4 sm:py-2 hover:shadow-sm" onClick={handleClick}>
-                  <TbUserCog size={"40px"}/>
-                </button>
-
-
+                  <h1 className="text-3xl font-bold text-gray-800">
+                    {rowData?.username ||
+                      `chessplayer_`.concat(
+                        Math.floor(Math.random() * (100 - 1 + 1) + 1).toString()
+                      )}
+                  </h1>
+                  <button
+                    className="sm:px-4 sm:py-2 hover:shadow-sm"
+                    onClick={handleClick}
+                  >
+                    <TbUserCog size={"40px"} />
+                  </button>
                 </div>
                 <div className="flex items-center justify-center sm:justify-start mt-2">
                   <span
@@ -115,13 +112,12 @@ export default function UserProfile() {
                   <span className="text-sm text-gray-600">
                     {rowData?.isActive ? "Currently in a game" : "idle"}
                   </span>
-                    {rowData?.isActive &&  (
-                      <Form method="post">
-                        <input name="intent" hidden value={formIntent}></input>
-                        <button type="submit">Go To Game</button>
-                      </Form>
-                    )
-                    }
+                  {rowData?.isActive && (
+                    <Form method="post">
+                      <input name="intent" hidden value={formIntent}></input>
+                      <button type="submit">Go To Game</button>
+                    </Form>
+                  )}
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
                   <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
@@ -129,17 +125,20 @@ export default function UserProfile() {
                   </button>
                 </div>
                 <div className="mt-1 flex space-x-2 justify-center sm:justify-start">
-                <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300">
-                  Add Friend
-                </button>
+                  <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300">
+                    Add Friend
+                  </button>
                 </div>
                 {rowData?.verified ? (
                   <></>
                 ) : (
                   <div className="mt-1 flex space-x-2 justify-center sm:justify-start">
-                  <button onClick={() => navigate("/settings")} className="bg-red-900 hover:bg-red-300 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-                    Confirm your email.
-                  </button>
+                    <button
+                      onClick={() => navigate("/settings")}
+                      className="bg-red-900 hover:bg-red-300 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
+                    >
+                      Confirm your email.
+                    </button>
                   </div>
                 )}
               </div>
@@ -148,32 +147,32 @@ export default function UserProfile() {
             {/* Stats */}
             <div className="mt-8 border-t border-gray-200 pt-6">
               <h2 className="text-xl font-semibold text-gray-700 mb-4">
-                Statistics
+                Rating Profile
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
-                    {Mockuser.stats.rating}
+                    {rowData.rating.blitz_rating}
                   </div>
-                  <div className="text-sm text-gray-500">Rating</div>
+                  <div className="text-sm text-gray-500">Blitz Rating</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">
-                    {Mockuser.stats.wins}
+                  <div className="text-2xl font-bold text-blue-600">
+                    {rowData.rating.rapid_rating}
                   </div>
-                  <div className="text-sm text-gray-500">Wins</div>
+                  <div className="text-sm text-gray-500">Rapid Rating</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">
-                    {Mockuser.stats.losses}
+                  <div className="text-2xl font-bold text-blue-600">
+                    {rowData.rating.bullet_rating}
                   </div>
-                  <div className="text-sm text-gray-500">Losses</div>
+                  <div className="text-sm text-gray-500">Bullet Rating</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-2xl font-bold text-gray-600">
-                    {Mockuser.stats.draws}
+                    {gameHistory?.length || "new account"}
                   </div>
-                  <div className="text-sm text-gray-500">Draws</div>
+                  <div className="text-sm text-black">Total Games Played</div>
                 </div>
               </div>
             </div>
@@ -184,33 +183,53 @@ export default function UserProfile() {
                 Game History
               </h2>
               <ul className="space-y-4">
-                {gameHistory.map((game) => (
-                  <li
-                    key={game.id}
-                    className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-gray-100 transition"
-                  >
-                    <div>
-                      <p className="font-semibold">
-                        vs {game.opponent} -{" "}
-                        <span
-                          className={`font-bold ${
-                            game.result === "Win"
-                              ? "text-green-500"
-                              : game.result === "Loss"
-                              ? "text-red-500"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          {game.result}
+                {gameHistory?.length > 0 &&
+                  gameHistory.map((game) => {
+                    return (
+                      <li
+                        key={game.id}
+                        className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-gray-100 transition"
+                      >
+                        <div>
+                          <p className="font-semibold">
+                            vs{" "}
+                            {orientation == "white"
+                              ? game.black_username
+                              : game.white_username}{" - "}
+                            <span
+                              className={`font-bold ${
+                                game.pgn_info.result === "1-0"
+                                  ? orientation == "white"
+                                    ? "text-green-500"
+                                    : "text-red-500"
+                                  : game.result === "0-1"
+                                  ? orientation == "white"
+                                    ? "text-red-500"
+                                    : "text-green-500"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {game.pgn_info.result == "1-0"
+                                ? orientation == "white"
+                                  ? "Won"
+                                  : "Lost"
+                                : game.pgn_info.result == "0-1"
+                                ? orientation == "black"
+                                  ? "Won"
+                                  : "Lost"
+                                : "Draw"}
+                            </span>
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            moves: {game.pgn.map((item) => item.split("$")[1])}
+                          </p>
+                        </div>
+                        <span className="text-sm text-gray-400">
+                          {new Date(game.created_at).toDateString()}
                         </span>
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {game.moves} moves
-                      </p>
-                    </div>
-                    <span className="text-sm text-gray-400">{game.date}</span>
-                  </li>
-                ))}
+                      </li>
+                    );
+                  })}
               </ul>
             </div>
           </div>
