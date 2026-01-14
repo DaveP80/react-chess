@@ -1,29 +1,8 @@
-import { Form, NavLink, useNavigate, useNavigation, useRevalidator, useRouteLoaderData } from "@remix-run/react";
-import { useContext, useEffect, useState } from "react";
-import { GlobalContext } from "~/context/globalcontext";
-import { loader } from "~/root";
-import { MyHomeData } from "~/types";
+import { Form, NavLink, useNavigate } from "@remix-run/react";
 
 export default function Navigation({user}) {
-  const [userData, setUserData] = useState(false);
-  const { user: UserContext } = useRouteLoaderData<typeof loader>("root");
-  const navigation = useNavigation();
   const navigate = useNavigate();
-  const revalidator = useRevalidator();
 
-  // useEffect(() => {
-  //   if (navigation.state == "idle" || navigation.state == "loading") {
-  //     if (UserContext?.user?.id) {
-  //       setUserData(true);
-  //     } else {
-  //       setUserData(false);
-  //     }
-  //   }
-
-  //   return () => {
-  //     true;
-  //   };
-  // }, [navigation.state]);
 
   async function handleLogout(): Promise<void> {
     try {

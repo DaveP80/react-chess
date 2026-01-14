@@ -1,76 +1,35 @@
 import React, { useEffect, useState } from "react";
 import DemoUser from "./DemoUser";
-import { TbUserCog } from "react-icons/tb";
 import {
-  Form,
-  NavLink,
+    NavLink,
   useLoaderData,
-  useNavigate,
+  useParams,
   useRouteLoaderData,
 } from "@remix-run/react";
 import { loader } from "~/root";
 
-// Mock data for demonstration purposes
-const Mockuser = {
-  username: "ChessMaster123",
-  avatarURL:
-    "https://cdn3.iconfinder.com/data/icons/family-member-flat-happy-family-day/512/Uncle-64.png", // Placeholder avatar
-  isPlaying: true,
-  stats: {
-    rating: 1500,
-    wins: 42,
-    losses: 18,
-    draws: 5,
-  },
-};
-
-export default function UserProfile() {
+export default function MemberProfile() {
   //const GamePlayContext = useContext(GlobalContext);
   // const UserInfo = useContext(GlobalContext);
-  const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");
+  const { user, rowData } = useRouteLoaderData<typeof loader>("root");
   const Data = useLoaderData();
-  const [formIntent, setformIntent] = useState("");
   const [gameHistory, setGameHistory] = useState([]);
-  const navigate = useNavigate();
+  const {username} = useParams();
 
   useEffect(() => {
-    if (user?.id) {
-      if (provider === "github") {
-        window.localStorage.setItem(
-          "auth",
-          JSON.stringify({ new_signup: false, is_logged_in: true })
-        );
-      }
-      if (provider === "email") {
-        window.localStorage.setItem(
-          "auth",
-          JSON.stringify({ new_signup: true, is_logged_in: true })
-        );
-      }
-    }
     if (Data?.data) {
-      const arrayData = Data?.data.filter(
-        (item: Record<string, any>) => item.status == "end"
-      );
-      setGameHistory(arrayData);
+        const arrayData = Data.data.filter((item) => item.status == "end");
+        setGameHistory(arrayData);
     }
-    setformIntent(
-      window.localStorage.getItem("pgnInfo")
-        ? JSON.parse(window.localStorage.getItem("pgnInfo") || "{}")?.routing_id
-        : "no_routing_id"
-    );
-
+  
     return () => {
-      true;
-    };
-  }, [rowData, user, Data]);
-
-  const handleClick = () => {
-    navigate("/settings");
-  };
+      true
+    }
+  }, [Data])
+  
 
   let orientation = "";
-  if (Data?.data[0]?.white_id == user?.id) {
+  if (Data?.data[0]?.white_username == username) {
     orientation = "white";
   } else {
     orientation = "black";
@@ -85,39 +44,24 @@ export default function UserProfile() {
             <div className="flex flex-col sm:flex-row items-center sm:items-start">
               <img
                 className="w-32 h-32 rounded-full border-4 border-gray-300"
-                src={rowData?.avatarURL}
-                alt={`${rowData?.username || "placeholders"}'s avatar`}
+                src={orientation == "white" ? Data?.data[0]?.white_avatarurl : Data?.data[0]?.black_avatarurl}
+                alt={`${username || "placeholders"}'s avatar`}
               />
               <div className="sm:ml-6 mt-4 sm:mt-0 text-center sm:text-left">
                 <div className="flex justify-evenly">
                   <h1 className="text-3xl font-bold text-gray-800">
-                    {rowData?.username ||
-                      `chessplayer_`.concat(
-                        Math.floor(Math.random() * (100 - 1 + 1) + 1).toString()
-                      )}
+                    {username}
                   </h1>
-                  <button
-                    className="sm:px-4 sm:py-2 hover:shadow-sm"
-                    onClick={handleClick}
-                  >
-                    <TbUserCog size={"40px"} />
-                  </button>
                 </div>
                 <div className="flex items-center justify-center sm:justify-start mt-2">
                   <span
                     className={`h-3 w-3 rounded-full mr-2 ${
-                      rowData?.isActive ? "bg-green-500" : "bg-gray-400"
+                      (orientation == "white" ? Data?.data[0].white_isactive : Data?.data[0].black_isactive) ? "bg-green-500" : "bg-gray-400"
                     }`}
                   ></span>
                   <span className="text-sm text-gray-600">
-                    {rowData?.isActive ? "Currently in a game" : "idle"}
+                    {(orientation == "white" ? Data?.data[0].white_isactive : Data?.data[0].black_isactive)  ? "Currently in a game" : "idle"}
                   </span>
-                  {rowData?.isActive && (
-                    <Form method="post">
-                      <input name="intent" hidden value={formIntent}></input>
-                      <button type="submit">Go To Game</button>
-                    </Form>
-                  )}
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
                   <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
@@ -129,18 +73,6 @@ export default function UserProfile() {
                     Add Friend
                   </button>
                 </div>
-                {rowData?.verified ? (
-                  <></>
-                ) : (
-                  <div className="mt-1 flex space-x-2 justify-center sm:justify-start">
-                    <button
-                      onClick={() => navigate("/settings")}
-                      className="bg-red-900 hover:bg-red-300 text-white font-bold py-2 px-4 rounded-lg transition duration-300"
-                    >
-                      Confirm your email.
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -152,25 +84,25 @@ export default function UserProfile() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
-                    {rowData.rating.blitz_rating}
+                    {orientation == "white" ? Data?.data[0].white_rating_info.blitz_rating : Data?.data[0].black_rating_info.blitz_rating}
                   </div>
                   <div className="text-sm text-gray-500">Blitz Rating</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
-                    {rowData.rating.rapid_rating}
+                    {orientation == "white" ? Data?.data[0].white_rating_info.rapid_rating : Data?.data[0].black_rating_info.rapid_rating}
                   </div>
                   <div className="text-sm text-gray-500">Rapid Rating</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
-                    {rowData.rating.bullet_rating}
+                    {orientation == "white" ? Data?.data[0].white_rating_info.bullet_rating : Data?.data[0].black_rating_info.bullet_rating}
                   </div>
                   <div className="text-sm text-gray-500">Bullet Rating</div>
                 </div>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="text-2xl font-bold text-gray-600">
-                    {gameHistory?.length || "new account"}
+                    {Data?.data?.length || "new account"}
                   </div>
                   <div className="text-sm text-black">Total Games Played</div>
                 </div>
@@ -186,14 +118,19 @@ export default function UserProfile() {
                 {gameHistory?.length > 0 &&
                   gameHistory.map((game) => {
                     return (
-                      <li key={game.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-gray-100 transition">
-                        <div className="">
+                      <li
+                        key={game.id}
+                        className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-gray-100 transition"
+                      >
+                        <div>
                           <p className="font-semibold">
                             vs{" "}
                             <NavLink
                               key={game.id}
                               className="ml-1"
-                              to={`/member/${
+                              to={(orientation == "white"
+                                ? game.black_username
+                                : game.white_username) == rowData.username ?  "/myhome" :`/member/${
                                 orientation == "white"
                                   ? game.black_username
                                   : game.white_username
