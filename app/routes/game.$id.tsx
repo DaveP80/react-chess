@@ -26,7 +26,7 @@ import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import {
-  inserNewMoves,
+  insertNewMoves,
   updateTablesOnGameOver,
 } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
@@ -547,7 +547,7 @@ export default function Index() {
             gameData,
             resign
           );
-          await inserNewMoves(
+          await insertNewMoves(
             supabase,
             gameCopy.fen(),
             move.san,

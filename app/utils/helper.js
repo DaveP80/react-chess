@@ -1,4 +1,4 @@
-import {EloRank} from "~/utils/elo";
+import { EloRank } from "~/utils/elo";
 export function checkIfRepetition(positions) {
   const counts = new Map();
 
@@ -281,53 +281,68 @@ export function gameStartFinishReducer(
   return [result, termination];
 }
 /**
- * 
- * @param {data: {white_elo: number, black_elo: number, winner: 'white' | 'black', game_counts: number[]}}  
+ *
+ * @param {data: {white_elo: number, black_elo: number, winner: 'white' | 'black', game_counts: number[]}}
  */
 
 export function EloEstimate(endGameData) {
-//create object with K-Factor(without it defaults to 32)
-//TODO: make dynamic elo based on game_counts -> k factor.
-let elo = new EloRank(endGameData.game_counts[0] > 25 ? 32 : 15);
-let elo_b = new EloRank(endGameData.game_counts[1] > 25 ? 32 : 15);
+  //create object with K-Factor(without it defaults to 32)
+  //TODO: make dynamic elo based on game_counts -> k factor.
+  let elo = new EloRank(endGameData.game_counts[0] > 25 ? 32 : 15);
+  let elo_b = new EloRank(endGameData.game_counts[1] > 25 ? 32 : 15);
 
-//white_elo
-let playerA = endGameData.white_elo;
-//black_elo
-let playerB = endGameData.black_elo;
- 
- 
-//Gets expected score for first parameter
-let expectedScoreA = elo.getExpected(playerA, playerB);
-let expectedScoreB = elo_b.getExpected(playerB, playerA);
+  //white_elo
+  let playerA = endGameData.white_elo;
+  //black_elo
+  let playerB = endGameData.black_elo;
 
-let primaryExpectedA = elo.updateRating(expectedScoreA, 1, playerA);
-let primaryExpectedB = elo_b.updateRating(expectedScoreB, 1, playerB);
- 
+  //Gets expected score for first parameter
+  let expectedScoreA = elo.getExpected(playerA, playerB);
+  let expectedScoreB = elo_b.getExpected(playerB, playerA);
 
+  let primaryExpectedA = elo.updateRating(expectedScoreA, 1, playerA);
+  let primaryExpectedB = elo_b.updateRating(expectedScoreB, 1, playerB);
 
-switch(endGameData.winner) {
-  case "white": {
-    //update score, 1 if won 0 if lost
-    playerA = primaryExpectedA;
-    playerB = elo_b.updateRating(expectedScoreB, 0, playerB);
-    break;
-    
+  switch (endGameData.winner) {
+    case "white": {
+      //update score, 1 if won 0 if lost
+      playerA = primaryExpectedA;
+      playerB = elo_b.updateRating(expectedScoreB, 0, playerB);
+      break;
+    }
+    case "black": {
+      playerA = elo.updateRating(expectedScoreA, 0, playerA);
+      playerB = primaryExpectedB;
+      break;
+    }
+    case "draw": {
+      playerA = elo.updateRating(expectedScoreA, 0.5, playerA);
+      playerB = elo_b.updateRating(expectedScoreB, 0.5, playerB);
+    }
   }
-  case "black": {
-    playerA = elo.updateRating(expectedScoreA, 0, playerA);
-    playerB = primaryExpectedB;
-    break;
-  }
-  case "draw": {
-    playerA = elo.updateRating(expectedScoreA, .5, playerA);
-    playerB = elo_b.updateRating(expectedScoreB, .5, playerB);
 
-  }
+  //Return winner, and the rating from the game outcome. last 2 items are the projected elo if victory.
+  return [playerA, playerB, primaryExpectedA, primaryExpectedB];
 }
 
-//Return winner, and the rating from the game outcome. last 2 items are the projected elo if victory.
-return [playerA, playerB, primaryExpectedA, primaryExpectedB];
+export function profileWonLossOrient(Data, user) {
+  let orientation = "";
+  if (Data.white_id == user?.id) {
+    orientation = "white";
+  } else {
+    orientation = "black";
+  }
+  return orientation;
+}
+
+export function memberWonLossOrient(Data, username) {
+  let orientation = "";
+  if (Data.white_username == username) {
+    orientation = "white";
+  } else {
+    orientation = "black";
+  }
+  return orientation;
 }
 
 export const SUPABASE_CONFIG = [

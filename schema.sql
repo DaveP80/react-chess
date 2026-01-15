@@ -40,8 +40,29 @@ as $$
   from (select * from games where games.white_id != u_id) g join (select * from games where games.black_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol where g.timecontrol = timeControl_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
 $$;
 
+-- get random pairing.
+create or replace function get_random_pairing_by_id_join(u_id uuid)
+returns table (
+  id int8,
+  id_gt int8,
+  white_id uuid,
+  black_id uuid,
+  status text,
+  created_at text,
+  created_at_gt text,
+  timecontrol text,
+  whiteelo int8,
+  blackelo int8
+)
+language sql
+security definer
+as $$
+  select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo
+  from (select * from games where games.white_id != u_id and games.black_id != u_id) g join (select * from games where games.black_id = u_id and games.white_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = 'random' where g.timecontrol = 'random' and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
+$$;
+
 -- version 2.0 12-25-25
-create or replace function insert_new_pairing_request(color_flag text, timeControl_f text, game_length text, u_id uuid)
+create or replace function insert_new_pairing_request(color_flag text, timeControl_f text, game_length text, u_id_in uuid)
 returns table (
   id int8,
   created_at text,
@@ -56,10 +77,37 @@ returns table (
 language sql
 security definer
 as $$
-INSERT INTO games (turn, status, whiteelo, blackelo, timecontrol, white_id, black_id) values (color_flag, 'pairing',
-case when color_flag = 'white' then (SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id limit 1) else null end, case when color_flag = 'black' then (SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id limit 1) else null end, game_length, 
-case when color_flag = 'white' then u_id else null end, case when color_flag = 'black' then u_id else null end) returning *;
+INSERT INTO games (turn, status, whiteelo, blackelo, timecontrol, white_id, black_id) values ('white', 'pairing',
+case when color_flag = 'white' then (SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id_in limit 1) else null end, case when color_flag = 'black' then (SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id_in limit 1) else null end, game_length, 
+case when color_flag = 'white' then u_id_in else null end, case when color_flag = 'black' then u_id_in else null end) returning *;
 $$;
+
+create or replace function insert_new_random_pairing_request(timeControl_f text, game_length text, u_id_in uuid)
+returns table (
+  id int8,
+  created_at text,
+  turn text,
+  status text,
+  whiteelo int8,
+  blackelo int8,
+  timecontrol text,
+  white_id uuid,
+  black_id uuid
+)
+language sql
+security definer
+as $$
+INSERT INTO games (turn, status, whiteelo, blackelo, timecontrol, white_id, black_id) values ('white', 'pairing',
+(SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id_in limit 1), (SELECT (ut.rating ->> timeControl_f)::int FROM users ut WHERE ut.u_id = u_id_in limit 1), game_length, 
+u_id_in, u_id_in) returning *;
+$$;
+
+
+
+
+
+
+
 
 -- version 2.0 12-27-25
 create or replace function lookup_new_game_moves(find_id int)
@@ -207,8 +255,6 @@ returns table (
   whiteelo int,
   blackelo int,
   timecontrol text,
-  white_id uuid,
-  black_id uuid,
   white_username text,
   black_username text,
   white_avatarurl text,
@@ -224,7 +270,7 @@ returns table (
 language sql
 security definer
 as $$
-select gm.id, gm.created_at, status, whiteelo, blackelo, timecontrol, white_id, black_id, white_username, black_username, white_avatarurl, black_avatarurl, white_isactive, black_isactive,
+select gm.id, gm.created_at, status, whiteelo, blackelo, timecontrol, white_username, black_username, white_avatarurl, black_avatarurl, white_isactive, black_isactive,
 white_rating_info, black_rating_info, game_id, pgn_info, pgn from (select *, un.username as white_username, unt.username as black_username, un."avatarURL" as white_avatarurl, unt."avatarURL" as black_avatarurl,
 un."isActive" as white_isactive, unt."isActive" as black_isactive, un.rating as white_rating_info, unt.rating as black_rating_info from games gz join users un on gz.white_id = un.u_id
 join users unt on gz.black_id = unt.u_id) g join game_moves gm on g.id = gm.game_id where lower(white_username) = lower(f_username)

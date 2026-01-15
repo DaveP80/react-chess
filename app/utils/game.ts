@@ -9,16 +9,19 @@ export async function gamesNewRequestOnUserColor(
   timeControl_req: string
 ) {
   try {
-    if (user_color == "white" || user_color == "black") {
       const [game_length, timeControl] = timeControlReducer(timeControl_req);
+      const insertObj = {
+        color_flag: user_color,
+        timecontrol_f: timeControl,
+        game_length,
+        u_id_in: userId,
+      }
+      if (user_color == "random") {
+        Reflect.deleteProperty(insertObj, "color_flag")
+      }
       const { data, error } = await localSupabase.rpc(
-        "insert_new_pairing_request",
-        {
-          color_flag: user_color,
-          timecontrol_f: timeControl,
-          game_length,
-          u_id: userId,
-        }
+        (user_color == "random" ? "insert_new_random_pairing_request"  : "insert_new_pairing_request"),
+        insertObj
       );
       if (error) {
         return Response.json(
@@ -35,7 +38,6 @@ export async function gamesNewRequestOnUserColor(
           { headers }
         );
       }
-    }
   } catch (error) {
     return Response.json({ error }, { headers });
   }
@@ -51,7 +53,7 @@ export async function handleInsertedNewGame(
 ) {
   try {
     const { data: data_a, error: error_a } = await localSupabase.rpc(
-      `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
+      user_color == "random" ? `get_random_pairing_by_id_join` : `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
       { u_id: userId, timecontrol_f: game_length }
     );
     if (error_a) {
@@ -72,6 +74,9 @@ export async function handleInsertedNewGame(
       Reflect.deleteProperty(updateObjWhite, "timecontrol");
       Reflect.deleteProperty(updateObjWhite, "status");
       updateObjWhite[`status`] = "playing";
+      const pairingArr = [[updateObjWhite.blackelo, updateObjWhite.black_id, id_gt], [updateObjWhite.whiteelo, updateObjWhite.white_id, id]];
+      const randomIdx = Math.floor(Math.random() * 2);
+      const randomIdx2 = randomIdx == 1 ? 0 : 1;
       const greater_at =
         new Date(data_a[0].created_at) > new Date(data_a[0].created_at_gt)
           ? data_a[0].created_at
@@ -81,12 +86,12 @@ export async function handleInsertedNewGame(
         const { data: rpcData, error } = await localSupabase.rpc(
           "update_live_pairing_request",
           {
-            black_elo_update: updateObjWhite.blackelo,
-            white_elo_update: updateObjWhite.whiteelo,
-            black_id_update: updateObjWhite.black_id,
-            white_id_update: updateObjWhite.white_id,
-            white_g_update_id: id,
-            black_g_update_id: id_gt,
+            black_elo_update: user_color !== "random" ? updateObjWhite.blackelo : pairingArr[randomIdx][0],
+            white_elo_update: user_color !== "random" ? updateObjWhite.whiteelo : pairingArr[randomIdx2][0],
+            black_id_update: user_color !== "random" ? updateObjWhite.black_id : pairingArr[randomIdx][1],
+            white_id_update: user_color !== "random" ? updateObjWhite.white_id : pairingArr[randomIdx2][1],
+            white_g_update_id: user_color !== "random" ? id : pairingArr[randomIdx][2],
+            black_g_update_id: user_color !== "random" ? id_gt : pairingArr[randomIdx2][2],
           }
         );
         if (error) {
@@ -136,8 +141,7 @@ export async function getNewGamePairing(pairing_info: any, supabase: any) {
       } else {
         return {
           go: false,
-          message: `no game found with reference id: ${+pairing_info.data[0]
-            .id}.`,
+          message: `no game found with reference id: ${+pairing_info.data[0].id}.`,
         };
       }
     }

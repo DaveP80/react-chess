@@ -1,6 +1,6 @@
 import { timeControlReducer } from "./helper";
 
-export async function inserNewMoves(
+export async function insertNewMoves(
   supabase: any,
   fen: string,
   move: string,
@@ -84,7 +84,7 @@ export async function updateTablesOnGameOver(
 export async function createNewGameTable(supabase: any, id: number) {
   const sql_query = `
 create table public.game_number_${id} as
-select *
+select *, NULL as draw_offer
 from public.game_moves
 where id = ${id};
 ALTER TABLE public.game_number_${id} ADD PRIMARY KEY (id);

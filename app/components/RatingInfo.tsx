@@ -12,8 +12,8 @@ export default function RatingInfo({ gameData, winner }) {
       break;
     }
     case "1/2-1/2": {
-        winner_insert = "draw";
-        break;
+      winner_insert = "draw";
+      break;
     }
   }
   const [player_w, player_b, expected_w, expected_b] = EloEstimate({

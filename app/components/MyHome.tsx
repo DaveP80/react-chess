@@ -9,20 +9,7 @@ import {
   useRouteLoaderData,
 } from "@remix-run/react";
 import { loader } from "~/root";
-
-// Mock data for demonstration purposes
-const Mockuser = {
-  username: "ChessMaster123",
-  avatarURL:
-    "https://cdn3.iconfinder.com/data/icons/family-member-flat-happy-family-day/512/Uncle-64.png", // Placeholder avatar
-  isPlaying: true,
-  stats: {
-    rating: 1500,
-    wins: 42,
-    losses: 18,
-    draws: 5,
-  },
-};
+import { profileWonLossOrient } from "~/utils/helper";
 
 export default function UserProfile() {
   //const GamePlayContext = useContext(GlobalContext);
@@ -68,13 +55,6 @@ export default function UserProfile() {
   const handleClick = () => {
     navigate("/settings");
   };
-
-  let orientation = "";
-  if (Data?.data[0]?.white_id == user?.id) {
-    orientation = "white";
-  } else {
-    orientation = "black";
-  }
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-6 lg:p-8">
@@ -186,7 +166,10 @@ export default function UserProfile() {
                 {gameHistory?.length > 0 &&
                   gameHistory.map((game) => {
                     return (
-                      <li key={game.id} className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-gray-100 transition">
+                      <li
+                        key={game.id}
+                        className="bg-gray-50 p-4 rounded-lg flex justify-between items-center hover:bg-gray-100 transition"
+                      >
                         <div className="">
                           <p className="font-semibold">
                             vs{" "}
@@ -194,12 +177,12 @@ export default function UserProfile() {
                               key={game.id}
                               className="ml-1"
                               to={`/member/${
-                                orientation == "white"
+                                profileWonLossOrient(game, user) == "white"
                                   ? game.black_username
                                   : game.white_username
                               }`}
                             >
-                              {orientation == "white"
+                              {profileWonLossOrient(game, user) == "white"
                                 ? game.black_username
                                 : game.white_username}
                             </NavLink>
@@ -207,22 +190,22 @@ export default function UserProfile() {
                             <span
                               className={`font-bold ${
                                 game.pgn_info.result === "1-0"
-                                  ? orientation == "white"
+                                  ? profileWonLossOrient(game, user) == "white"
                                     ? "text-green-500"
                                     : "text-red-500"
                                   : game.result === "0-1"
-                                  ? orientation == "white"
+                                  ? profileWonLossOrient(game, user) == "white"
                                     ? "text-red-500"
                                     : "text-green-500"
                                   : "text-gray-500"
                               }`}
                             >
                               {game.pgn_info.result == "1-0"
-                                ? orientation == "white"
+                                ? profileWonLossOrient(game, user) == "white"
                                   ? "Won"
                                   : "Lost"
                                 : game.pgn_info.result == "0-1"
-                                ? orientation == "black"
+                                ? profileWonLossOrient(game, user) == "black"
                                   ? "Won"
                                   : "Lost"
                                 : "Draw"}

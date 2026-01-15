@@ -158,6 +158,8 @@ export default function Index() {
               let response = await getNewGamePairing(pairingInfo, supabase2);
 
               if (response?.go) {
+                const colorPreference = response.data?.newgame_data.pgn_info.white == userId ? "white" : "black";
+                localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), colorPreference}))
                 const update_res = await updateActiveUserStatus(
                   userId,
                   supabase2
