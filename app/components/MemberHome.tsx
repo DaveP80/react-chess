@@ -175,7 +175,7 @@ export default function MemberProfile() {
                                     "white"
                                     ? "text-green-500"
                                     : "text-red-500"
-                                  : game.result === "0-1"
+                                  : game.pgn_info.result === "0-1"
                                   ? memberWonLossOrient(game, username) ==
                                     "white"
                                     ? "text-red-500"

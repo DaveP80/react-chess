@@ -193,7 +193,7 @@ export default function UserProfile() {
                                   ? profileWonLossOrient(game, user) == "white"
                                     ? "text-green-500"
                                     : "text-red-500"
-                                  : game.result === "0-1"
+                                  : game.pgn_info.result === "0-1"
                                   ? profileWonLossOrient(game, user) == "white"
                                     ? "text-red-500"
                                     : "text-green-500"

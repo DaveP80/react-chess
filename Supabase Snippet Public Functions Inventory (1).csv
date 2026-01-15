@@ -1,0 +1,202 @@
+schema,function_name,args,definition
+public,execute_sql,sql_query text,"CREATE OR REPLACE FUNCTION public.execute_sql(sql_query text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  EXECUTE sql_query;
+END;
+$function$
+"
+public,execute_sql_lookup_userdata_on_gameid,sql_query text,"CREATE OR REPLACE FUNCTION public.execute_sql_lookup_userdata_on_gameid(sql_query text)
+ RETURNS TABLE(id integer, game_id integer, pgn_info jsonb, pgn text[], draw_offer text, white_username text, black_username text, white_avatar text, black_avatar text, white_rating jsonb, black_rating jsonb, white_count bigint, black_count bigint)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  RETURN QUERY EXECUTE sql_query;
+END;
+$function$
+"
+public,get_black_pairing_by_id_join,"u_id uuid, timecontrol_f text","CREATE OR REPLACE FUNCTION public.get_black_pairing_by_id_join(u_id uuid, timecontrol_f text)
+ RETURNS TABLE(id bigint, id_gt bigint, white_id uuid, black_id uuid, status text, created_at text, created_at_gt text, timecontrol text, whiteelo bigint, blackelo bigint)
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+  select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo
+  from (select * from games where games.white_id = u_id) g join (select * from games where games.black_id != u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol where g.timecontrol = timeControl_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
+$function$
+"
+public,get_random_pairing_by_id_join,"u_id uuid, timecontrol_f text","CREATE OR REPLACE FUNCTION public.get_random_pairing_by_id_join(u_id uuid, timecontrol_f text)
+ RETURNS TABLE(id bigint, id_gt bigint, white_id uuid, black_id uuid, status text, created_at text, created_at_gt text, timecontrol text, whiteelo bigint, blackelo bigint)
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+  select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo
+  from (select * from games where games.white_id != u_id and games.black_id != u_id) g join (select * from games where games.black_id = u_id and games.white_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol where g.timecontrol = timecontrol_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
+$function$
+"
+public,get_white_pairing_by_id_join,"u_id uuid, timecontrol_f text","CREATE OR REPLACE FUNCTION public.get_white_pairing_by_id_join(u_id uuid, timecontrol_f text)
+ RETURNS TABLE(id bigint, id_gt bigint, white_id uuid, black_id uuid, status text, created_at text, created_at_gt text, timecontrol text, whiteelo bigint, blackelo bigint)
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+  select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo
+  from (select * from games where games.white_id != u_id) g join (select * from games where games.black_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol where g.timecontrol = timeControl_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
+$function$
+"
+public,insert_new_pairing_request,"color_flag text, timecontrol_f text, game_length text, u_id_in uuid","CREATE OR REPLACE FUNCTION public.insert_new_pairing_request(color_flag text, timecontrol_f text, game_length text, u_id_in uuid)
+ RETURNS TABLE(id bigint, created_at text, turn text, status text, whiteelo bigint, blackelo bigint, timecontrol text, white_id uuid, black_id uuid)
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+INSERT INTO games (turn, status, whiteelo, blackelo, timecontrol, white_id, black_id) values ('white', 'pairing',
+case when color_flag = 'white' then (SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id_in limit 1) else null end, case when color_flag = 'black' then (SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id_in limit 1) else null end, game_length, 
+case when color_flag = 'white' then u_id_in else null end, case when color_flag = 'black' then u_id_in else null end) returning *;
+$function$
+"
+public,insert_new_random_pairing_request,"timecontrol_f text, game_length text, u_id_in uuid","CREATE OR REPLACE FUNCTION public.insert_new_random_pairing_request(timecontrol_f text, game_length text, u_id_in uuid)
+ RETURNS TABLE(id bigint, created_at text, turn text, status text, whiteelo bigint, blackelo bigint, timecontrol text, white_id uuid, black_id uuid)
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+INSERT INTO games (turn, status, whiteelo, blackelo, timecontrol, white_id, black_id) values ('white', 'pairing',
+(SELECT (u.rating ->> timeControl_f)::int FROM users u WHERE u.u_id = u_id_in limit 1), (SELECT (ut.rating ->> timeControl_f)::int FROM users ut WHERE ut.u_id = u_id_in limit 1), game_length, 
+u_id_in, u_id_in) returning *;
+$function$
+"
+public,lookup_games_played_by_userid,user_id text,"CREATE OR REPLACE FUNCTION public.lookup_games_played_by_userid(user_id text)
+ RETURNS TABLE(id integer, created_at text, status text, whiteelo integer, blackelo integer, timecontrol text, white_id uuid, black_id uuid, white_username text, black_username text, game_id integer, pgn_info jsonb, pgn text[])
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+select gm.id, gm.created_at, status, whiteelo, blackelo, timecontrol, white_id, black_id, u.username as white_username, ut.username as black_username, game_id, pgn_info, pgn from games g join game_moves gm on g.id = gm.game_id join users u on u.u_id = g.white_id join users ut on ut.u_id = g.black_id where white_id = user_id::uuid or black_id = user_id::uuid;
+$function$
+"
+public,lookup_games_played_by_username,f_username text,"CREATE OR REPLACE FUNCTION public.lookup_games_played_by_username(f_username text)
+ RETURNS TABLE(id integer, created_at text, status text, whiteelo integer, blackelo integer, timecontrol text, white_username text, black_username text, white_avatarurl text, black_avatarurl text, white_isactive boolean, black_isactive boolean, white_rating_info jsonb, black_rating_info jsonb, game_id integer, pgn_info jsonb, pgn text[])
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+select gm.id, gm.created_at, status, whiteelo, blackelo, timecontrol, white_username, black_username, white_avatarurl, black_avatarurl, white_isactive, black_isactive,
+white_rating_info, black_rating_info, game_id, pgn_info, pgn from (select *, un.username as white_username, unt.username as black_username, un.""avatarURL"" as white_avatarurl, unt.""avatarURL"" as black_avatarurl,
+un.""isActive"" as white_isactive, unt.""isActive"" as black_isactive, un.rating as white_rating_info, unt.rating as black_rating_info from games gz join users un on gz.white_id = un.u_id
+join users unt on gz.black_id = unt.u_id) g join game_moves gm on g.id = gm.game_id where lower(white_username) = lower(f_username)
+ or lower(black_username) = lower(f_username);
+$function$
+"
+public,lookup_new_game_moves,find_id integer,"CREATE OR REPLACE FUNCTION public.lookup_new_game_moves(find_id integer)
+ RETURNS TABLE(found_id boolean, id integer, game_id integer, game_id_b integer, pgn_info jsonb)
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+select case when find_id in (game_id, game_id_b) then true else false end as found_id, id, game_id, game_id_b, pgn_info from game_moves order by found_id desc limit 1;
+$function$
+"
+public,lookup_userdata_on_active_status,user_id integer,"CREATE OR REPLACE FUNCTION public.lookup_userdata_on_active_status(user_id integer)
+ RETURNS TABLE(id integer, pgn_info jsonb, pgn text[], white_username text, black_username text, white_avatar text, black_avatar text, white_rating jsonb, black_rating jsonb)
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+with cte as (
+  select id from game_moves where pgn_info ->> 'white' = user_id::text or pgn_info ->> 'black' = user_id::text
+)
+select z.* from cte join (
+select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u.""avatarURL"" as white_avatar, u_t.""avatarURL"" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_moves gm left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text where u.""isActive"" = true and u_t.""isActive"" = true
+) z on cte.id = z.id order by z.id desc;
+$function$
+"
+public,lookup_userdata_on_gameid,game_id_f integer,"CREATE OR REPLACE FUNCTION public.lookup_userdata_on_gameid(game_id_f integer)
+ RETURNS TABLE(id integer, pgn_info jsonb, pgn text[], white_username text, black_username text, white_avatar text, black_avatar text, white_rating jsonb, black_rating jsonb)
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+select gm.id, gm.pgn_info, gm.pgn, u.username as white_username, u_t.username as black_username, u.""avatarURL"" as white_avatar, u_t.""avatarURL"" as black_avatar, u.rating as white_rating, u_t.rating as black_rating from game_moves gm left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text where id = game_id_f;
+$function$
+"
+public,purge_abandoned_timed_games,,"CREATE OR REPLACE FUNCTION public.purge_abandoned_timed_games()
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+begin
+delete from game_moves where game_id in
+(select game_id from (
+WITH cte AS (
+  SELECT 
+    g.id AS games_table_id, 
+    gm.id AS game_moves_id, 
+    game_id,
+    (pgn_info ->> 'date')::timestamptz AS game_start_time, 
+    pgn_info ->> 'result' AS game_result, 
+    split_part(pgn[array_length(pgn, 1)], '$', 3)::timestamptz AS last_move_timestamp,
+    (split_part(timecontrol, '+', 1)::INTEGER * 60 * 2 + (300*5) + 280) AS time_control_seconds
+  FROM games g 
+  JOIN game_moves gm ON g.id = gm.game_id where timecontrol != 'unlimited'
+)
+SELECT 
+  *,
+  EXTRACT(EPOCH FROM (NOW() - game_start_time)) > time_control_seconds AS is_expired
+FROM cte
+) z where z.game_result = '' and is_expired);
+end;
+$function$
+"
+public,purge_old_game_rows,,"CREATE OR REPLACE PROCEDURE public.purge_old_game_rows()
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+  delete from public.games where id not in (select game_id from public.game_moves)
+  and created_at < now() - INTERVAL '45 seconds';
+end;
+$procedure$
+"
+public,update_live_game_moves_pgn,"move_san text, move_timestamp text, game_id integer","CREATE OR REPLACE FUNCTION public.update_live_game_moves_pgn(move_san text, move_timestamp text, game_id integer)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+UPDATE game_moves
+SET pgn = pgn || ARRAY[move_san::text, move_timestamp::text]
+WHERE id = game_id;
+$function$
+"
+public,update_live_game_moves_pgn,"new_move text, game_id integer","CREATE OR REPLACE FUNCTION public.update_live_game_moves_pgn(new_move text, game_id integer)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+UPDATE game_moves
+SET pgn = concat(pgn, new_move)
+WHERE id = game_id;
+$function$
+"
+public,update_live_pairing_request,"black_elo_update integer, white_elo_update integer, black_id_update uuid, white_id_update uuid, white_g_update_id integer, black_g_update_id integer","CREATE OR REPLACE FUNCTION public.update_live_pairing_request(black_elo_update integer, white_elo_update integer, black_id_update uuid, white_id_update uuid, white_g_update_id integer, black_g_update_id integer)
+ RETURNS void
+ LANGUAGE sql
+ SECURITY DEFINER
+AS $function$
+UPDATE games SET status = 'playing', blackelo = black_elo_update, whiteelo = white_elo_update, black_id = black_id_update, white_id = white_id_update WHERE id in (white_g_update_id, black_g_update_id);
+$function$
+"
+public,your_table_changes,,"CREATE OR REPLACE FUNCTION public.your_table_changes()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+begin
+  perform realtime.broadcast_changes(
+    'topic:' || coalesce(NEW.id, OLD.id) ::text,       -- topic - the topic to which you're broadcasting where you can use the topic id to build the topic name
+    TG_OP,                                             -- event - the event that triggered the function
+    TG_OP,                                             -- operation - the operation that triggered the function
+    TG_TABLE_NAME,                                     -- table - the table that caused the trigger
+    TG_TABLE_SCHEMA,                                   -- schema - the schema of the table that caused the trigger
+    NEW,                                               -- new record - the record after the change
+    OLD                                                -- old record - the record before the change
+  );
+  return null;
+end;
+$function$
+"

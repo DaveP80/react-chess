@@ -6,38 +6,42 @@ export async function gamesNewRequestOnUserColor(
   userId: string,
   headers: {},
   user_color: string,
-  timeControl_req: string
+  timeControl_req: string,
+  isRated: boolean
 ) {
   try {
-      const [game_length, timeControl] = timeControlReducer(timeControl_req);
-      const insertObj = {
-        color_flag: user_color,
-        timecontrol_f: timeControl,
-        game_length,
-        u_id_in: userId,
-      }
-      if (user_color == "random") {
-        Reflect.deleteProperty(insertObj, "color_flag")
-      }
-      const { data, error } = await localSupabase.rpc(
-        (user_color == "random" ? "insert_new_random_pairing_request"  : "insert_new_pairing_request"),
-        insertObj
+    const [game_length, timeControl] = timeControlReducer(timeControl_req);
+    const insertObj = {
+      color_flag: user_color,
+      timecontrol_f: timeControl,
+      game_length,
+      u_id_in: userId,
+      is_rated_f: isRated
+    };
+    if (user_color == "random") {
+      Reflect.deleteProperty(insertObj, "color_flag");
+    }
+    const { data, error } = await localSupabase.rpc(
+      user_color == "random"
+        ? "insert_new_random_pairing_request"
+        : "insert_new_pairing_request",
+      insertObj
+    );
+    if (error) {
+      return Response.json(
+        {
+          error,
+          go: false,
+          message: `failed to insert new pairing request on ${user_color}_user_id`,
+        },
+        { headers }
       );
-      if (error) {
-        return Response.json(
-          {
-            error,
-            go: false,
-            message: `failed to insert new pairing request on ${user_color}_user_id`,
-          },
-          { headers }
-        );
-      } else {
-        return Response.json(
-          { data, go: true, message: "new pairing insert on games table." },
-          { headers }
-        );
-      }
+    } else {
+      return Response.json(
+        { data, go: true, message: "new pairing insert on games table." },
+        { headers }
+      );
+    }
   } catch (error) {
     return Response.json({ error }, { headers });
   }
@@ -49,12 +53,15 @@ export async function handleInsertedNewGame(
   user_color: string,
   game_length: any,
   created_at: string,
+  isRated: boolean,
   headers: any
 ) {
   try {
     const { data: data_a, error: error_a } = await localSupabase.rpc(
-      user_color == "random" ? `get_random_pairing_by_id_join` : `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
-      { u_id: userId, timecontrol_f: game_length }
+      user_color == "random"
+        ? `get_random_pairing_by_id_join`
+        : `get_${user_color == "white" ? "black" : "white"}_pairing_by_id_join`,
+      { u_id: userId, timecontrol_f: game_length, is_rated_f: isRated }
     );
     if (error_a) {
       return Response.json({
@@ -74,7 +81,10 @@ export async function handleInsertedNewGame(
       Reflect.deleteProperty(updateObjWhite, "timecontrol");
       Reflect.deleteProperty(updateObjWhite, "status");
       updateObjWhite[`status`] = "playing";
-      const pairingArr = [[updateObjWhite.blackelo, updateObjWhite.black_id, id_gt], [updateObjWhite.whiteelo, updateObjWhite.white_id, id]];
+      const pairingArr = [
+        [updateObjWhite.blackelo, updateObjWhite.black_id, id_gt],
+        [updateObjWhite.whiteelo, updateObjWhite.white_id, id],
+      ];
       const randomIdx = Math.floor(Math.random() * 2);
       const randomIdx2 = randomIdx == 1 ? 0 : 1;
       const greater_at =
@@ -83,16 +93,31 @@ export async function handleInsertedNewGame(
           : data_a[0].created_at_gt;
       const continue_request = greater_at == created_at;
       if (!continue_request) {
+        const updateLiveObj = {
+          black_elo_update:
+            user_color !== "random"
+              ? updateObjWhite.blackelo
+              : pairingArr[randomIdx][0],
+          white_elo_update:
+            user_color !== "random"
+              ? updateObjWhite.whiteelo
+              : pairingArr[randomIdx2][0],
+          black_id_update:
+            user_color !== "random"
+              ? updateObjWhite.black_id
+              : pairingArr[randomIdx][1],
+          white_id_update:
+            user_color !== "random"
+              ? updateObjWhite.white_id
+              : pairingArr[randomIdx2][1],
+          white_g_update_id:
+            user_color !== "random" ? id : pairingArr[randomIdx2][2],
+          black_g_update_id:
+            user_color !== "random" ? id_gt : pairingArr[randomIdx][2],
+        };
         const { data: rpcData, error } = await localSupabase.rpc(
           "update_live_pairing_request",
-          {
-            black_elo_update: user_color !== "random" ? updateObjWhite.blackelo : pairingArr[randomIdx][0],
-            white_elo_update: user_color !== "random" ? updateObjWhite.whiteelo : pairingArr[randomIdx2][0],
-            black_id_update: user_color !== "random" ? updateObjWhite.black_id : pairingArr[randomIdx][1],
-            white_id_update: user_color !== "random" ? updateObjWhite.white_id : pairingArr[randomIdx2][1],
-            white_g_update_id: user_color !== "random" ? id : pairingArr[randomIdx][2],
-            black_g_update_id: user_color !== "random" ? id_gt : pairingArr[randomIdx2][2],
-          }
+          updateLiveObj
         );
         if (error) {
           return Response.json({
@@ -105,6 +130,7 @@ export async function handleInsertedNewGame(
             localSupabase,
             { joinedData: data_a[0] },
             game_length,
+            updateLiveObj,
             headers
           );
           return response;
@@ -141,7 +167,8 @@ export async function getNewGamePairing(pairing_info: any, supabase: any) {
       } else {
         return {
           go: false,
-          message: `no game found with reference id: ${+pairing_info.data[0].id}.`,
+          message: `no game found with reference id: ${+pairing_info.data[0]
+            .id}.`,
         };
       }
     }
@@ -153,7 +180,8 @@ export async function getNewGamePairing(pairing_info: any, supabase: any) {
 async function handleInsertStartGame(
   supabase: any,
   incomingData: any,
-  game_length: any,
+  game_length: string,
+  updateLiveObj: Record<string, any>,
   headers: any
 ) {
   //to determine game_id to use in foreign key.
@@ -167,21 +195,23 @@ async function handleInsertStartGame(
       .from("game_moves")
       .insert({
         game_id: Math.min(+joinedData.id, +joinedData.id_gt),
-        game_id_b: Math.max(+joinedData.id, joinedData.id_gt),
+        game_id_b: Math.max(+joinedData.id, +joinedData.id_gt),
         pgn: [],
         pgn_info: {
           date: new Date().toISOString(),
           //game_moves id
           gameid: 0,
           round: 1,
-          white: joinedData.white_id,
-          black: joinedData.black_id,
+          white: updateLiveObj.white_id_update,
+          black: updateLiveObj.black_id_update,
           result: "",
           termination: "",
-          whiteelo: joinedData.whiteelo,
-          blackelo: joinedData.blackelo,
+          whiteelo: updateLiveObj.white_elo_update,
+          blackelo: updateLiveObj.black_elo_update,
           time_control: game_length,
+          is_rated: joinedData.is_rated ? "rated" : "unrated"
         },
+        is_rated: joinedData.is_rated
       })
       .select();
     if (error) {
@@ -194,7 +224,8 @@ async function handleInsertStartGame(
         { headers }
       );
     } else if (data) {
-      const {data: newTableData, error: newTableError} = await createNewGameTable(supabase, data[0].id);
+      const { data: newTableData, error: newTableError } =
+        await createNewGameTable(supabase, data[0].id);
       if (newTableError) {
         return Response.json(
           {
@@ -204,12 +235,13 @@ async function handleInsertStartGame(
           },
           { headers }
         );
-
       }
       return Response.json(
         {
           go: true,
-          message: "successfully entered new row on games start table and made a new table game_number_table_" + data[0].id, 
+          message:
+            "successfully entered new row on games start table and made a new table game_number_table_" +
+            data[0].id,
         },
         { headers }
       );

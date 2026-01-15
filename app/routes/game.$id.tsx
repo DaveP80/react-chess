@@ -490,14 +490,14 @@ export default function Index() {
             gameData.game_id,
             {
               ...finalGameData?.pgn_info,
-              whiteelo: player_w,
-              blackelo: player_b,
+              whiteelo: gameData.pgn_info.is_rated == "rated" ? player_w : gameData.pgn_info.whiteelo,
+              blackelo: gameData.pgn_info.is_rated == "rated" ? player_b : gameData.pgn_info.blackelo,
             },
             finalGameData?.pgn,
             gameData.pgn_info.white,
             gameData.pgn_info.black,
-            player_w,
-            player_b,
+            gameData.pgn_info.is_rated == "rated" ? player_w : gameData.pgn_info.whiteelo,
+            gameData.pgn_info.is_rated == "rated" ? player_b : gameData.pgn_info.blackelo,
             gameConfig.timeControl,
             gameData.id
           );

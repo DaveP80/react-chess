@@ -9,6 +9,7 @@ import {
 } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useContext, useEffect, useState } from "react";
+import { RatedGameSwitch } from "~/components/RatedGameSwitch";
 import { GlobalContext } from "~/context/globalcontext";
 import {
   gamesNewRequestOnUserColor,
@@ -50,7 +51,8 @@ export async function action({ request }: ActionFunctionArgs) {
       userId,
       headers,
       String(formData?.colorPreference),
-      String(formData?.timeControl)
+      String(formData?.timeControl),
+      Boolean(formData?.isRated)
     );
     return response;
   }
@@ -76,6 +78,7 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function Index() {
   const actionData = useActionData<typeof action>();
   const [loading, setIsLoading] = useState(false);
+  const [isRated, setIsRated] = useState(false);
   const [requestAlert, setRequestAlert] = useState<{
     [key: string]: any;
   } | null>(null);
@@ -130,6 +133,7 @@ export default function Index() {
                 fData.colorPreference,
                 fData.timeControl,
                 fData.data[0].created_at,
+                fData.isRated,
                 headers
               );
             }
@@ -313,12 +317,19 @@ export default function Index() {
                   }
                 }}
               />
+              <input hidden name="isRated" value={isRated ? "true" : "false"}/>
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
               </span>
             </label>
           ))}
         </fieldset>
+        <RatedGameSwitch
+          defaultRated={false}
+          disabled={navigation.state === "submitting"}
+          isRated={isRated}
+          setIsRated={setIsRated}
+        />
 
         <button
           type="submit"

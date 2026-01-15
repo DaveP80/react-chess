@@ -26,6 +26,8 @@ export default function RatingInfo({ gameData, winner }) {
   let expected_black = `+${expected_b - gameData.pgn_info.blackelo}`;
   return (
     <aside className="overflow-auto h-8">
+      {gameData.pgn_info.is_rated == "rated" ? 
+      <>
       <p>Rating if win: white:{expected_white}</p>
       <p>black:{expected_black}</p>
       {winner_insert && (
@@ -34,6 +36,8 @@ export default function RatingInfo({ gameData, winner }) {
           <p>new black rating: {player_b}</p>
         </>
       )}
+      </>
+      : <p>Game is Unrated</p>}
     </aside>
   );
 }

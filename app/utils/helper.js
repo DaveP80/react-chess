@@ -332,6 +332,7 @@ export function profileWonLossOrient(Data, user) {
   } else {
     orientation = "black";
   }
+  console.log(orientation);
   return orientation;
 }
 
