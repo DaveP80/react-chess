@@ -127,8 +127,8 @@ export function processIncomingPgn(gameTurn, orientation) {
 export function parsePgnEntry(pgnEntry) {
   const parts = pgnEntry.split("$");
   return {
-    fen: parts[0],
-    move: parts[1] || "",
+    from: parts[0] || "",
+    to: parts[1] || "",
     timestamp: parts[2] || "",
     whiteTime: parts[3] ? parseFloat(parts[3]) : null,
     blackTime: parts[4] ? parseFloat(parts[4]) : null,
@@ -137,16 +137,16 @@ export function parsePgnEntry(pgnEntry) {
 
 export function setFenHistoryHelper(
   gameCopy,
-  fenHistory,
+  newMove,
   move_san,
   moveHistory
 ) {
-  if (!fenHistory.length) {
+  const fenHistory = activeGame.history({verbose: true}).map((item) => item.after);
+  if (!gameCopy.history().length) {
     return [true, [gameCopy], [move_san]];
   }
 
-  const lastItem = fenHistory[fenHistory.length - 1];
-  if (lastItem.fen() === gameCopy.fen()) {
+  if (newMove.fen() === gameCopy.fen()) {
     return [false, fenHistory, moveHistory];
   } else {
     return [true, [...fenHistory, gameCopy], [...moveHistory, move_san]];
@@ -175,25 +175,24 @@ export function timeOutGameOverReducer(args) {
 }
 
 export function gameStartFinishReducer(
-  fenHistory,
   activeGame,
   timeOut,
   gameData,
   resign
 ) {
-  const actualGame =
-    fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : null;
-  if (!actualGame) return [null, null];
+  // const actualGame =
+  //   fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : null;
+  if (!activeGame?.history()?.length) return [null, null];
 
   // Check for threefold repetition
-  const isThreeFoldRepit = checkIfRepetition(fenHistory);
+  const isThreeFoldRepit = activeGame.isThreefoldRepetition();
   // Display indicators are based on what's currently shown on the board
   const isCheckmate = activeGame.isCheckmate();
   const isDraw = activeGame.isDraw();
   const isStalemate = activeGame.isStalemate();
   const isFiftyMove = activeGame.isDrawByFiftyMoves();
   const isInsufficient = activeGame.isInsufficientMaterial();
-  const actualGameTurn = actualGame.turn();
+  const actualGameTurn = activeGame.turn();
   let result = "1/2-1/2";
   let termination = "";
   switch (actualGameTurn) {

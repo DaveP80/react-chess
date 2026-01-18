@@ -170,15 +170,9 @@ export default function Index() {
                 );
                 if (update_res && update_res.go) {
                   setRequestAlert(response);
-                  NewGameContext.setPGNInfo({
-                    ...NewGameContext.pgnInfo,
-                    routing_id: response.data?.navigateId,
-                    newgame_data: response.data?.newgame_data,
-                  });
                   localStorage.setItem(
                     "pgnInfo",
                     JSON.stringify({
-                      ...NewGameContext.pgnInfo,
                       routing_id: response.data?.navigateId,
                       newgame_data: response.data?.newgame_data,
                     })

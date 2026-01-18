@@ -278,7 +278,7 @@ from
           go: true,
           message: `retrieved game data on id: ${id}`,
           data: data[0],
-          userData: userData?.claims.sub,
+          userData: userData?.claims?.sub,
         },
         { headers }
       );
@@ -287,3 +287,34 @@ from
     return Response.json({ error }, { headers });
   }
 }
+
+export async function lookup_analysis_userdata_on_gameid(
+  supabase: any,
+  headers: any,
+  id: number,
+  userData: Record<any, any> | null
+) {
+
+  try {
+    const { data, error } = await supabase.rpc(
+      `execute_sql_lookup_userdata_on_gameid`,
+      { gameid_f: id }
+    );
+    if (error) {
+      return Response.json({ error }, { headers });
+    } else {
+      return Response.json(
+        {
+          go: true,
+          message: `retrieved game data on id: ${id}`,
+          data: data[0],
+          userData: userData?.claims?.sub,
+        },
+        { headers }
+      );
+    }
+  } catch (error) {
+    return Response.json({ error }, { headers });
+  }
+}
+

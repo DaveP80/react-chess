@@ -10,6 +10,7 @@ import {
 } from "@remix-run/react";
 import { loader } from "~/root";
 import { profileWonLossOrient } from "~/utils/helper";
+import { Chess } from "chess.js";
 
 export default function UserProfile() {
   //const GamePlayContext = useContext(GlobalContext);
@@ -186,7 +187,9 @@ export default function UserProfile() {
                                 ? game.black_username
                                 : game.white_username}
                             </NavLink>
+                            <NavLink to={`/game/${game.id}`}>
                             ↗️
+                            </NavLink>
                             <span
                               className={`font-bold ${
                                 game.pgn_info.result === "1-0"
@@ -212,7 +215,7 @@ export default function UserProfile() {
                             </span>
                           </p>
                           <p className="text-sm text-gray-500">
-                            moves: {game.pgn.map((item) => item.split("$")[1])}
+                            moves: {(() => {const z = new Chess();const r = game.pgn.map((item) => {const arr = item.split("$");const l = z.move({from: arr[0], to: arr[1], promotion: "q" });return l.san;}); return r})() }
                           </p>
                         </div>
                         <span className="text-sm text-gray-400">
