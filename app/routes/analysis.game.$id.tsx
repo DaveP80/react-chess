@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
@@ -7,25 +7,25 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsRight,
-  FlagIcon,
+  RotateCcw,
+  GitBranch,
+  Trash2,
+  FlipVertical,
 } from "lucide-react";
 import {
-  checkIfRepetition,
-  timeControlReducer,
   parsePgnEntry,
-  setFenHistoryHelper,
 } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
-import { lookup_analysis_userdata_on_gameid } from "~/utils/apicalls.server";
-import RatingInfo from "~/components/RatingInfo";
+import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
+import Stockfish from "~/components/Stockfish";
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Chess Game - Play Online" },
+    { title: "Analyze Game - Chess Analysis Board" },
     {
       name: "description",
-      content: "Interactive chess game built with Remix and react-chessboard",
+      content: "Analyze your chess games with move variations and branching lines",
     },
   ];
 };
@@ -36,8 +36,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   try {
     const { client, headers } = createSupabaseServerClient(request);
     const { data: userData } = await client.auth.getClaims();
-    //returns userdata and the current game data.
-    const response = await lookup_analysis_userdata_on_gameid(
+    const response = await lookup_userdata_on_gameid(
       client,
       headers,
       Number(gameId),
@@ -50,428 +49,730 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 }
 
-export default function Index() {
-  const [isReplay, setIsReplay] = useState<null | number>(null);
-  const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
-  const [resign, setResign] = useState<boolean | string>(false);
-  const UserContext = useRouteLoaderData<typeof loader>("root");
-  const [toggleUsers, setToggleUsers] = useState({
-    toggle: false,
-    orientation: "white",
-    oppUsername: "",
-    myUsername: UserContext?.user?.username,
-    oppAvatarURL: "",
-    myAvatarURL: UserContext?.user?.avatarUrl,
-    gameTimeLength: "",
-    oppElo: 1500,
-    myElo: 1500,
-  });
-  const [gameConfig, setGameConfig] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("pairing_info");
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    }
-    return {
-      timeControl: "unlimited",
-      colorPreference: "white",
-    };
-  });
+// Types for the move tree structure
+interface MoveNode {
+  id: string;
+  san: string;           // Standard algebraic notation (e.g., "e4", "Nf3")
+  fen: string;           // Position after this move
+  from: string;          // Source square
+  to: string;            // Target square
+  parent: string | null; // Parent node ID
+  children: string[];    // Child node IDs (variations)
+  isMainLine: boolean;   // Is this part of the original game?
+  moveNumber: number;    // Full move number
+  color: 'w' | 'b';      // Who made this move
+}
 
-  const [activeGame, setActiveGame] = useState(new Chess());
-  const [fenHistory, setFenHistory] = useState<(typeof Chess)[] | any[]>([]);
-  const [moveHistory, setMoveHistory] = useState<string[]>([]);
-  const [draw, setDraw] = useState("");
-  const [result, setResult] = useState<Record<string, string>>({
-    result: "",
-    termination: "",
-  });
+interface MoveTree {
+  nodes: Record<string, MoveNode>;
+  rootId: string;
+  currentNodeId: string;
+}
+
+// Generate unique IDs for nodes
+const generateId = () => Math.random().toString(36).substring(2, 11);
+
+export default function AnalysisBoard() {
   const { data: gameData } = useLoaderData<typeof loader>();
-  const [game_length, timeControl] = timeControlReducer(
-    gameConfig?.timeControl || ""
-  );
+  const UserContext = useRouteLoaderData<typeof loader>("root");
 
-
+  // Core state
+  const [moveTree, setMoveTree] = useState<MoveTree>(() => ({
+    nodes: {},
+    rootId: 'root',
+    currentNodeId: 'root',
+  }));
+  const [displayPosition, setDisplayPosition] = useState<string>(new Chess().fen());
+  const [orientation, setOrientation] = useState<"white" | "black">("white");
+  const [selectedNodeId, setSelectedNodeId] = useState<string>('root');
+  const [pgnInfoString, setpgnInfoString] = useState<string>("");
+  // Initialize the move tree from loaded game data
   useEffect(() => {
-    if (gameData) {
-      setToggleUsers({
-        ...toggleUsers,
-        toggle: true,
-        orientation:
-          gameData.white_username == UserContext?.rowData.username
-            ? "white"
-            : "black",
-        oppUsername:
-          gameData.white_username == UserContext?.rowData.username
-            ? gameData.black_username
-            : gameData.white_username,
-        myUsername: UserContext?.rowData.username,
-        oppAvatarURL:
-          gameData.white_avatar == UserContext?.rowData.avatarURL
-            ? gameData.black_avatar
-            : gameData.white_avatar,
-        myAvatarURL: UserContext?.rowData.avatarURL,
-        gameTimeLength: game_length,
-        oppElo:
-          gameData.white_rating[timeControl] ==
-          UserContext?.rowData.rating[timeControl]
-            ? gameData.black_rating[timeControl]
-            : gameData.white_rating[timeControl],
-        myElo: UserContext?.rowData.rating[timeControl],
-      });
-      if (gameData.pgn.length) {
-        const currGamePgn = gameData.pgn;
-        const lastEntry = parsePgnEntry(currGamePgn[currGamePgn.length - 1]);
+    if (gameData?.pgn?.length) {
+      const initialTree: MoveTree = {
+        nodes: {},
+        rootId: 'root',
+        currentNodeId: 'root',
+      };
 
-        setActiveGame(new Chess(lastEntry.fen));
-        setMoveHistory(
-          currGamePgn.map((item: string) => parsePgnEntry(item).move)
-        );
-        setFenHistory(
-          currGamePgn.map((item: string) => new Chess(parsePgnEntry(item).fen))
-        );
-        setCurrentMoveIndex(moveHistory.length - 1);
+      // Create root node (starting position)
+      const startingFen = new Chess().fen();
+      initialTree.nodes['root'] = {
+        id: 'root',
+        san: '',
+        fen: startingFen,
+        from: '',
+        to: '',
+        parent: null,
+        children: [],
+        isMainLine: true,
+        moveNumber: 0,
+        color: 'w',
+      };
 
-        // Set clock times from the last move if available
-      }
-      if (gameData.pgn_info.result) {
-        setResult({
-          result: gameData.pgn_info.result,
-          termination: gameData.pgn_info.termination,
+      // Build the main line from game PGN
+      let currentParentId = 'root';
+      const tempGame = new Chess();
+      tempGame.header("Event", `${gameData.pgn_info.is_rated == "rated" ? "Rated Game" : "Unrated Game"}`, "Site", "Online", "Date", new Date(gameData.pgn_info.date).toDateString(),
+      "White", gameData.white_username, "Black", gameData.black_username, "Result", gameData.pgn_info.result, "WhiteElo", gameData.pgn_info.whiteelo, "BlackElo", gameData.pgn_info.blackelo,
+      "EndTime", gameData.pgn[gameData.pgn.length-1].split("$")[2]);
+
+      
+      gameData.pgn.forEach((pgnEntry: string, index: number) => {
+        const parsed = parsePgnEntry(pgnEntry);
+        const move = tempGame.move({
+          from: parsed.from,
+          to: parsed.to,
+          promotion: 'q',
         });
-        const endGameData = gameData.pgn_info;
-        switch (endGameData.result) {
-          case "1-0": {
-            if (endGameData.termination.includes("resignation")) {
-              setResign("Black");
-            }
-            break;
-          }
-          case "0-1": {
-            if (endGameData.termination.includes("resignation")) {
-              setResign("White");
-            }
-            break;
-          }
-          case "1/2-1/2": {
-            if (endGameData.termination.includes("Draw")) {
-              setDraw("");
-            }
-            break;
-          }
-          default: {
-            console.log("out of bounds result in pgn_info");
-          }
+        
+        if (move) {
+          const nodeId = generateId();
+          const moveNumber = Math.floor(index / 2) + 1;
+          const color = index % 2 === 0 ? 'w' : 'b';
+          
+          initialTree.nodes[nodeId] = {
+            id: nodeId,
+            san: move.san,
+            fen: tempGame.fen(),
+            from: parsed.from,
+            to: parsed.to,
+            parent: currentParentId,
+            children: [],
+            isMainLine: true,
+            moveNumber,
+            color,
+          };
+          
+          // Link parent to child
+          initialTree.nodes[currentParentId].children.push(nodeId);
+          currentParentId = nodeId;
         }
-      }
-      if (gameData.draw_offer) {
-        const drawAgreement = gameData.draw_offer
-          ? gameData.draw_offer.split("$")
-          : [];
-        if (drawAgreement.length == 1) {
-          setDraw(gameData.draw_offer);
-        } else if (drawAgreement.length == 2) {
-          setDraw("");
-        }
-      } else if (!gameData.draw_offer) {
-        setDraw("");
+      });
+      const gamePGNFile = tempGame.pgn();
+
+      // Set current position to end of main line
+      initialTree.currentNodeId = currentParentId;
+      
+      setMoveTree(initialTree);
+      setDisplayPosition(initialTree.nodes[currentParentId].fen);
+      setSelectedNodeId(currentParentId);
+      setpgnInfoString(gamePGNFile);
+      // Set orientation based on user
+      if (UserContext?.rowData?.username) {
+        const isWhite = gameData.white_username === UserContext.rowData.username;
+        setOrientation(isWhite ? "white" : "black");
       }
     }
+  }, [gameData, UserContext]);
 
-    return () => {};
-  }, [gameData]);
+  // Navigate to a specific node
+  const goToNode = useCallback((nodeId: string) => {
+    const node = moveTree.nodes[nodeId];
+    if (node) {
+      setSelectedNodeId(nodeId);
+      setDisplayPosition(node.fen);
+      setMoveTree(prev => ({ ...prev, currentNodeId: nodeId }));
+    }
+  }, [moveTree.nodes]);
 
+  // Handle piece drop - create new move or variation
+  const onDrop = useCallback((sourceSquare: string, targetSquare: string): boolean => {
+    const currentNode = moveTree.nodes[selectedNodeId];
+    if (!currentNode) return false;
 
-  async function onDrop(sourceSquare: string, targetSquare: string) {
+    // Create a chess instance from current position
+    const tempGame = new Chess(currentNode.fen);
+    
     try {
-      const actualGame =
-        fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : new Chess();
-      const actualTurn = actualGame.turn();
-      if (
-        !isReplay &&
-        !resign &&
-        !checkIfRepetition(fenHistory) &&
-        !result.result
-      ) {
-        const gameCopy = new Chess(activeGame.fen());
-        const move = gameCopy.move({
-          from: sourceSquare,
-          to: targetSquare,
-          promotion: "q",
-        });
+      const move = tempGame.move({
+        from: sourceSquare,
+        to: targetSquare,
+        promotion: 'q',
+      });
 
-        if (move === null) return false;
-        const [fha, fhb, mhc] = setFenHistoryHelper(
-          gameCopy,
-          fenHistory,
-          move.san,
-          moveHistory
-        );
-        if (fha) {
-          setActiveGame(gameCopy);
-          setMoveHistory(mhc);
-          setFenHistory(fhb);
-          setCurrentMoveIndex(moveHistory.length - 1);
+      if (!move) return false;
 
+      // Check if this move already exists as a child
+      const existingChild = currentNode.children.find(childId => {
+        const child = moveTree.nodes[childId];
+        return child && child.from === sourceSquare && child.to === targetSquare;
+      });
 
-
-          return true;
-        } else {
-          return false;
-        }
+      if (existingChild) {
+        // Move already exists, just navigate to it
+        goToNode(existingChild);
+        return true;
       }
+
+      // Create new node for this move
+      const newNodeId = generateId();
+      const isWhiteMove = currentNode.color === 'w' ? (currentNode.fen == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" ? "w" : "b") : 'w';
+      const moveNumber = isWhiteMove === 'w' 
+        ? (currentNode.fen == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" ? 1 : currentNode.moveNumber + 1) 
+        : currentNode.moveNumber;
+
+      const newNode: MoveNode = {
+        id: newNodeId,
+        san: move.san,
+        fen: tempGame.fen(),
+        from: sourceSquare,
+        to: targetSquare,
+        parent: selectedNodeId,
+        children: [],
+        isMainLine: false, // Variations are not main line
+        moveNumber,
+        color: isWhiteMove,
+      };
+
+      setMoveTree(prev => ({
+        ...prev,
+        nodes: {
+          ...prev.nodes,
+          [newNodeId]: newNode,
+          [selectedNodeId]: {
+            ...prev.nodes[selectedNodeId],
+            children: [...prev.nodes[selectedNodeId].children, newNodeId],
+          },
+        },
+        currentNodeId: newNodeId,
+      }));
+
+      setSelectedNodeId(newNodeId);
+      setDisplayPosition(tempGame.fen());
+      return true;
     } catch (error) {
+      console.error("Invalid move:", error);
       return false;
     }
-  }
+  }, [moveTree, selectedNodeId, goToNode]);
 
-  const handleSetReplay = (idx: number) => {
-    if (idx != fenHistory.length - 1) {
-      setActiveGame(fenHistory[idx]);
-      setIsReplay(idx);
-      setCurrentMoveIndex(idx);
-    }
-    if (idx == fenHistory.length - 1) {
-      setIsReplay(null);
-      setActiveGame(fenHistory[fenHistory.length - 1]);
-      setCurrentMoveIndex(fenHistory.length - 1);
-    }
-  };
+  // Navigation functions
+  const goToStart = useCallback(() => {
+    goToNode('root');
+  }, [goToNode]);
 
-  const goToStart = () => {
-    if (fenHistory.length > 0) {
-      setActiveGame(new Chess());
-      setIsReplay(-1);
-      setCurrentMoveIndex(-1);
+  const goToEnd = useCallback(() => {
+    // Follow main line to the end
+    let nodeId = selectedNodeId;
+    let node = moveTree.nodes[nodeId];
+    
+    while (node && node.children.length > 0) {
+      // Prefer main line children, otherwise take first child
+      const mainLineChild = node.children.find(id => moveTree.nodes[id]?.isMainLine);
+      nodeId = mainLineChild || node.children[0];
+      node = moveTree.nodes[nodeId];
     }
-  };
+    
+    goToNode(nodeId);
+  }, [moveTree.nodes, selectedNodeId, goToNode]);
 
-  const goToEnd = () => {
-    if (fenHistory.length > 0) {
-      const lastIndex = fenHistory.length - 1;
-      setActiveGame(fenHistory[lastIndex]);
-      setIsReplay(null);
-      setCurrentMoveIndex(lastIndex);
+  const goToPrevious = useCallback(() => {
+    const currentNode = moveTree.nodes[selectedNodeId];
+    if (currentNode?.parent) {
+      goToNode(currentNode.parent);
     }
-  };
+  }, [moveTree.nodes, selectedNodeId, goToNode]);
 
-  const goToPrevious = () => {
-    if (currentMoveIndex > 0) {
-      const newIndex = currentMoveIndex - 1;
-      setActiveGame(fenHistory[newIndex]);
-      setIsReplay(newIndex);
-      setCurrentMoveIndex(newIndex);
+  const goToNext = useCallback(() => {
+    const currentNode = moveTree.nodes[selectedNodeId];
+    if (currentNode?.children.length > 0) {
+      // Prefer main line, otherwise first child
+      const mainLineChild = currentNode.children.find(id => moveTree.nodes[id]?.isMainLine);
+      goToNode(mainLineChild || currentNode.children[0]);
     }
-  };
+  }, [moveTree.nodes, selectedNodeId, goToNode]);
 
-  const goToNext = () => {
-    if (currentMoveIndex < fenHistory.length - 1) {
-      const newIndex = currentMoveIndex + 1;
-      setActiveGame(fenHistory[newIndex]);
-      if (newIndex === fenHistory.length - 1) {
-        setIsReplay(null);
-      } else {
-        setIsReplay(newIndex);
+  // Delete variation from current node
+  const deleteVariation = useCallback((nodeId: string) => {
+    const node = moveTree.nodes[nodeId];
+    if (!node || node.isMainLine || !node.parent) return;
+
+    // Collect all descendant IDs to remove
+    const toRemove = new Set<string>();
+    const collectDescendants = (id: string) => {
+      toRemove.add(id);
+      moveTree.nodes[id]?.children.forEach(collectDescendants);
+    };
+    collectDescendants(nodeId);
+
+    setMoveTree(prev => {
+      const newNodes = { ...prev.nodes };
+      
+      // Remove from parent's children
+      const parent = newNodes[node.parent!];
+      if (parent) {
+        newNodes[node.parent!] = {
+          ...parent,
+          children: parent.children.filter(id => id !== nodeId),
+        };
       }
-      setCurrentMoveIndex(newIndex);
+
+      // Remove all collected nodes
+      toRemove.forEach(id => delete newNodes[id]);
+
+      // If current node was deleted, go to parent
+      const newCurrentId = toRemove.has(prev.currentNodeId) 
+        ? node.parent! 
+        : prev.currentNodeId;
+
+      return {
+        ...prev,
+        nodes: newNodes,
+        currentNodeId: newCurrentId,
+      };
+    });
+
+    if (toRemove.has(selectedNodeId)) {
+      goToNode(node.parent!);
     }
-  };
+  }, [moveTree.nodes, selectedNodeId, goToNode]);
 
+  // Reset to original game position
+  const resetToMainLine = useCallback(() => {
+    // Remove all non-main-line nodes
+    let finalFen = "";
+    let finalNodeId = "";
+    setMoveTree(prev => {
+      const newNodes: Record<string, MoveNode> = {};
+      
+      Object.values(prev.nodes).forEach(node => {
+        if (node.isMainLine && node.children.length == 0) {
+          finalFen = node.fen;
+          finalNodeId = node.id;
+        }
+        if (node.isMainLine || node.id === 'root') {
+          newNodes[node.id] = {
+            ...node,
+            children: node.children.filter(childId => prev.nodes[childId]?.isMainLine),
+          };
+        }
+      });
 
-  // Check for threefold repetition
-  const isThreeFoldRepit = checkIfRepetition(fenHistory);
-  // Game over state is based on ALL game-ending conditions
-  const isGameOver =
-    activeGame.isGameOver() ||
-    isThreeFoldRepit 
+      return {
+        ...prev,
+        nodes: newNodes,
+      };
+    });
+    setDisplayPosition(finalFen);
+    setSelectedNodeId(finalNodeId);
+  }, []);
 
-  // Display indicators are based on what's currently shown on the board
-  const isCheckmate = activeGame.isCheckmate();
-  const isDraw = activeGame.isDraw();
-  const isCheck = activeGame.isCheck();
-  const isStalemate = activeGame.isStalemate();
-  const isFiftyMove = activeGame.isDrawByFiftyMoves();
-  const isInsufficient = activeGame.isInsufficientMaterial();
+  // Build the move list display
+  const moveListDisplay = useMemo(() => {
+    const lines: JSX.Element[] = [];
+    const visited = new Set<string>();
 
-  const actualGameTurn = activeGame.turn();
-  const drawAgreement =
-    result?.termination && result.termination.includes("Agreement")
-      ? true
-      : false;
+    const renderLine = (nodeId: string, depth: number = 0): JSX.Element[] => {
+      const elements: JSX.Element[] = [];
+      let currentId = nodeId;
+      let isFirst = true;
+
+      while (currentId && !visited.has(currentId)) {
+        visited.add(currentId);
+        const node = moveTree.nodes[currentId];
+        if (!node || currentId === 'root') {
+          break;
+        }
+
+        const isSelected = currentId === selectedNodeId;
+        const moveNum = node.moveNumber;
+        const showMoveNumber = node.color === 'w' || isFirst;
+
+        elements.push(
+          <span
+            key={node.id}
+            onClick={() => goToNode(node.id)}
+            className={`
+              inline-flex items-center cursor-pointer px-1.5 py-0.5 rounded text-sm
+              transition-all duration-150
+              ${isSelected 
+                ? 'bg-amber-400 text-slate-900 font-bold shadow-sm' 
+                : node.isMainLine 
+                  ? 'text-slate-200 hover:bg-slate-700' 
+                  : 'text-emerald-400 hover:bg-slate-700'
+              }
+            `}
+          >
+            {showMoveNumber && (
+              <span className="text-slate-500 mr-1 text-xs">
+                {moveNum}{node.color === 'w' ? '.' : '...'}
+              </span>
+            )}
+            {node.san}
+            {!node.isMainLine && node.children.length === 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteVariation(node.id);
+                }}
+                className="ml-1 opacity-50 hover:opacity-100 text-red-400"
+                title="Delete variation"
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
+          </span>
+        );
+
+        isFirst = false;
+
+        // Handle variations (non-first children)
+        if (node.children.length > 1) {
+          node.children.slice(1).forEach((varId) => {
+            const varNode = moveTree.nodes[varId];
+            if (varNode && !visited.has(varId)) {
+              elements.push(
+                <span key={`var-${varId}`} className="text-slate-500 mx-1">(</span>
+              );
+              elements.push(...renderLine(varId, depth + 1));
+              elements.push(
+                <span key={`var-end-${varId}`} className="text-slate-500 mx-1">)</span>
+              );
+            }
+          });
+        }
+
+        // Continue with first child (main continuation)
+        if (node.children.length > 0) {
+          currentId = node.children[0];
+        } else {
+          break;
+        }
+      }
+
+      return elements;
+    };
+
+    // Start from root's first child
+    const rootNode = moveTree.nodes['root'];
+    if (rootNode?.children.length > 0) {
+      const mainLineElements: JSX.Element[] = [];
+      
+      // Render the main line (first child of root)
+      mainLineElements.push(...renderLine(rootNode.children[0]));
+      
+      // Render variations from root (children beyond the first)
+      if (rootNode.children.length > 1) {
+        rootNode.children.slice(1).forEach((varId) => {
+          const varNode = moveTree.nodes[varId];
+          if (varNode && !visited.has(varId)) {
+            mainLineElements.push(
+              <span key={`root-var-${varId}`} className="text-slate-500 mx-1">(</span>
+            );
+            mainLineElements.push(...renderLine(varId, 1));
+            mainLineElements.push(
+              <span key={`root-var-end-${varId}`} className="text-slate-500 mx-1">)</span>
+            );
+          }
+        });
+      }
+      lines.push(
+        <div key="main-line" className="flex flex-wrap gap-1 items-center">
+          {mainLineElements}
+        </div>
+      );
+    }
+
+    return lines;
+  }, [moveTree.nodes, selectedNodeId, goToNode, deleteVariation]);
+
+  // Calculate game status indicators
+  const currentGame = useMemo(() => {
+    try {
+      return new Chess(displayPosition);
+    } catch {
+      return new Chess();
+    }
+  }, [displayPosition]);
+
+  const isCheck = currentGame.isCheck();
+  const isCheckmate = currentGame.isCheckmate();
+  const isDraw = currentGame.isDraw();
+  const isStalemate = currentGame.isStalemate();
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          goToPrevious();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          goToNext();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          goToStart();
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          goToEnd();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goToPrevious, goToNext, goToStart, goToEnd]);
+
+  // Count moves and variations
+  const moveCount = Object.values(moveTree.nodes).filter(n => n.id !== 'root').length;
+  const variationCount = Object.values(moveTree.nodes).filter(n => !n.isMainLine && n.id !== 'root').length;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8">
-            <h1 className="text-5xl font-bold text-white mb-3">Chess Game</h1>
-            <p className="text-slate-300 text-lg">
-              Built with Remix and react-chessboard
-            </p>
+    <div className="min-h-screen bg-[#1a1a2e]">
+
+
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+        {/* Header */}
+        <header className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-1 h-8 bg-amber-400 rounded-full" />
+            <h1 className="text-3xl font-light text-white tracking-tight">
+              Analysis Board
+            </h1>
+          </div>
+          <p className="text-slate-400 text-sm ml-4 pl-3 border-l border-slate-700">
+            Play through the game and explore alternative moves
+          </p>
+        </header>
+
+        <div className="grid lg:grid-cols-[1fr_380px] gap-6">
+          {/* Left Column - Board */}
+          <div className="space-y-4">
+            {/* Player info - opponent */}
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-semibold text-sm">
+                {(orientation === 'white' ? gameData.black_username : gameData.white_username).charAt(0).toUpperCase() || '?'}
+              </div>
+              <div>
+                <p className="text-white font-medium">
+                  {orientation === 'white' ? gameData.black_username : gameData.white_username}
+                </p>
+                <p className="text-slate-500 text-sm">
+                  {orientation === 'white' ? gameData.pgn_info.blackelo : gameData.pgn_info.whiteelo}
+                </p>
+              </div>
+              {currentGame.turn() === (orientation === 'white' ? 'b' : 'w') && !currentGame.isGameOver() && (
+                <div className="ml-auto w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </div>
+
+            {/* Chess Board */}
+              {/* Status indicators */}
+              {(isCheck || isCheckmate || isDraw) && (
+                <div className="flex justify-center mb-2">
+                  {isCheckmate && (
+                    <span className="bg-red-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                      Checkmate
+                    </span>
+                  )}
+                  {isCheck && !isCheckmate && (
+                    <span className="bg-amber-500 text-slate-900 px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                      Check
+                    </span>
+                  )}
+                  {isDraw && (
+                    <span className="bg-slate-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                      {isStalemate ? 'Stalemate' : 'Draw'}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
+                <Chessboard
+                  position={displayPosition}
+                  onPieceDrop={onDrop}
+                  boardWidth={Math.min(700, typeof window !== "undefined" ? window.innerWidth - 60 : 700)}
+                  boardOrientation={orientation}
+                  customBoardStyle={{
+                    borderRadius: '8px',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                  }}
+                  customDarkSquareStyle={{ backgroundColor: '#4a5568' }}
+                  customLightSquareStyle={{ backgroundColor: '#718096' }}
+                />
+              </div>
+
+            {/* Player info - user */}
+            <div className="flex items-center gap-3 px-2">
+              <div className="w-10 h-10 rounded-full bg-amber-400/20 border-2 border-amber-400 flex items-center justify-center text-amber-400 font-semibold text-sm">
+                {(orientation === 'white' ? gameData.white_username : gameData.black_username).charAt(0).toUpperCase() || '?'}
+              </div>
+              <div>
+                <p className="text-white font-medium">
+                  {orientation === 'white' ? gameData.white_username : gameData.black_username}
+                </p>
+                <p className="text-slate-500 text-sm">
+                  {orientation === 'white' ? gameData.pgn_info.whiteelo : gameData.pgn_info.blackelo}
+                </p>
+              </div>
+              {currentGame.turn() === (orientation === 'white' ? 'w' : 'b') && !currentGame.isGameOver() && (
+                <div className="ml-auto w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+              )}
+            </div>
+
+            {/* Board controls */}
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={goToStart}
+                className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
+                title="Go to start (↑)"
+              >
+                <ChevronsLeft size={20} />
+              </button>
+              <button
+                onClick={goToPrevious}
+                className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
+                title="Previous move (←)"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <span className="px-4 py-2 text-sm text-slate-400 min-w-[80px] text-center font-mono">
+                {moveTree.nodes[selectedNodeId]?.moveNumber || 0}.
+                {moveTree.nodes[selectedNodeId]?.san || '...'}
+              </span>
+              <button
+                onClick={goToNext}
+                className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
+                title="Next move (→)"
+              >
+                <ChevronRight size={20} />
+              </button>
+              <button
+                onClick={goToEnd}
+                className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
+                title="Go to end (↓)"
+              >
+                <ChevronsRight size={20} />
+              </button>
+              <div className="w-px h-8 bg-slate-700 mx-2" />
+              <button
+                onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
+                className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
+                title="Flip board"
+              >
+                <FlipVertical size={20} />
+              </button>
+            </div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-2xl shadow-2xl p-6">
-                <div className="mb-4 flex justify-between items-center">
-                  <div>
-                    {isCheck && !isCheckmate && (
-                      <span className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg font-semibold">
-                        Check!
-                      </span>
-                    )}
-                    {isCheckmate && (
-                      <span className="bg-red-100 text-red-800 px-4 py-2 rounded-lg font-semibold">
-                        Checkmate!
-                      </span>
-                    )}
-                    {isDraw && (
-                      <span className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg font-semibold">
-                        Draw!
-                      </span>
-                    )}
-                  </div>
+          {/* Right Column - Move List & Info */}
+          <div className="space-y-4">
+            {gameData?.pgn_info?.result && (
+              <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-sm">Game Result</span>
+                  <span className="text-2xl font-bold text-white font-mono">
+                    {gameData.pgn_info.result}
+                  </span>
+                </div>
+                {gameData?.pgn_info?.termination && (
+                  <p className="text-slate-500 text-sm mt-1">{gameData.pgn_info.termination}</p>
+                )}
+              </div>
+            )}
 
+            {/* Move List */}
+            <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-700/50 flex items-center justify-between">
+                <h2 className="text-white font-medium flex items-center gap-2">
+                  Moves
+                  {variationCount > 0 && (
+                    <span className="flex items-center gap-1 text-emerald-400 text-xs bg-emerald-400/10 px-2 py-0.5 rounded-full">
+                      <GitBranch size={12} />
+                      {variationCount}
+                    </span>
+                  )}
+                </h2>
+                {variationCount > 0 && (
                   <button
-                    onClick={resignGame}
-                    className="flex items-center gap-2 bg-red-900 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    onClick={resetToMainLine}
+                    className="text-slate-400 hover:text-white text-sm flex items-center gap-1 transition-colors"
+                    title="Reset to main line"
                   >
-                    <FlagIcon size={20} />
-                    Resign
+                    <RotateCcw size={14} />
+                    Reset
                   </button>
-
-                </div>
-                <div className="mb-1 flex justify-start">
-                  {toggleUsers.toggle && (
-                    <section>
-                      <p>{toggleUsers.oppUsername}</p>
-                      <img src={toggleUsers.oppAvatarURL}></img>
-                      <p>{toggleUsers.oppElo}</p>
-                    </section>
-                  )}
-                </div>
-                <Chessboard
-                  position={activeGame.fen()}
-                  onPieceDrop={onDrop}
-                  boardWidth={Math.min(
-                    600,
-                    typeof window !== "undefined" ? window.innerWidth - 48 : 600
-                  )}
-                  boardOrientation={toggleUsers.orientation || "white"}
-                />
-                <div className="mb-1 flex justify-start">
-                  {toggleUsers.toggle && (
-                    <section>
-                      <p>{toggleUsers.myUsername}</p>
-                      <img src={toggleUsers.myAvatarURL}></img>
-                      <p>{toggleUsers.myElo}</p>
-                    </section>
-                  )}
-                </div>
+                )}
+              </div>
+              
+              <div className="p-4 max-h-[400px] overflow-y-auto custom-scrollbar">
+                {moveCount === 0 ? (
+                  <p className="text-slate-500 text-center py-8">No moves yet</p>
+                ) : (
+                  <div className="space-y-2">
+                    {moveListDisplay}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-2xl shadow-2xl p-6">
-                <h2 className="text-2xl font-bold text-slate-800 mb-1">
-                  Game Info
-                </h2>
-                <RatingInfo gameData={gameData} winner={result?.result || ""} />
-                <h3 className="text-xl font-bold text-slate-800 mb-3 mt-3">
-                  Move History
-                </h3>
-                <div className="bg-slate-50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
-                  {moveHistory.length === 0 ? (
-                    <p className="text-slate-400 text-center">No moves yet</p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      {moveHistory.map((move, index) => (
-                        <div
-                          key={index}
-                          className={`bg-white px-3 py-2 rounded shadow-sm ${
-                            index == isReplay
-                              ? "text-red-500"
-                              : "text-slate-700"
-                          }`}
-                          onClick={() => handleSetReplay(index)}
-                        >
-                          <span className="font-semibold text-slate-500 text-sm">
-                            {Math.floor(index / 2) + 1}.
-                          </span>{" "}
-                          {move}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {/* Analysis Tips */}
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
+              <h3 className="text-slate-300 text-sm font-medium mb-3">How to Analyze</h3>
+              <ul className="space-y-2 text-slate-500 text-sm">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 mt-0.5">•</span>
+                  <span>Click moves to navigate, or use arrow keys</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 mt-0.5">•</span>
+                  <span>Drag pieces to explore alternative moves</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 mt-0.5">•</span>
+                  <span>Variations appear in <span className="text-emerald-400">green</span></span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-red-400 mt-0.5">•</span>
+                  <span>Click <Trash2 size={12} className="inline" /> to delete a variation</span>
+                </li>
+              </ul>
+            </div>
 
-                  <div className="mt-3 flex items-center justify-center gap-2 bg-slate-200 rounded-lg p-2">
-                    <button
-                      onClick={goToStart}
-                      disabled={currentMoveIndex === 0}
-                      className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Jump to start"
-                    >
-                      <ChevronsLeft size={20} className="text-slate-700" />
-                    </button>
-                    <button
-                      onClick={goToPrevious}
-                      disabled={currentMoveIndex <= 0}
-                      className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Previous move"
-                    >
-                      <ChevronLeft size={20} className="text-slate-700" />
-                    </button>
-                    <span className="px-3 py-1 text-sm font-semibold text-slate-700 min-w-[60px] text-center">
-                      {currentMoveIndex + 1} / {moveHistory.length}
-                    </span>
-                    <button
-                      onClick={goToNext}
-                      disabled={currentMoveIndex >= fenHistory.length - 1}
-                      className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Next move"
-                    >
-                      <ChevronRight size={20} className="text-slate-700" />
-                    </button>
-                    <button
-                      onClick={goToEnd}
-                      disabled={currentMoveIndex >= fenHistory.length - 1}
-                      className="p-2 rounded hover:bg-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Jump to end"
-                    >
-                      <ChevronsRight size={20} className="text-slate-700" />
-                    </button>
-                  </div>
-                </div>
-                {(isGameOver || isThreeFoldRepit || resign) && (
-                  <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
-                    <p className="font-bold text-lg mb-2">Game Over!</p>
-                    <p className="text-slate-300">
-                      {isCheckmate &&
-                        `${
-                          actualGameTurn === "w"
-                            ? "Checkmate: Black"
-                            : "Checkmate: White"
-                        } wins!`}
-                      {isThreeFoldRepit && `Draw!! Three Fold Repitition.`}
-                      {isFiftyMove && `Draw!! 50 move limit reached.`}
-                      {isStalemate && `Draw!! Stalemate.`}
-                      {isInsufficient && `Draw!! Insufficient mating material.`}
-
-                      {resign && `${resign} Resigns!`}
-                    </p>
-                  </div>
-                )}
-                {drawAgreement && (
-                  <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
-                    <p className="text-slate-300">Draw By Aggrement.</p>
-                  </div>
-                )}
-                {result.result}
-              </div>
+            {/* Position Info */}
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
+              <h3 className="text-slate-300 text-sm font-medium mb-2">Position</h3>
+              <p className="text-slate-600 text-xs font-mono break-all leading-relaxed">
+                FEN: {displayPosition}
+              </p>
+            </div>
+            <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
+              <h3 className="text-slate-300 text-sm font-medium mb-2">PGN File</h3>
+              <p className="text-slate-600 text-xs font-mono break-all leading-relaxed">
+                {pgnInfoString}
+              </p>
             </div>
           </div>
         </div>
       </div>
+      <Stockfish fen={displayPosition}/>
+
+      {/* Custom scrollbar styles */}
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #475569;
+          border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
+        }
+      `}</style>
     </div>
   );
 }

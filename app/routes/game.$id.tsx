@@ -502,6 +502,74 @@ export default function Index() {
     }
   }, [result, finalGameData]);
 
+  const goToStart = () => {
+    if (activeGame.history().length > 0) {
+      setReplayFenHistory(activeGame.history({ verbose: true })[0].before);
+      setIsReplay(-1);
+      setCurrentMoveIndex(-1);
+    }
+  };
+
+  const goToEnd = () => {
+    if (activeGame.history().length > 0) {
+      const lastIndex = activeGame.history().length - 1;
+      setReplayFenHistory(activeGame.history({ verbose: true })[lastIndex].after);
+      setIsReplay(null);
+      setCurrentMoveIndex(lastIndex);
+    }
+  };
+
+  const goToPrevious = () => {
+    if (currentMoveIndex > 0) {
+      const newIndex = currentMoveIndex - 1;
+      setReplayFenHistory(activeGame.history({ verbose: true })[newIndex].after);
+      setIsReplay(newIndex);
+      setCurrentMoveIndex(newIndex);
+    }
+  };
+
+  const goToNext = () => {
+    if (currentMoveIndex < activeGame.history().length - 1) {
+      const newIndex = currentMoveIndex + 1;
+      setReplayFenHistory(activeGame.history({ verbose: true })[newIndex].after);
+      if (newIndex === activeGame.history().length - 1) {
+        setIsReplay(null);
+      } else {
+        setIsReplay(newIndex);
+      }
+      setCurrentMoveIndex(newIndex);
+    }
+  };
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          goToPrevious();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          goToNext();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          goToStart();
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          goToEnd();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [goToPrevious, goToNext, goToStart, goToEnd]);
+
   async function onDrop(sourceSquare: string, targetSquare: string) {
     const resultGame = result;
     try {
@@ -547,7 +615,6 @@ export default function Index() {
       // Insert move to database
       await insertNewMoves(
         supabase,
-        activeGame.fen(),
         [sourceSquare, targetSquare],
         gameData.id,
         draw,
@@ -557,24 +624,24 @@ export default function Index() {
         currentTimes?.whiteTime,
         currentTimes?.blackTime
       );
-
+      
       return true;
     } catch (error) {
       console.error("Error in onDrop:", error);
       return false;
     }
   }
-
+  
   function handleTimeOut(player: "white" | "black" | "game over") {
     setTimeOut(player);
   }
-
+  
   async function resignGame() {
     const isGameOver =
-      activeGame.isGameOver() ||
+    activeGame.isGameOver() ||
       timeOut !== null ||
       activeGame.isThreefoldRepetition() ||
-      result.result;
+      Boolean(result.result);
     if (isGameOver) {
       return null;
     }
@@ -615,44 +682,6 @@ export default function Index() {
     }
   };
 
-  const goToStart = () => {
-    if (activeGame.history().length > 0) {
-      setReplayFenHistory(activeGame.history({ verbose: true })[0].before);
-      setIsReplay(-1);
-      setCurrentMoveIndex(-1);
-    }
-  };
-
-  const goToEnd = () => {
-    if (activeGame.history().length > 0) {
-      const lastIndex = activeGame.history().length - 1;
-      setReplayFenHistory(activeGame.history({ verbose: true })[lastIndex].after);
-      setIsReplay(null);
-      setCurrentMoveIndex(lastIndex);
-    }
-  };
-
-  const goToPrevious = () => {
-    if (currentMoveIndex > 0) {
-      const newIndex = currentMoveIndex - 1;
-      setReplayFenHistory(activeGame.history({ verbose: true })[newIndex].after);
-      setIsReplay(newIndex);
-      setCurrentMoveIndex(newIndex);
-    }
-  };
-
-  const goToNext = () => {
-    if (currentMoveIndex < activeGame.history().length - 1) {
-      const newIndex = currentMoveIndex + 1;
-      setReplayFenHistory(activeGame.history({ verbose: true })[newIndex].after);
-      if (newIndex === activeGame.history().length - 1) {
-        setIsReplay(null);
-      } else {
-        setIsReplay(newIndex);
-      }
-      setCurrentMoveIndex(newIndex);
-    }
-  };
 
   const isThreeFoldRepit = activeGame.isThreefoldRepetition();
   const isGameOver =

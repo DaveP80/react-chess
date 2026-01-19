@@ -187,7 +187,7 @@ export default function UserProfile() {
                                 ? game.black_username
                                 : game.white_username}
                             </NavLink>
-                            <NavLink to={`/game/${game.id}`}>
+                            <NavLink to={`/analysis/game/${game.id}`}>
                             ↗️
                             </NavLink>
                             <span

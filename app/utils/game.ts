@@ -276,3 +276,6 @@ export async function updateActiveUserStatus(userId: any, supabase: any) {
     return { error, go: false };
   }
 }
+
+
+

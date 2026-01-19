@@ -1,12 +1,18 @@
 import { Link, useRouteLoaderData } from '@remix-run/react';
+import { useEffect, useState } from 'react';
 import { loader } from '~/root';
 
 export default function CreateGame() {
   const { rowData } = useRouteLoaderData<typeof loader>("root");
-  async function getLocalStor() {
-    return JSON.parse(await window.localStorage.getItem("pgnInfo") || "{}")?.routing_id
-  }
-  const routingId = getLocalStor();
+  const [routingId, setRoutingId] = useState("/play/online");
+  useEffect(() => {
+    setRoutingId(JSON.parse(window.localStorage.getItem("pgnInfo") || "{}")?.routing_id);
+  
+    return () => {
+      true
+    }
+  }, [])
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4">
       <h1 className="text-6xl font-extrabold mb-6 text-center leading-tight">

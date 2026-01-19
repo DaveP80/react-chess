@@ -2,7 +2,6 @@ import { timeControlReducer } from "./helper";
 
 export async function insertNewMoves(
   supabase: any,
-  activeGame: any,
   move: string[],
   id: number,
   draw: string,
@@ -13,13 +12,11 @@ export async function insertNewMoves(
   blackTime?: number
 ) {
   const move_timestamp = new Date().toISOString();
-  // Include time remaining if provided (format: fen$move$timestamp$whiteTime$blackTime)
   const timeData =
     whiteTime !== undefined && blackTime !== undefined
       ? `$${whiteTime}$${blackTime}`
       : null;
 
-  //const new_move = `${activeGame.fen()}$${move}$${move_timestamp}${timeData}`;
   const new_move = `${move[0]}$${move[1]}$${move_timestamp}${timeData}`;
   const drawConcat = draw ? ", draw_offer = NULL" : "";
   let pgn_infoConcat = "";
