@@ -331,7 +331,6 @@ export function profileWonLossOrient(Data, user) {
   } else {
     orientation = "black";
   }
-  console.log(orientation);
   return orientation;
 }
 
@@ -343,6 +342,16 @@ export function memberWonLossOrient(Data, username) {
     orientation = "black";
   }
   return orientation;
+}
+
+export function copyDivContents(flag) {
+  let divContent = document.querySelector(`.${flag || "NULL"}`)?.textContent;
+  var tempElement = document.createElement("textarea");
+  tempElement.value = divContent?.trim();
+  document.body.appendChild(tempElement);
+  tempElement.select();
+  document.execCommand("copy");
+  document.body.removeChild(tempElement);
 }
 
 export const SUPABASE_CONFIG = [

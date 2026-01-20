@@ -11,8 +11,10 @@ import {
   GitBranch,
   Trash2,
   FlipVertical,
+  Clipboard
 } from "lucide-react";
 import {
+  copyDivContents,
   parsePgnEntry,
 } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
@@ -113,11 +115,28 @@ export default function AnalysisBoard() {
       // Build the main line from game PGN
       let currentParentId = 'root';
       const tempGame = new Chess();
-      tempGame.header("Event", `${gameData.pgn_info.is_rated == "rated" ? "Rated Game" : "Unrated Game"}`, "Site", "Online", "Date", new Date(gameData.pgn_info.date).toDateString(),
-      "White", gameData.white_username, "Black", gameData.black_username, "Result", gameData.pgn_info.result, "WhiteElo", gameData.pgn_info.whiteelo, "BlackElo", gameData.pgn_info.blackelo,
-      "EndTime", gameData.pgn[gameData.pgn.length-1].split("$")[2]);
+      tempGame.setHeader(
+        "Event", `${gameData.pgn_info.is_rated == "rated" ? "Rated Game" : "Unrated Game"}`);
+      tempGame.setHeader(
+        "Site", "Online");
+      tempGame.setHeader(
+        "Date", new Date(gameData.pgn_info.date).toDateString());
+      tempGame.setHeader(
+        "Round", "1");
+      tempGame.setHeader(
+        "White", gameData.white_username);
+      tempGame.setHeader(
+        "Black", gameData.black_username);
+      tempGame.setHeader(
+        "Result", gameData.pgn_info.result);
+      tempGame.setHeader(
+        "WhiteElo", gameData.pgn_info.whiteelo);
+      tempGame.setHeader(
+        "BlackElo", gameData.pgn_info.blackelo);
+      tempGame.setHeader(
+        "EndTime", gameData.pgn[gameData.pgn.length - 1].split("$")[2]);
 
-      
+
       gameData.pgn.forEach((pgnEntry: string, index: number) => {
         const parsed = parsePgnEntry(pgnEntry);
         const move = tempGame.move({
@@ -125,12 +144,12 @@ export default function AnalysisBoard() {
           to: parsed.to,
           promotion: 'q',
         });
-        
+
         if (move) {
           const nodeId = generateId();
           const moveNumber = Math.floor(index / 2) + 1;
           const color = index % 2 === 0 ? 'w' : 'b';
-          
+
           initialTree.nodes[nodeId] = {
             id: nodeId,
             san: move.san,
@@ -143,7 +162,7 @@ export default function AnalysisBoard() {
             moveNumber,
             color,
           };
-          
+
           // Link parent to child
           initialTree.nodes[currentParentId].children.push(nodeId);
           currentParentId = nodeId;
@@ -153,7 +172,7 @@ export default function AnalysisBoard() {
 
       // Set current position to end of main line
       initialTree.currentNodeId = currentParentId;
-      
+
       setMoveTree(initialTree);
       setDisplayPosition(initialTree.nodes[currentParentId].fen);
       setSelectedNodeId(currentParentId);
@@ -183,7 +202,7 @@ export default function AnalysisBoard() {
 
     // Create a chess instance from current position
     const tempGame = new Chess(currentNode.fen);
-    
+
     try {
       const move = tempGame.move({
         from: sourceSquare,
@@ -208,8 +227,8 @@ export default function AnalysisBoard() {
       // Create new node for this move
       const newNodeId = generateId();
       const isWhiteMove = currentNode.color === 'w' ? (currentNode.fen == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" ? "w" : "b") : 'w';
-      const moveNumber = isWhiteMove === 'w' 
-        ? (currentNode.fen == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" ? 1 : currentNode.moveNumber + 1) 
+      const moveNumber = isWhiteMove === 'w'
+        ? (currentNode.fen == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" ? 1 : currentNode.moveNumber + 1)
         : currentNode.moveNumber;
 
       const newNode: MoveNode = {
@@ -256,14 +275,14 @@ export default function AnalysisBoard() {
     // Follow main line to the end
     let nodeId = selectedNodeId;
     let node = moveTree.nodes[nodeId];
-    
+
     while (node && node.children.length > 0) {
       // Prefer main line children, otherwise take first child
       const mainLineChild = node.children.find(id => moveTree.nodes[id]?.isMainLine);
       nodeId = mainLineChild || node.children[0];
       node = moveTree.nodes[nodeId];
     }
-    
+
     goToNode(nodeId);
   }, [moveTree.nodes, selectedNodeId, goToNode]);
 
@@ -298,7 +317,7 @@ export default function AnalysisBoard() {
 
     setMoveTree(prev => {
       const newNodes = { ...prev.nodes };
-      
+
       // Remove from parent's children
       const parent = newNodes[node.parent!];
       if (parent) {
@@ -312,8 +331,8 @@ export default function AnalysisBoard() {
       toRemove.forEach(id => delete newNodes[id]);
 
       // If current node was deleted, go to parent
-      const newCurrentId = toRemove.has(prev.currentNodeId) 
-        ? node.parent! 
+      const newCurrentId = toRemove.has(prev.currentNodeId)
+        ? node.parent!
         : prev.currentNodeId;
 
       return {
@@ -335,7 +354,7 @@ export default function AnalysisBoard() {
     let finalNodeId = "";
     setMoveTree(prev => {
       const newNodes: Record<string, MoveNode> = {};
-      
+
       Object.values(prev.nodes).forEach(node => {
         if (node.isMainLine && node.children.length == 0) {
           finalFen = node.fen;
@@ -386,10 +405,10 @@ export default function AnalysisBoard() {
             className={`
               inline-flex items-center cursor-pointer px-1.5 py-0.5 rounded text-sm
               transition-all duration-150
-              ${isSelected 
-                ? 'bg-amber-400 text-slate-900 font-bold shadow-sm' 
-                : node.isMainLine 
-                  ? 'text-slate-200 hover:bg-slate-700' 
+              ${isSelected
+                ? 'bg-amber-400 text-slate-900 font-bold shadow-sm'
+                : node.isMainLine
+                  ? 'text-slate-200 hover:bg-slate-700'
                   : 'text-emerald-400 hover:bg-slate-700'
               }
             `}
@@ -448,10 +467,10 @@ export default function AnalysisBoard() {
     const rootNode = moveTree.nodes['root'];
     if (rootNode?.children.length > 0) {
       const mainLineElements: JSX.Element[] = [];
-      
+
       // Render the main line (first child of root)
       mainLineElements.push(...renderLine(rootNode.children[0]));
-      
+
       // Render variations from root (children beyond the first)
       if (rootNode.children.length > 1) {
         rootNode.children.slice(1).forEach((varId) => {
@@ -497,7 +516,7 @@ export default function AnalysisBoard() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      
+
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault();
@@ -566,41 +585,41 @@ export default function AnalysisBoard() {
             </div>
 
             {/* Chess Board */}
-              {/* Status indicators */}
-              {(isCheck || isCheckmate || isDraw) && (
-                <div className="flex justify-center mb-2">
-                  {isCheckmate && (
-                    <span className="bg-red-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
-                      Checkmate
-                    </span>
-                  )}
-                  {isCheck && !isCheckmate && (
-                    <span className="bg-amber-500 text-slate-900 px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
-                      Check
-                    </span>
-                  )}
-                  {isDraw && (
-                    <span className="bg-slate-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
-                      {isStalemate ? 'Stalemate' : 'Draw'}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
-                <Chessboard
-                  position={displayPosition}
-                  onPieceDrop={onDrop}
-                  boardWidth={Math.min(700, typeof window !== "undefined" ? window.innerWidth - 60 : 700)}
-                  boardOrientation={orientation}
-                  customBoardStyle={{
-                    borderRadius: '8px',
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                  }}
-                  customDarkSquareStyle={{ backgroundColor: '#4a5568' }}
-                  customLightSquareStyle={{ backgroundColor: '#718096' }}
-                />
+            {/* Status indicators */}
+            {(isCheck || isCheckmate || isDraw) && (
+              <div className="flex justify-center mb-2">
+                {isCheckmate && (
+                  <span className="bg-red-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                    Checkmate
+                  </span>
+                )}
+                {isCheck && !isCheckmate && (
+                  <span className="bg-amber-500 text-slate-900 px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                    Check
+                  </span>
+                )}
+                {isDraw && (
+                  <span className="bg-slate-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
+                    {isStalemate ? 'Stalemate' : 'Draw'}
+                  </span>
+                )}
               </div>
+            )}
+
+            <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
+              <Chessboard
+                position={displayPosition}
+                onPieceDrop={onDrop}
+                boardWidth={Math.min(700, typeof window !== "undefined" ? window.innerWidth - 60 : 700)}
+                boardOrientation={orientation}
+                customBoardStyle={{
+                  borderRadius: '8px',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                }}
+                customDarkSquareStyle={{ backgroundColor: '#4a5568' }}
+                customLightSquareStyle={{ backgroundColor: '#718096' }}
+              />
+            </div>
 
             {/* Player info - user */}
             <div className="flex items-center gap-3 px-2">
@@ -704,7 +723,7 @@ export default function AnalysisBoard() {
                   </button>
                 )}
               </div>
-              
+
               <div className="p-4 max-h-[400px] overflow-y-auto custom-scrollbar">
                 {moveCount === 0 ? (
                   <p className="text-slate-500 text-center py-8">No moves yet</p>
@@ -742,20 +761,22 @@ export default function AnalysisBoard() {
             {/* Position Info */}
             <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
               <h3 className="text-slate-300 text-sm font-medium mb-2">Position</h3>
-              <p className="text-slate-600 text-xs font-mono break-all leading-relaxed">
+              <Clipboard onClick={() => copyDivContents("FEN")} className="hover:bg-gray-400 cursor-pointer" />
+              <p className="text-slate-600 text-xs font-mono break-all leading-relaxed FEN">
                 FEN: {displayPosition}
               </p>
             </div>
             <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
               <h3 className="text-slate-300 text-sm font-medium mb-2">PGN File</h3>
-              <p className="text-slate-600 text-xs font-mono break-all leading-relaxed">
+              <Clipboard onClick={() => copyDivContents("PGN")} className="hover:bg-gray-400 cursor-pointer" />
+              <p className="text-slate-600 text-xs font-mono break-all leading-relaxed PGN">
                 {pgnInfoString}
               </p>
             </div>
           </div>
         </div>
       </div>
-      <Stockfish fen={displayPosition}/>
+      <Stockfish fen={displayPosition} />
 
       {/* Custom scrollbar styles */}
       <style>{`
