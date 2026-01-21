@@ -17,8 +17,8 @@ export default function UserProfile() {
   // const UserInfo = useContext(GlobalContext);
   const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");
   const Data = useLoaderData();
-  const [formIntent, setformIntent] = useState("");
   const [gameHistory, setGameHistory] = useState([]);
+  const [hadRoutingId, setHadRoutingId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,12 +41,19 @@ export default function UserProfile() {
         (item: Record<string, any>) => item.status == "end"
       );
       setGameHistory(arrayData);
+      const findRoutingIds = Data?.data.filter(
+        (item: Record<string, any>) => item.status == "playing"
+      ).sort((a, b) => { return a.id - b.id });
+      if (findRoutingIds.length) {
+        setHadRoutingId(findRoutingIds[findRoutingIds.length - 1]?.id);
+        localStorage.setItem(
+          "pgnInfo",
+          JSON.stringify({
+            routing_id: findRoutingIds[findRoutingIds.length - 1]?.id
+          }));
+      }
+
     }
-    setformIntent(
-      window.localStorage.getItem("pgnInfo")
-        ? JSON.parse(window.localStorage.getItem("pgnInfo") || "{}")?.routing_id
-        : "no_routing_id"
-    );
 
     return () => {
       true;
@@ -86,28 +93,31 @@ export default function UserProfile() {
                 </div>
                 <div className="flex items-center justify-center sm:justify-start mt-2">
                   <span
-                    className={`h-3 w-3 rounded-full mr-2 ${
-                      rowData?.isActive ? "bg-green-500" : "bg-gray-400"
-                    }`}
+                    className={`h-3 w-3 rounded-full mr-2 ${rowData?.isActive ? "bg-green-500" : "bg-gray-400"
+                      }`}
                   ></span>
                   <span className="text-sm text-gray-600">
                     {rowData?.isActive ? "Currently in a game" : "idle"}
                   </span>
-                  {rowData?.isActive && (
-                    <Form method="post">
-                      <input name="intent" hidden value={formIntent}></input>
-                      <button type="submit">Go To Game</button>
-                    </Form>
+                  {hadRoutingId && (
+                    <NavLink className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-1.5 
+                    text-sm font-medium text-gray-700 border border-gray-300 
+                    shadow-sm hover:bg-gray-50 hover:border-gray-400 
+                    transition-all" to={`/game/${hadRoutingId}`}>
+                      Go To Game
+                      <span className="text-gray-400">→</span>
+
+                    </NavLink>
                   )}
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
                   <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-                    Challenge
+                    Find other Players
                   </button>
                 </div>
                 <div className="mt-1 flex space-x-2 justify-center sm:justify-start">
                   <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300">
-                    Add Friend
+                    Add To Favorites
                   </button>
                 </div>
                 {rowData?.verified ? (
@@ -177,45 +187,53 @@ export default function UserProfile() {
                             <NavLink
                               key={game.id}
                               className="ml-1"
-                              to={`/member/${
-                                profileWonLossOrient(game, user) == "white"
-                                  ? game.black_username
-                                  : game.white_username
-                              }`}
+                              to={`/member/${profileWonLossOrient(game, user) == "white"
+                                ? game.black_username
+                                : game.white_username
+                                }`}
                             >
                               {profileWonLossOrient(game, user) == "white"
                                 ? game.black_username
                                 : game.white_username}
                             </NavLink>
-                            <NavLink to={`/analysis/game/${game.id}`}>
-                            ↗️
+                            <NavLink
+                              to={`/analysis/game/${game.id}`}
+                              className="relative group"
+                            >
+                              ↗️
+                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 
+                   text-xs font-medium text-white bg-slate-900 rounded shadow-lg
+                   opacity-0 invisible group-hover:opacity-100 group-hover:visible 
+                   transition-all duration-200 delay-150
+                   pointer-events-none whitespace-nowrap z-10">
+                                Analyze
+                              </span>
                             </NavLink>
                             <span
-                              className={`font-bold ${
-                                game.pgn_info.result === "1-0"
-                                  ? profileWonLossOrient(game, user) == "white"
-                                    ? "text-green-500"
-                                    : "text-red-500"
-                                  : game.pgn_info.result === "0-1"
+                              className={`font-bold ${game.pgn_info.result === "1-0"
+                                ? profileWonLossOrient(game, user) == "white"
+                                  ? "text-green-500"
+                                  : "text-red-500"
+                                : game.pgn_info.result === "0-1"
                                   ? profileWonLossOrient(game, user) == "white"
                                     ? "text-red-500"
                                     : "text-green-500"
                                   : "text-gray-500"
-                              }`}
+                                }`}
                             >
                               {game.pgn_info.result == "1-0"
                                 ? profileWonLossOrient(game, user) == "white"
                                   ? "Won"
                                   : "Lost"
                                 : game.pgn_info.result == "0-1"
-                                ? profileWonLossOrient(game, user) == "black"
-                                  ? "Won"
-                                  : "Lost"
-                                : "Draw"}
+                                  ? profileWonLossOrient(game, user) == "black"
+                                    ? "Won"
+                                    : "Lost"
+                                  : "Draw"}
                             </span>
                           </p>
                           <p className="text-sm text-gray-500">
-                            moves: {(() => {const z = new Chess();const r = game.pgn.map((item) => {const arr = item.split("$");const l = z.move({from: arr[0], to: arr[1], promotion: "q" });return l.san;}); return r})() }
+                            moves: {(() => { const z = new Chess(); const r = game.pgn.map((item) => { const arr = item.split("$"); const l = z.move({ from: arr[0], to: arr[1], promotion: "q" }); return l.san; }); return r })()}
                           </p>
                         </div>
                         <span className="text-sm text-gray-400">

@@ -9,6 +9,7 @@ import {
   ChevronsRight,
   FlagIcon,
   Search,
+  Clipboard
 } from "lucide-react";
 import {
   timeControlReducer,
@@ -19,6 +20,8 @@ import {
   timeOutGameOverReducer,
   gameStartFinishReducer,
   EloEstimate,
+  copyDivContents,
+  makePGNInfoString,
 } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useNavigate, useRouteLoaderData } from "@remix-run/react";
@@ -77,18 +80,6 @@ export default function Index() {
     oppElo: 1500,
     myElo: 1500,
   });
-  const [gameConfig, setGameConfig] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = window.localStorage.getItem("pairing_info");
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    }
-    return {
-      timeControl: "unlimited",
-      colorPreference: "white",
-    };
-  });
 
   const [activeGame, setActiveGame] = useState(new Chess());
   const [draw, setDraw] = useState("");
@@ -101,11 +92,9 @@ export default function Index() {
   const [finalGameData, setFinalGameData] = useState({});
   const { data: gameData } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
-  const [game_length, timeControl] = timeControlReducer(
-    gameConfig?.timeControl || ""
-  );
+
   const [initialTime, increment] = parseTimeControl(
-    gameConfig?.timeControl || "unlimited"
+    gameData?.timecontrol || "unlimited"
   );
   const [timeOut, setTimeOut] = useState<
     "white" | "black" | "game over" | null
@@ -116,6 +105,7 @@ export default function Index() {
   const [loadedBlackTime, setLoadedBlackTime] = useState<number | undefined>(
     undefined
   );
+  const [pgnInfoString, setpgnInfoString] = useState<string>("");
   const chessClockRef = useRef<ChessClockHandle>(null);
   const supabase = getSupabaseBrowserClient(true);
   const supabase2 = createBrowserClient(
@@ -127,6 +117,9 @@ export default function Index() {
 
   useEffect(() => {
     if (gameData) {
+      const [game_length, timeControl] = timeControlReducer(
+        gameData?.timecontrol || ""
+      );
       setToggleUsers({
         ...toggleUsers,
         toggle: true,
@@ -233,6 +226,7 @@ export default function Index() {
         });
         const endGameData = gameData.pgn_info;
         setTimeOut("game over");
+        makePGNInfoString(gameData, setpgnInfoString);
         switch (endGameData.result) {
           case "1-0": {
             if (endGameData.termination.includes("resignation")) {
@@ -371,10 +365,12 @@ export default function Index() {
                       result: endGameData.result,
                       termination: endGameData.termination,
                     });
+
                     setFinalGameData(data[0]);
                     if (!endGameData.termination.includes("time")) {
                       setTimeOut("game over");
                     }
+                    makePGNInfoString(data[0], setpgnInfoString);
                     switch (endGameData.result) {
                       case "1-0": {
                         if (endGameData.termination.includes("resignation")) {
@@ -493,12 +489,14 @@ export default function Index() {
             gameData.pgn_info.black,
             gameData.pgn_info.is_rated == "rated" ? player_w : gameData.pgn_info.whiteelo,
             gameData.pgn_info.is_rated == "rated" ? player_b : gameData.pgn_info.blackelo,
-            gameConfig.timeControl,
+            gameData.timecontrol,
             gameData.id
           );
 
         }
-      } catch (error) { }
+      } catch (error) { console.error(error); } finally {
+        localStorage.removeItem("pgnInfo");
+      }
     }
   }, [result, finalGameData]);
 
@@ -545,7 +543,7 @@ export default function Index() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      
+
       switch (e.key) {
         case 'ArrowLeft':
           e.preventDefault();
@@ -624,21 +622,21 @@ export default function Index() {
         currentTimes?.whiteTime,
         currentTimes?.blackTime
       );
-      
+
       return true;
     } catch (error) {
       console.error("Error in onDrop:", error);
       return false;
     }
   }
-  
+
   function handleTimeOut(player: "white" | "black" | "game over") {
     setTimeOut(player);
   }
-  
+
   async function resignGame() {
     const isGameOver =
-    activeGame.isGameOver() ||
+      activeGame.isGameOver() ||
       timeOut !== null ||
       activeGame.isThreefoldRepetition() ||
       Boolean(result.result);
@@ -649,11 +647,14 @@ export default function Index() {
       return null;
     }
     if (!resign) {
+      const colorPreference = gameData.white_username == UserContext?.rowData.username
+      ? "white"
+      : "black";
       const [result, termination] = gameStartFinishReducer(
         activeGame,
         timeOut,
         gameData,
-        gameConfig.colorPreference
+        colorPreference
       );
       if (result && termination && !gameData.pgn_info.result) {
         try {
@@ -665,7 +666,7 @@ export default function Index() {
           console.error(error);
         }
       }
-      setResign(gameConfig.colorPreference);
+      setResign(colorPreference);
     }
   }
 
@@ -812,7 +813,7 @@ export default function Index() {
                 <h3 className="text-xl font-bold text-slate-800 mb-3 mt-3">
                   Move History
                 </h3>
-                <div className="bg-slate-50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
+                <div className="bg-slate-50 rounded-lg p-2 max-h-[500px] overflow-y-auto">
                   {activeGame.history().length === 0 ? (
                     <p className="text-slate-400 text-center">No moves yet</p>
                   ) : (
@@ -821,8 +822,8 @@ export default function Index() {
                         <div
                           key={index}
                           className={`bg-white px-3 py-2 rounded shadow-sm cursor-pointer ${index === currentMoveIndex
-                              ? "bg-blue-100 font-bold"
-                              : "text-slate-700"
+                            ? "bg-blue-100 font-bold"
+                            : "text-slate-700"
                             }`}
                           onClick={() => handleSetReplay(index)}
                         >
@@ -839,6 +840,19 @@ export default function Index() {
                     <aside className="mt-1">
                       <span className="flex cursor-pointer" onClick={() => navigate(`/analysis/game/${gameData.id}`)}><Search /> Analyze</span>
                     </aside>
+
+
+                  }
+                  {
+                    pgnInfoString?.length > 0 && (
+                      <aside className="bg-slate-50 rounded-md border border-slate-60">
+                        <h3 className="text-black text-sm font-medium mb-2">PGN File</h3>
+                        <Clipboard onClick={() => copyDivContents("PGN_Live")} className="hover:bg-gray-100 cursor-pointer" />
+                        <p className="text-black text-s font-mono break-all leading-relaxed PGN_Live">
+                          {pgnInfoString}
+                        </p>
+                      </aside>
+                    )
                   }
                   <div className="mt-3 flex items-center justify-center gap-2 bg-slate-200 rounded-lg p-2">
                     <button

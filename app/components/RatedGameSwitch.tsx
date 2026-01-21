@@ -20,18 +20,6 @@ export function RatedGameSwitch({
     if (disabled) return;
     const newValue = !isRated;
     setIsRated(newValue);
-    if (Data?.rowData &&  !Data.rowData.isActive) {
-      localStorage.setItem(
-        "pairing_info",
-        JSON.stringify({
-          ...JSON.parse(
-            localStorage.getItem("pairing_info") || "{}"
-          ),
-          isRated: newValue,
-        })
-      );
-
-    }
   };
 
   return (

@@ -2,15 +2,15 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import {
   Form,
+  Link,
   useActionData,
   useNavigate,
   useNavigation,
   useRouteLoaderData,
 } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { RatedGameSwitch } from "~/components/RatedGameSwitch";
-import { GlobalContext } from "~/context/globalcontext";
 import {
   gamesNewRequestOnUserColor,
   getNewGamePairing,
@@ -83,7 +83,6 @@ export default function Index() {
     [key: string]: any;
   } | null>(null);
   const navigation = useNavigation();
-  const NewGameContext = useContext(GlobalContext);
   const PlayContext = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
 
@@ -98,6 +97,8 @@ export default function Index() {
         data: actionData.data,
       })
     );
+  } else {
+    localStorage.removeItem("pairing_info");
   }
 
   useEffect(() => {
@@ -163,7 +164,7 @@ export default function Index() {
 
               if (response?.go) {
                 const colorPreference = response.data?.newgame_data.pgn_info.white == userId ? "white" : "black";
-                localStorage.setItem("pairing_info", JSON.stringify({...JSON.parse(localStorage.getItem("pairing_info") || "{}"), colorPreference}))
+                localStorage.setItem("pairing_info", JSON.stringify({ ...JSON.parse(localStorage.getItem("pairing_info") || "{}"), colorPreference }))
                 const update_res = await updateActiveUserStatus(
                   userId,
                   supabase2
@@ -174,10 +175,10 @@ export default function Index() {
                     "pgnInfo",
                     JSON.stringify({
                       routing_id: response.data?.navigateId,
-                      newgame_data: response.data?.newgame_data,
                     })
                   );
-                }
+                };
+                localStorage.removeItem("pairing_info")
                 navigate(`/game/${response?.data?.navigateId}`);
               }
             }
@@ -189,7 +190,7 @@ export default function Index() {
       )
       .subscribe();
 
-    return async () => {
+    return () => {
       supabase.removeChannel(channel);
       supabase2.removeChannel(channel2);
     };
@@ -225,6 +226,29 @@ export default function Index() {
           Find an Opponent
         </h1>
       )}
+      {
+        !PlayContext?.rowData.username && (
+          <section className="mt-2">
+            <Link
+              to="/settings"
+              className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 
+               bg-amber-50 p-4 shadow-sm transition-all hover:bg-amber-100 
+               hover:border-amber-300 hover:shadow-md group"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <p className="font-medium text-amber-800">Confirm your username</p>
+                  <p className="text-sm text-amber-600">Set up your profile to start playing games</p>
+                </div>
+              </div>
+              <span className="text-amber-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all">
+                →
+              </span>
+            </Link>
+          </section>
+        )
+      }
 
       <Form
         method="post"
@@ -311,7 +335,7 @@ export default function Index() {
                   }
                 }}
               />
-              <input hidden name="isRated" value={isRated ? "true" : "false"}/>
+              <input hidden name="isRated" value={isRated ? "true" : "false"} />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
               </span>
@@ -328,7 +352,7 @@ export default function Index() {
         <button
           type="submit"
           className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-          disabled={PlayContext?.rowData?.isActive}
+          disabled={PlayContext?.rowData?.isActive || !PlayContext?.rowData.username}
         >
           <span
             className={

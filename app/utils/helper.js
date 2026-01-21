@@ -1,4 +1,5 @@
 import { EloRank } from "~/utils/elo";
+import { Chess } from "chess.js";
 export function checkIfRepetition(positions) {
   const counts = new Map();
 
@@ -342,6 +343,43 @@ export function memberWonLossOrient(Data, username) {
     orientation = "black";
   }
   return orientation;
+}
+
+export function makePGNInfoString(gameData, setpgnInfoString) {
+  const tempGame = new Chess();
+  const moveArr = gameData.pgn;
+  tempGame.setHeader(
+    "Event", `${gameData.pgn_info.is_rated == "rated" ? "Rated Game" : "Unrated Game"}`);
+  tempGame.setHeader(
+    "Site", "Online");
+  tempGame.setHeader(
+    "Date", new Date(gameData.pgn_info.date).toDateString());
+  tempGame.setHeader(
+    "Round", "1");
+  tempGame.setHeader(
+    "White", gameData.white_username);
+  tempGame.setHeader(
+    "Black", gameData.black_username);
+  tempGame.setHeader(
+    "Result", gameData.pgn_info.result);
+  tempGame.setHeader(
+    "Termination", gameData.pgn_info.termination);
+  tempGame.setHeader(
+    "WhiteElo", gameData.pgn_info.whiteelo);
+  tempGame.setHeader(
+    "BlackElo", gameData.pgn_info.blackelo);
+  tempGame.setHeader(
+    "EndTime", gameData.pgn[gameData.pgn.length - 1].split("$")[2]);
+  moveArr.forEach((pgnEntry, index) => {
+      const parsed = parsePgnEntry(pgnEntry);
+      tempGame.move({
+        from: parsed.from,
+        to: parsed.to,
+        promotion: 'q',
+      });
+    });
+    const gamePGNFile = tempGame.pgn();
+    setpgnInfoString(gamePGNFile);
 }
 
 export function copyDivContents(flag) {

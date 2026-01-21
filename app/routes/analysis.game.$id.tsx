@@ -130,6 +130,8 @@ export default function AnalysisBoard() {
       tempGame.setHeader(
         "Result", gameData.pgn_info.result);
       tempGame.setHeader(
+        "Termination", gameData.pgn_info.termination);
+      tempGame.setHeader(
         "WhiteElo", gameData.pgn_info.whiteelo);
       tempGame.setHeader(
         "BlackElo", gameData.pgn_info.blackelo);
@@ -776,7 +778,7 @@ export default function AnalysisBoard() {
           </div>
         </div>
       </div>
-      <Stockfish fen={displayPosition} />
+      <Stockfish fen={displayPosition} multiPV={4} />
 
       {/* Custom scrollbar styles */}
       <style>{`

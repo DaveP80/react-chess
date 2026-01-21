@@ -167,7 +167,9 @@ export default function MemberProfile() {
                                 ? game.black_username
                                 : game.white_username}
                             </NavLink>
+                            <NavLink to={`/game/${game.id}`}>
                             ↗️
+                            </NavLink>
                             <span
                               className={`font-bold ${
                                 game.pgn_info.result === "1-0"
