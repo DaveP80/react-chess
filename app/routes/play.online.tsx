@@ -1,4 +1,4 @@
-import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import {
   Form,
@@ -9,21 +9,23 @@ import {
   useRouteLoaderData,
 } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import LobbySection from "~/components/LobbySection";
 import { RatedGameSwitch } from "~/components/RatedGameSwitch";
+import { LobbyItem } from "~/types";
 import {
   gamesNewRequestOnUserColor,
   getNewGamePairing,
   handleInsertedNewGame,
   updateActiveUserStatus,
 } from "~/utils/game";
-import { SUPABASE_CONFIG } from "~/utils/helper";
+import { SUPABASE_CONFIG, timeAndColorPreferenceReducer } from "~/utils/helper";
+import { get_similar_game_requests_lobby } from "~/utils/supabase.gameplay";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 /* ---------------- LOADER ---------------- */
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  // Ensure user is logged in
+export async function loader() {
 
   return Response.json({});
 }
@@ -40,7 +42,7 @@ export async function action({ request }: ActionFunctionArgs) {
     return Response.json({ error, go: false }, { headers });
   }
 
-  if (!userId) {
+  if (!userId || !String(formData?.colorPreference) || !String(formData?.timeControl)) {
     return redirect("/login");
   }
 
@@ -75,6 +77,9 @@ export async function action({ request }: ActionFunctionArgs) {
   return Response.json({});
 }
 
+// Constants for countdown
+const COUNTDOWN_SECONDS = 30;
+
 export default function Index() {
   const actionData = useActionData<typeof action>();
   const [loading, setIsLoading] = useState(false);
@@ -82,24 +87,105 @@ export default function Index() {
   const [requestAlert, setRequestAlert] = useState<{
     [key: string]: any;
   } | null>(null);
+  const [showLobby, setShowLobby] = useState<LobbyItem[]>([]);
   const navigation = useNavigation();
   const PlayContext = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
 
+  // Refs and state for countdown functionality
+  const [isSearching, setIsSearching] = useState(false);
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const [countdownExpired, setCountdownExpired] = useState(false);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const supabase = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
   const supabase2 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
+  const supabase3 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
 
-  if (actionData?.go == true) {
-    localStorage.setItem(
-      "pairing_info",
-      JSON.stringify({
-        ...JSON.parse(localStorage.getItem("pairing_info") || "{}"),
-        data: actionData.data,
-      })
-    );
-  } else {
-    localStorage.removeItem("pairing_info");
-  }
+  // Clear countdown timer
+  const clearCountdownTimer = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  }, []);
+
+  // Cancel search handler
+  const handleCancelSearch = useCallback(() => {
+
+    if (actionData?.data[0]) {
+      const del_id = actionData.data[0].id;
+      async function cancel_outgoing_game_request() {
+        try {
+
+          const
+            { error } =
+              await
+                supabase.from(
+                  "games"
+                ).delete().eq(
+                  "id"
+                  , del_id);
+
+          if
+            (error) {
+
+            console
+              .error(error);
+          }
+
+        } catch (error) {
+
+        }
+
+      }
+      cancel_outgoing_game_request();
+
+    }
+    clearCountdownTimer();
+    setIsSearching(false);
+    setCountdown(COUNTDOWN_SECONDS);
+    setCountdownExpired(false);
+  }, [clearCountdownTimer, actionData, supabase]);
+
+  // Start the countdown timer
+  const startCountdownTimer = useCallback(() => {
+    clearCountdownTimer();
+    setCountdown(COUNTDOWN_SECONDS);
+    setCountdownExpired(false);
+
+    // Start countdown interval
+    countdownIntervalRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          // Countdown finished - clear interval and set expired flag
+          clearCountdownTimer();
+          setCountdownExpired(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1050);
+  }, [clearCountdownTimer]);
+
+  // Handle successful form submission - start searching and countdown timer
+  useEffect(() => {
+    if (actionData?.go == true) {
+      setIsSearching(true);
+      setCountdownExpired(false);
+      startCountdownTimer();
+
+      const getLobbyData = async () => {
+        const lobbyData = await get_similar_game_requests_lobby(supabase3, actionData.data[0].is_rated);
+        setShowLobby(lobbyData?.data || []);
+      }
+      getLobbyData();
+    }
+    return () => {
+      false;
+    }
+  }, [actionData]);
+
 
   useEffect(() => {
     let userId: string | undefined;
@@ -118,23 +204,20 @@ export default function Index() {
         { event: "*", schema: "public", table: "games" },
         async (payload: { eventType: string; }) => {
           if (payload.eventType === "INSERT") {
-            const saved_pairing_info = localStorage.getItem("pairing_info");
+            const [colorPreference, timeControl] = timeAndColorPreferenceReducer(actionData?.data[0] || {});
             if (
               userId &&
-              saved_pairing_info &&
-              JSON.parse(saved_pairing_info).colorPreference &&
-              JSON.parse(saved_pairing_info).timeControl &&
-              JSON.parse(saved_pairing_info).data
+              colorPreference &&
+              timeControl
             ) {
               const headers = new Headers();
-              const fData = JSON.parse(saved_pairing_info);
               await handleInsertedNewGame(
                 supabase,
                 userId,
-                fData.colorPreference,
-                fData.timeControl,
-                fData.data[0].created_at,
-                fData.isRated,
+                colorPreference,
+                timeControl,
+                actionData?.data[0].created_at,
+                actionData?.data[0].is_rated,
                 headers
               );
             }
@@ -156,15 +239,15 @@ export default function Index() {
         { event: "*", schema: "public", table: "game_moves" },
         async (payload: { eventType: string; }) => {
           if (payload.eventType === "INSERT") {
-            let pairingInfo = localStorage.getItem("pairing_info");
-            pairingInfo = pairingInfo ? JSON.parse(pairingInfo) : null;
 
-            if (pairingInfo && pairingInfo?.data && userId) {
-              let response = await getNewGamePairing(pairingInfo, supabase2);
+            if (actionData?.data && userId) {
+              let response = await getNewGamePairing(actionData, supabase2);
 
               if (response?.go) {
-                const colorPreference = response.data?.newgame_data.pgn_info.white == userId ? "white" : "black";
-                localStorage.setItem("pairing_info", JSON.stringify({ ...JSON.parse(localStorage.getItem("pairing_info") || "{}"), colorPreference }))
+                // Game found! Clear timer and stop searching
+                clearCountdownTimer();
+                setIsSearching(false);
+                setCountdownExpired(false);
                 const update_res = await updateActiveUserStatus(
                   userId,
                   supabase2
@@ -178,7 +261,6 @@ export default function Index() {
                     })
                   );
                 };
-                localStorage.removeItem("pairing_info")
                 navigate(`/game/${response?.data?.navigateId}`);
               }
             }
@@ -194,8 +276,9 @@ export default function Index() {
       supabase.removeChannel(channel);
       supabase2.removeChannel(channel2);
     };
-  }, []);
+  }, [actionData]);
 
+  // Handle navigation state changes
   useEffect(() => {
     if (navigation.state === "submitting") {
       setIsLoading(true);
@@ -207,6 +290,16 @@ export default function Index() {
       true;
     };
   }, [navigation]);
+
+
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      clearCountdownTimer();
+    };
+  }, [clearCountdownTimer]);
+
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
@@ -250,11 +343,75 @@ export default function Index() {
         )
       }
 
+      {/* Search Status Banner */}
+      {isSearching && !countdownExpired && (
+        <section className="mt-4 mb-4">
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Animated searching indicator */}
+                <div className="relative">
+                  <div className="h-10 w-10 rounded-full border-4 border-indigo-200"></div>
+                  <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
+                </div>
+                <div>
+                  <p className="font-medium text-indigo-800">Searching for opponent...</p>
+                  <p className="text-sm text-indigo-600">
+                    Time remaining: <span className="font-mono font-semibold">{countdown}s</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelSearch}
+                className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-indigo-600 shadow-sm transition hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              >
+                Cancel
+              </button>
+            </div>
+
+            {/* Progress bar */}
+            <div className="mt-3">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-200">
+                <div
+                  className="h-full rounded-full bg-indigo-600 transition-all duration-1000 ease-linear"
+                  style={{ width: `${((COUNTDOWN_SECONDS - countdown) / COUNTDOWN_SECONDS) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Countdown Expired - Prompt to retry */}
+      {isSearching && countdownExpired && (
+        <section className="mt-4 mb-4">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Warning indicator */}
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                  <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-amber-800">Search timed out</p>
+                  <p className="text-sm text-amber-600">
+                    No opponent found. Please try searching again.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       <Form
         method="post"
         className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
       >
-        <fieldset className="space-y-3">
+        <fieldset className="space-y-3" disabled={isSearching && !countdownExpired}>
           <legend className="mb-2 text-sm font-medium text-gray-700">
             Time Control
           </legend>
@@ -269,7 +426,8 @@ export default function Index() {
           ].map((option) => (
             <label
               key={option.value}
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50"
+              className={`flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 ${(isSearching && !countdownExpired) ? "opacity-60 cursor-not-allowed" : ""
+                }`}
             >
               <input
                 type="radio"
@@ -277,20 +435,6 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                readOnly={true}
-                onChange={() => {
-                  if (!PlayContext?.rowData?.isActive) {
-                    localStorage.setItem(
-                      "pairing_info",
-                      JSON.stringify({
-                        ...JSON.parse(
-                          localStorage.getItem("pairing_info") || "{}"
-                        ),
-                        timeControl: option.value,
-                      })
-                    );
-                  }
-                }}
               />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
@@ -299,7 +443,7 @@ export default function Index() {
           ))}
         </fieldset>
         {/* ---- COLOR PREFERENCE ---- */}
-        <fieldset className="space-y-3">
+        <fieldset className="space-y-3" disabled={isSearching && !countdownExpired}>
           <legend className="text-sm font-medium text-gray-700">
             Color Preference
           </legend>
@@ -311,7 +455,8 @@ export default function Index() {
           ].map((option) => (
             <label
               key={option.value}
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50"
+              className={`flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 ${(isSearching && !countdownExpired) ? "opacity-60 cursor-not-allowed" : ""
+                }`}
             >
               <input
                 type="radio"
@@ -319,23 +464,8 @@ export default function Index() {
                 value={option.value}
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                readOnly={true}
-                onChange={() => {
-                  if (!PlayContext?.rowData?.isActive) {
-                    localStorage.setItem(
-                      "pairing_info",
-                      JSON.stringify({
-                        ...JSON.parse(
-                          localStorage.getItem("pairing_info") || "{}"
-                        ),
-                        colorPreference: option.value,
-                      })
-                    );
-
-                  }
-                }}
               />
-              <input hidden name="isRated" value={isRated ? "true" : "false"} />
+              <input hidden name="isRated" value={isRated ? "true" : "false"}/>
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
               </span>
@@ -344,15 +474,18 @@ export default function Index() {
         </fieldset>
         <RatedGameSwitch
           defaultRated={false}
-          disabled={navigation.state === "submitting"}
+          disabled={navigation.state === "submitting" || (isSearching && !countdownExpired)}
           isRated={isRated}
           setIsRated={setIsRated}
         />
 
         <button
           type="submit"
-          className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-          disabled={PlayContext?.rowData?.isActive || !PlayContext?.rowData.username}
+          className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-indigo-500/40 ${(isSearching && !countdownExpired)
+            ? "bg-gray-400 cursor-not-allowed"
+            : "bg-indigo-600 hover:bg-indigo-700"
+            }`}
+          disabled={PlayContext?.rowData?.isActive || !PlayContext?.rowData.username || (isSearching && !countdownExpired)}
         >
           <span
             className={
@@ -367,7 +500,7 @@ export default function Index() {
                 : ``
             }
           >
-            {loading ? "" : "Find Game"}
+            {loading ? "" : (isSearching && !countdownExpired) ? "Searching..." : "Find Game"}
           </span>
         </button>
 
@@ -375,6 +508,8 @@ export default function Index() {
           <p className="text-sm text-red-600">{actionData.error}</p>
         )}
       </Form>
+
+      <LobbySection showLobby={showLobby} />
     </div>
   );
 }

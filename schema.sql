@@ -17,7 +17,8 @@ language sql
 security definer
 as $$
   select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo, g.is_rated
-  from (select * from games where games.white_id = u_id) g join (select * from games where games.black_id != u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol and g.is_rated = g_t.is_rated where g.timecontrol = timeControl_f and g.is_rated = is_rated_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
+  from (select * from games where games.white_id = u_id) g join (select * from games where games.black_id != u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol and g.is_rated = g_t.is_rated where g.timecontrol = timeControl_f and g.is_rated = is_rated_f 
+  and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 30 order by g_t.created_at desc;
 $$;
 
 -- get white pairing partner if user requesting is with black pieces.
@@ -39,7 +40,8 @@ language sql
 security definer
 as $$
   select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo, g.is_rated
-  from (select * from games where games.white_id != u_id) g join (select * from games where games.black_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol and g.is_rated = g_t.is_rated where g.timecontrol = timeControl_f and g.is_rated = is_rated_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
+  from (select * from games where games.white_id != u_id) g join (select * from games where games.black_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol and g.is_rated = g_t.is_rated where g.timecontrol = timeControl_f and g.is_rated = is_rated_f 
+  and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 30 order by g_t.created_at desc;
 $$;
 
 
@@ -62,7 +64,26 @@ language sql
 security definer
 as $$
   select g.id, g_t.id id_gt, g.white_id, g_t.black_id, g.status, g.created_at, g_t.created_at created_at_gt, g.timecontrol, g.whiteelo, g_t.blackelo, g.is_rated
-  from (select * from games where games.white_id != u_id and games.black_id != u_id) g join (select * from games where games.black_id = u_id and games.white_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol and g.is_rated = g_t.is_rated where g.timecontrol = timecontrol_f and g.is_rated = is_rated_f and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 20 order by g_t.created_at desc;
+  from (select * from games where games.white_id != u_id and games.black_id != u_id) g join (select * from games where games.black_id = u_id and games.white_id = u_id) g_t on g.status = 'pairing' and g_t.status = 'pairing' and g.timecontrol = g_t.timecontrol and g.is_rated = g_t.is_rated 
+  join users ut on ut.u_id = g.white_id where g.timecontrol = timecontrol_f and g.is_rated = is_rated_f and ut."isActive" = false and ABS(EXTRACT(EPOCH FROM (g.created_at - g_t.created_at))) <= 30 order by g_t.created_at desc;
+$$;
+
+create or replace function get_similar_game_requests_lobby(is_rated_f boolean)
+returns table (
+  id int8,
+  status text,
+  created_at text,
+  timecontrol text,
+  whiteelo int8,
+  blackelo int8,
+  username text,
+  is_rated boolean
+)
+language sql
+security definer
+as $$
+  select id, g.status, created_at, timecontrol, whiteelo, blackelo, username, is_rated
+  from games g join users u on u.u_id = g.white_id or u.u_id = g.black_id where is_rated = is_rated_f and g.status = 'pairing' order by created_at desc;
 $$;
 
 -- version 2.0 12-25-25
@@ -276,3 +297,17 @@ un."isActive" as white_isactive, unt."isActive" as black_isactive, un.rating as 
 join users unt on gz.black_id = unt.u_id) g join game_moves gm on g.id = gm.game_id where lower(white_username) = lower(f_username)
  or lower(black_username) = lower(f_username);
 $$;
+
+SELECT
+  n.nspname AS schema,
+  p.proname AS function_name,
+  pg_get_function_identity_arguments(p.oid) AS args,
+  pg_get_functiondef(p.oid) AS definition
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+ORDER BY function_name, args;
+
+ALTER TABLE games
+ADD CONSTRAINT check_at_least_one_player
+CHECK (white_id IS NOT NULL OR black_id IS NOT NULL);

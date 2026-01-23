@@ -6,7 +6,7 @@ export default function DemoUser() {
       <h1 className="text-3xl font-bold">Welcome to React Chess</h1>
 
       <p className="mt-4 text-gray-600">
-        Track your games, analyze your progress, and improve faster.
+        Play chess games, analyze games, and improve faster.
       </p>
 
       <Link

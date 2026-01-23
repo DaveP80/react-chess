@@ -36,14 +36,24 @@ export async function gamesNewRequestOnUserColor(
         },
         { headers }
       );
-    } else {
+    } else if (!data[0].timecontrol) {
+      return Response.json(
+        {
+          error,
+          go: false,
+          message: `Invalid row data, timecontrol entered on games pairing table`,
+        },
+        { headers }
+      );
+    }
+    else {
       return Response.json(
         { data, go: true, message: "new pairing insert on games table." },
         { headers }
       );
     }
   } catch (error) {
-    return Response.json({ error }, { headers });
+    return Response.json({ error, go: false }, { headers });
   }
 }
 
@@ -147,11 +157,11 @@ export async function handleInsertedNewGame(
   }
 }
 
-export async function getNewGamePairing(pairing_info: any, supabase: any) {
+export async function getNewGamePairing(actionData: any, supabase: any) {
   try {
     //returns 1 row of data if found
     const { data, error } = await supabase.rpc("lookup_new_game_moves", {
-      find_id: +pairing_info.data[0].id,
+      find_id: +actionData.data[0].id,
     });
     if (error) {
       return { go: false, error };

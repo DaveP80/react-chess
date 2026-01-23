@@ -38,3 +38,15 @@ export interface UserContextType {
       error?: any;
       intent?: any;
     };
+
+// Lobby item type
+export interface LobbyItem {
+  id: number;
+  status: string;
+  created_at: string;
+  timecontrol: string;
+  whiteelo: number | null;
+  blackelo: number | null;
+  username: string;
+  is_rated: boolean;
+}

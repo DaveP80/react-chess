@@ -392,6 +392,51 @@ export function copyDivContents(flag) {
   document.body.removeChild(tempElement);
 }
 
+export function getTimeControlCategory(timeControl) {
+  if (timeControl.startsWith("3") || timeControl.startsWith("5")) {
+    return "Blitz";
+  }
+  if (timeControl.startsWith("10")) {
+    return "Rapid";
+  }
+  return "Casual";
+}
+
+// Helper function to format relative time
+export function formatRelativeTime(createdAt) {
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffMs = now.getTime() - created.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  
+  if (diffSec < 60) {
+    return "Just now";
+  }
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) {
+    return `${diffMin}m ago`;
+  }
+  const diffHour = Math.floor(diffMin / 60);
+  return `${diffHour}h ago`;
+};
+
+export function timeAndColorPreferenceReducer(actionData) {
+  const data = [];
+  if (!actionData?.id) return [null, null];
+  else if (actionData.white_id && actionData.black_id) {
+    data[0] = "random";
+    data[1] = actionData.timecontrol;
+    
+  } else if (actionData.white_id && !actionData.black_id) {
+    data[0] = "white";
+    data[1] = actionData.timecontrol;
+  } else {
+    data[0] = "black";
+    data[1] = actionData.timecontrol;
+  }
+  return data;
+}
+
 export const SUPABASE_CONFIG = [
   String(import.meta.env.VITE_SUPABASE_URL),
   String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY),

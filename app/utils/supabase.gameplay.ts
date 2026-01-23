@@ -1,3 +1,4 @@
+import { SupabaseClient } from "@supabase/supabase-js";
 import { timeControlReducer } from "./helper";
 
 export async function insertNewMoves(
@@ -54,22 +55,22 @@ export async function updateTablesOnGameOver(
   const jsonString = JSON.stringify(pgn_info);
   const escapedJson = jsonString.replace(/'/g, "''");
   const [, ratingType] = timeControlReducer(timeControl);
-  
+
   // Convert pgn array to PostgreSQL array format and escape single quotes
   const escapedPgnArray = pgn.map(item => `'${item.replace(/'/g, "''")}'`).join(', ');
-  
+
   // Build SQL queries
   const sql_query_game_moves = `UPDATE game_moves SET pgn = ARRAY[${escapedPgnArray}], pgn_info = '${escapedJson}'::jsonb WHERE id = ${game_number_id};`;
   const sql_query_games_table = `UPDATE games SET status = 'end' WHERE id = ${game_id};`;
   const sql_query_user_white = `UPDATE users SET "isActive" = false, rating = jsonb_set(rating, '{${ratingType}}', to_jsonb(${whiteelo})) WHERE u_id = '${white_id}'::uuid;`;
   const sql_query_user_black = `UPDATE users SET "isActive" = false, rating = jsonb_set(rating, '{${ratingType}}', to_jsonb(${blackelo})) WHERE u_id = '${black_id}'::uuid;`;
-  
+
   // Concatenate all queries
   const final_sql_query_string = sql_query_game_moves + sql_query_games_table + sql_query_user_white + sql_query_user_black;
-  
+
   try {
     const { data, error } = await supabase.rpc(`execute_sql`, { sql_query: final_sql_query_string });
-    
+
     if (error) {
       console.error("SQL Error:", error);
       console.error("Failed Query:", final_sql_query_string);
@@ -153,5 +154,22 @@ export async function cancelDrawOffer(
     //close draw flow
   } catch (error) {
     console.error(error);
+  }
+}
+
+export async function get_similar_game_requests_lobby(supabase: SupabaseClient<any, "public", "public", any, any>, pairing_info: any) {
+  try {
+
+    const { data, error } = await supabase.rpc("get_similar_game_requests_lobby", { is_rated_f: Boolean(pairing_info) });
+    if (data) {
+      return { data, ok: true };
+    }
+    if (error) {
+
+      return { error, ok: false };
+    }
+  } catch (error) {
+    return { error, ok: false };
+
   }
 }

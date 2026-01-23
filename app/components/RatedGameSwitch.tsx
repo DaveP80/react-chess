@@ -1,6 +1,3 @@
-import { useRouteLoaderData } from "@remix-run/react";
-import { useState } from "react";
-
 interface RatedGameSwitchProps {
   defaultRated?: boolean;
   isRated?: boolean;
@@ -14,7 +11,6 @@ export function RatedGameSwitch({
   setIsRated,
   disabled = false,
 }: RatedGameSwitchProps) {
-  const Data = useRouteLoaderData("root");
 
   const handleToggle = () => {
     if (disabled) return;
