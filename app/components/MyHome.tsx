@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import DemoUser from "./DemoUser";
 import { TbUserCog } from "react-icons/tb";
 import {
-  Form,
   NavLink,
   useLoaderData,
   useNavigate,
@@ -13,8 +12,6 @@ import { profileWonLossOrient } from "~/utils/helper";
 import { Chess } from "chess.js";
 
 export default function UserProfile() {
-  //const GamePlayContext = useContext(GlobalContext);
-  // const UserInfo = useContext(GlobalContext);
   const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");
   const Data = useLoaderData();
   const [gameHistory, setGameHistory] = useState([]);

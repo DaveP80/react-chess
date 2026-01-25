@@ -319,6 +319,9 @@ export function EloEstimate(endGameData) {
       playerA = elo.updateRating(expectedScoreA, 0.5, playerA);
       playerB = elo_b.updateRating(expectedScoreB, 0.5, playerB);
     }
+    case "abort": {
+      break;
+    }
   }
 
   //Return winner, and the rating from the game outcome. last 2 items are the projected elo if victory.
@@ -346,6 +349,7 @@ export function memberWonLossOrient(Data, username) {
 }
 
 export function makePGNInfoString(gameData, setpgnInfoString) {
+  if (gameData.pgn_info.result == "0-0") {return};
   const tempGame = new Chess();
   const moveArr = gameData.pgn;
   tempGame.setHeader(

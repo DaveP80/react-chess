@@ -37,7 +37,7 @@ export async function insertNewMoves(
   } catch (error) {
     return console.error(error);
   }
-}
+};
 
 export async function updateTablesOnGameOver(
   supabase: any,
@@ -80,6 +80,50 @@ export async function updateTablesOnGameOver(
   }
 }
 
+
+export async function abortGameNumberGameMoves(
+  supabase: any,
+  id: number,
+  gameData: Record<string, any>,
+) {
+
+
+  let pgn_infoConcat = "";
+  if (!gameData.pgn_info.result) {
+    // Convert to JSON string and escape single quotes for PostgreSQL
+    const jsonString = JSON.stringify({
+      ...gameData.pgn_info,
+      result: "0-0",
+      termination: "Game Abort"
+    });
+    const escapedJson = jsonString.replace(/'/g, "''");
+    pgn_infoConcat = `pgn_info = '${escapedJson}'::jsonb`;
+  }
+  const sql_query = `UPDATE game_number_${id} SET ${pgn_infoConcat} WHERE id = ${id}`;
+  try {
+    const { data, error } = await supabase.rpc(`execute_sql`, { sql_query });
+  } catch (error) {
+    return console.error(error);
+  }
+};
+
+export async function dropTablesGameNumberGameMoves(
+  supabase: any,
+  id: number,
+  gameData: Record<string, any>,
+) {
+
+  const sql_query = `DROP TABLE game_number_${id};`;
+  const sql_query_1 = `DELETE from game_moves where id = ${id};`;
+  const sql_query_2 = `DELETE from games where id = ${gameData.game_id};`;
+  const sql_query_3 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.white}';`;
+  const sql_query_4 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.black}';`;
+  try {
+    const { data, error } = await supabase.rpc(`execute_sql`, { sql_query: sql_query + sql_query_1 + sql_query_2 + sql_query_3 + sql_query_4 });
+  } catch (error) {
+    console.error(error);
+  }
+};
 
 export async function createNewGameTable(supabase: any, id: number) {
   const sql_query = `
