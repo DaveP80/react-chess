@@ -20,6 +20,7 @@ import {
   updateActiveUserStatus,
 } from "~/utils/game";
 import { SUPABASE_CONFIG, timeAndColorPreferenceReducer } from "~/utils/helper";
+import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { get_similar_game_requests_lobby } from "~/utils/supabase.gameplay";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
@@ -100,7 +101,7 @@ export default function Index() {
 
   const supabase = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
   const supabase2 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
-  const supabase3 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
+  const supabase3 = getSupabaseBrowserClient(true);
 
   // Clear countdown timer
   const clearCountdownTimer = useCallback(() => {
@@ -212,7 +213,7 @@ export default function Index() {
             ) {
               const headers = new Headers();
               await handleInsertedNewGame(
-                supabase,
+                supabase3,
                 userId,
                 colorPreference,
                 timeControl,
@@ -241,7 +242,7 @@ export default function Index() {
           if (payload.eventType === "INSERT") {
 
             if (actionData?.data && userId) {
-              let response = await getNewGamePairing(actionData, supabase2);
+              let response = await getNewGamePairing(actionData, supabase3);
 
               if (response?.go) {
                 // Game found! Clear timer and stop searching
@@ -250,7 +251,7 @@ export default function Index() {
                 setCountdownExpired(false);
                 const update_res = await updateActiveUserStatus(
                   userId,
-                  supabase2
+                  supabase3
                 );
                 if (update_res && update_res.go) {
                   setRequestAlert(response);

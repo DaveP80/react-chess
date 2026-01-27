@@ -1,6 +1,7 @@
 import { EloEstimate } from "~/utils/helper";
 
 export default function RatingInfo({ gameData, winner }) {
+  if (!gameData?.pgn_info) return <></>;
   let winner_insert = "";
   switch (winner) {
     case "1-0": {

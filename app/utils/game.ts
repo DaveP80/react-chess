@@ -177,7 +177,7 @@ export async function getNewGamePairing(actionData: any, supabase: any) {
       } else {
         return {
           go: false,
-          message: `no game found with reference id: ${+pairing_info.data[0]
+          message: `no game found with reference id: ${+actionData.data[0].id
             .id}.`,
         };
       }

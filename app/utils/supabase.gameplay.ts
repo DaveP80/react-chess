@@ -80,7 +80,7 @@ export async function updateTablesOnGameOver(
   }
 }
 
-
+//Delete on 1-27-2026
 export async function abortGameNumberGameMoves(
   supabase: any,
   id: number,
@@ -119,7 +119,7 @@ export async function dropTablesGameNumberGameMoves(
   const sql_query_3 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.white}';`;
   const sql_query_4 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.black}';`;
   try {
-    const { data, error } = await supabase.rpc(`execute_sql`, { sql_query: sql_query + sql_query_1 + sql_query_2 + sql_query_3 + sql_query_4 });
+    await supabase.rpc(`execute_sql`, { sql_query: sql_query + sql_query_1 + sql_query_2 + sql_query_3 + sql_query_4 });
   } catch (error) {
     console.error(error);
   }

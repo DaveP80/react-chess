@@ -272,7 +272,7 @@ from
       { sql_query }
     );
     if (error) {
-      return Response.json({ error }, { headers });
+      return redirect("/myhome");
     } else {
       return Response.json(
         {
@@ -285,7 +285,7 @@ from
       );
     }
   } catch (error) {
-    return Response.json({ error }, { headers });
+    return redirect("/myhome");
   }
 }
 
