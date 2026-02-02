@@ -8,22 +8,27 @@ import {
   useLoaderData,
   useRouteError,
 } from "@remix-run/react";
-import type { LinksFunction, LoaderFunction, LoaderFunctionArgs } from "@remix-run/node";
+import type {
+  LinksFunction,
+  LoaderFunction,
+  LoaderFunctionArgs,
+} from "@remix-run/node";
 import stylesheet from "~/styles/tailwind.css?url";
 import Navigation from "./components/Navigation";
-import GlobalContextProvider, { GlobalContext } from "./context/globalcontext";
+import GlobalContextProvider from "./context/globalcontext";
 import { getMyHomeData } from "./utils/apicalls.server";
+import GameRequestNotification from "./components/Gamerequestnotification";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
 ];
 
-export const loader: LoaderFunction = async({request}: LoaderFunctionArgs) => {
-  const response = await getMyHomeData({request});
+export const loader: LoaderFunction = async ({
+  request,
+}: LoaderFunctionArgs) => {
+  const response = await getMyHomeData({ request });
   return response;
-}
-
-
+};
 
 export function ErrorBoundary() {
   useRouteError();
@@ -44,9 +49,9 @@ export function ErrorBoundary() {
 
 export default function App() {
   const { user, rowData, provider } = useLoaderData<typeof loader>();
-    
-    return (
-      <html lang="en">
+
+  return (
+    <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -56,6 +61,8 @@ export default function App() {
       <body>
         <GlobalContextProvider>
           <Navigation user={user} />
+          {/* GameRequestNotification handles its own websocket subscriptions internally */}
+          {user?.id && <GameRequestNotification userId={user.id} rowData={rowData} />}
           <Outlet />
         </GlobalContextProvider>
         <ScrollRestoration />

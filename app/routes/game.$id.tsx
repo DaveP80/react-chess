@@ -379,12 +379,9 @@ export default function Index() {
         async (payload: { eventType: string }) => {
           if (payload.eventType === "UPDATE") {
             try {
-              const { data, error } = await supabase
-                .from(`game_number_${gameData?.id || "0"}`)
-                .select("*")
-                .eq("id", gameData.id);
-              if (data && data.length > 0) {
-                const newMovePgn = data[0].pgn;
+              const data = payload?.new;
+              if (data) {
+                const newMovePgn = data.pgn;
                 const arrayLength = newMovePgn.length;
 
                 if (arrayLength > 0) {
@@ -457,7 +454,7 @@ export default function Index() {
                           handleTimeOut("black");
                         }
                       }
-                      if (!data[0].pgn_info.result) {
+                      if (!data.pgn_info.result) {
                         setLoadedWhiteTime(adjustedWhiteTime);
                         setLoadedBlackTime(adjustedBlackTime);
                       } else {
@@ -466,14 +463,14 @@ export default function Index() {
                       }
                     }
                   }
-                  if (data[0].pgn_info.result) {
-                    const endGameData = data[0].pgn_info;
+                  if (data.pgn_info.result) {
+                    const endGameData = data.pgn_info;
 
-                    setFinalGameData(data[0]);
+                    setFinalGameData(data);
                     if (!endGameData.termination.includes("time")) {
                       setTimeOut("game over");
                     }
-                    makePGNInfoString(data[0], setpgnInfoString);
+                    makePGNInfoString(data, setpgnInfoString);
                     switch (endGameData.result) {
                       case "1-0": {
                         if (endGameData.termination.includes("resignation")) {
@@ -502,16 +499,16 @@ export default function Index() {
                       }
                     }
                   }
-                  if (data[0].draw_offer) {
-                    const drawAgreement = data[0].draw_offer
-                      ? data[0].draw_offer.split("$")
+                  if (data.draw_offer) {
+                    const drawAgreement = data.draw_offer
+                      ? data.draw_offer.split("$")
                       : [];
                     if (drawAgreement.length == 1) {
-                      setDraw(data[0].draw_offer);
+                      setDraw(data.draw_offer);
                     } else if (drawAgreement.length == 2) {
                       setDraw("");
                     }
-                  } else if (!data[0].draw_offer) {
+                  } else if (!data.draw_offer) {
                     setDraw("");
                   }
                 }
@@ -603,6 +600,7 @@ export default function Index() {
           updateTablesOnGameOver(
             supabase,
             gameData.game_id,
+            gameData.game_id_b,
             {
               ...finalGameData?.pgn_info,
               whiteelo:

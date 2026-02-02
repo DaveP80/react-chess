@@ -234,6 +234,7 @@ export async function lookup_userdata_on_gameid(
   const sql_query = `select
   gm.id::INTEGER,
   gm.game_id::INTEGER,
+  gm.game_id_b::INTEGER,
   gm.pgn_info,
   gm.pgn,
   gm.draw_offer,
@@ -263,9 +264,11 @@ export async function lookup_userdata_on_gameid(
       and status = 'end'
   ) as black_count
 from
-  game_number_${id} gm join games g on gm.game_id = g.id
-  left join users u on gm.pgn_info ->> 'white' = u.u_id::text
-  left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text;`;
+  game_number_${id} gm join (
+  select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_id, is_rated from games
+union all
+select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_id, is_rated from games_pairing
+) g on gm.game_id = g.id left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text;`;
   try {
     const { data, error } = await supabase.rpc(
       `execute_sql_lookup_userdata_on_gameid`,

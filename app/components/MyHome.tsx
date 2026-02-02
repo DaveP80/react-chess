@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import DemoUser from "./DemoUser";
 import { TbUserCog } from "react-icons/tb";
+import { Search, X, User } from "lucide-react";
 import {
   NavLink,
   useLoaderData,
@@ -10,6 +11,7 @@ import {
 import { loader } from "~/root";
 import { profileWonLossOrient } from "~/utils/helper";
 import { Chess } from "chess.js";
+import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 
 export default function UserProfile() {
   const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");
@@ -17,6 +19,14 @@ export default function UserProfile() {
   const [gameHistory, setGameHistory] = useState([]);
   const [hadRoutingId, setHadRoutingId] = useState(null);
   const navigate = useNavigate();
+  
+  // User search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const supabase = getSupabaseBrowserClient(true);
 
   useEffect(() => {
     if (user?.id) {
@@ -56,6 +66,81 @@ export default function UserProfile() {
       true;
     };
   }, [rowData, user, Data]);
+
+  // Close search dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearch(false);
+        setSearchResults([]);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Debounced search function
+  const searchUsers = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("username, avatarURL, rating")
+        .ilike("username", `%${query}%`)
+        .neq("username", rowData?.username) // Exclude current user
+        .limit(10);
+
+      if (error) {
+        console.error("Search error:", error);
+        setSearchResults([]);
+      } else {
+        setSearchResults(data || []);
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [supabase, rowData?.username]);
+
+  // Handle search input change with debounce
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        searchUsers(searchQuery);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, searchUsers]);
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setShowSearch(true);
+  };
+
+  const handleUserClick = (username: string) => {
+    setShowSearch(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    navigate(`/member/${username}`);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+  };
 
   const handleClick = () => {
     navigate("/settings");
@@ -107,11 +192,91 @@ export default function UserProfile() {
                     </NavLink>
                   )}
                 </div>
+                
+                {/* User Search Component */}
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
-                  <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
-                    Find other Players
+                  <div className="relative" ref={searchRef}>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={handleSearchInputChange}
+                        onFocus={() => setShowSearch(true)}
+                        placeholder="Find other players..."
+                        className="block w-64 pl-10 pr-10 py-2 border border-gray-300 rounded-lg 
+                                   bg-white text-gray-900 placeholder-gray-500
+                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                                   transition duration-200"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={clearSearch}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {showSearch && (searchQuery.length >= 2 || searchResults.length > 0) && (
+                      <div className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-80 overflow-y-auto">
+                        {isSearching ? (
+                          <div className="p-4 text-center">
+                            <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+                            <p className="mt-2 text-sm text-gray-500">Searching...</p>
+                          </div>
+                        ) : searchResults.length > 0 ? (
+                          <ul className="py-2">
+                            {searchResults.map((result, index) => (
+                              <li key={index}>
+                                <button
+                                  onClick={() => handleUserClick(result.username)}
+                                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 
+                                             transition-colors duration-150 text-left"
+                                >
+                                  {result.avatarURL ? (
+                                    <img
+                                      src={result.avatarURL}
+                                      alt={result.username}
+                                      className="w-10 h-10 rounded-full border-2 border-gray-200"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                      <User className="w-5 h-5 text-gray-500" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                      {result.username}
+                                    </p>
+                                    {result.rating && (
+                                      <p className="text-xs text-gray-500">
+                                        Blitz: {result.rating.blitz_rating || "N/A"} | 
+                                        Rapid: {result.rating.rapid_rating || "N/A"}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <span className="text-gray-400 text-sm">→</span>
                   </button>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : searchQuery.length >= 2 ? (
+                          <div className="p-4 text-center">
+                            <User className="mx-auto h-8 w-8 text-gray-400" />
+                            <p className="mt-2 text-sm text-gray-500">No players found</p>
+                            <p className="text-xs text-gray-400">Try a different username</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 </div>
+
                 <div className="mt-1 flex space-x-2 justify-center sm:justify-start">
                   <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded-lg transition duration-300">
                     Add To Favorites

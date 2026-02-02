@@ -1,61 +1,4 @@
-import { timeControlReducer } from "./helper";
 import { createNewGameTable } from "./supabase.gameplay";
-
-export async function gamesNewRequestOnUserColor(
-  localSupabase: any,
-  userId: string,
-  headers: {},
-  user_color: string,
-  timeControl_req: string,
-  isRated: boolean
-) {
-  try {
-    const [game_length, timeControl] = timeControlReducer(timeControl_req);
-    const insertObj = {
-      color_flag: user_color,
-      timecontrol_f: timeControl,
-      game_length,
-      u_id_in: userId,
-      is_rated_f: isRated
-    };
-    if (user_color == "random") {
-      Reflect.deleteProperty(insertObj, "color_flag");
-    }
-    const { data, error } = await localSupabase.rpc(
-      user_color == "random"
-        ? "insert_new_random_pairing_request"
-        : "insert_new_pairing_request",
-      insertObj
-    );
-    if (error) {
-      return Response.json(
-        {
-          error,
-          go: false,
-          message: `failed to insert new pairing request on ${user_color}_user_id`,
-        },
-        { headers }
-      );
-    } else if (!data[0].timecontrol) {
-      return Response.json(
-        {
-          error,
-          go: false,
-          message: `Invalid row data, timecontrol entered on games pairing table`,
-        },
-        { headers }
-      );
-    }
-    else {
-      return Response.json(
-        { data, go: true, message: "new pairing insert on games table." },
-        { headers }
-      );
-    }
-  } catch (error) {
-    return Response.json({ error, go: false }, { headers });
-  }
-}
 
 export async function handleInsertedNewGame(
   localSupabase: any,
@@ -157,11 +100,36 @@ export async function handleInsertedNewGame(
   }
 }
 
-export async function getNewGamePairing(actionData: any, supabase: any) {
+export async function getNewGamePairing(actionData: any, payload: any) {
+    //returns 1 row of data if found
+    // const { data, error } = await supabase.rpc("lookup_new_game_moves", {
+    //   find_id: +actionData.data[0].id,
+    // });
+    // if (error) {
+    //   return { go: false, error };
+    // }
+    const newRow = payload?.new;
+
+    if (newRow && (newRow?.game_id == +actionData.id || newRow?.game_id_b == +actionData.id)) {
+        return {
+          go: true,
+          message: `new game made with game_id: ${newRow.game_id}, ${newRow.game_id_b}.`,
+          data: { navigateId: newRow.id, newgame_data: newRow },
+        };
+      } else {
+        return {
+          go: false,
+          message: `no game found with reference id: ${+actionData.id
+            .id}.`,
+        };
+      }
+};
+
+export async function getNewMemberGamePairing(actionData: any, supabase: any) {
   try {
     //returns 1 row of data if found
     const { data, error } = await supabase.rpc("lookup_new_game_moves", {
-      find_id: +actionData.data[0].id,
+      find_id: +actionData.id,
     });
     if (error) {
       return { go: false, error };
@@ -177,7 +145,7 @@ export async function getNewGamePairing(actionData: any, supabase: any) {
       } else {
         return {
           go: false,
-          message: `no game found with reference id: ${+actionData.data[0].id
+          message: `no game found with reference id: ${+actionData.id
             .id}.`,
         };
       }
@@ -185,7 +153,7 @@ export async function getNewGamePairing(actionData: any, supabase: any) {
   } catch (error) {
     return { error, go: false };
   }
-}
+};
 
 async function handleInsertStartGame(
   supabase: any,
@@ -264,6 +232,38 @@ async function handleInsertStartGame(
         message: "unknown supabase error on handleInsertStartGame",
       },
       { headers }
+    );
+  }
+}
+
+export async function handleInsertStartMemberGame(
+  supabase: any,
+  userId: any,
+  setMemberRequest: (prev: any) => {}
+) {
+  //to determine game_id to use in foreign key.
+  try {
+    const { data: supData, error: error_a } = await supabase.rpc(
+        `get_member_pairing_by_id`,
+      { u_id_in: userId }
+    );
+    if (error_a) {
+      return {error: error_a, message: "error on: get_member_pairing_by_id", ok: false};
+    }
+    //throws error if duplicate game entry.
+    //only continue if the user is the first to request a game.
+    //TODO: more infmation needed to enter on game_moves table.
+    if (supData && !supData.length) {
+      return {ok: false, message: "no games_pairing data on user id."};
+    }
+    setMemberRequest((prev: Record<string, any>) => ({...prev, "actionData": supData[0]}));
+  } catch (error) {
+    return Response.json(
+      {
+        go: false,
+        error,
+        message: "unknown supabase error on handleInsertStartMemberGame",
+      }
     );
   }
 }

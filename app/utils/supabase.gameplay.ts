@@ -1,5 +1,6 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { timeControlReducer } from "./helper";
+import { data } from "@remix-run/node";
 
 export async function insertNewMoves(
   supabase: any,
@@ -42,6 +43,7 @@ export async function insertNewMoves(
 export async function updateTablesOnGameOver(
   supabase: any,
   game_id: number,
+  game_id_b: number,
   pgn_info: Record<string, any>,
   pgn: string[],
   white_id: string,
@@ -61,7 +63,7 @@ export async function updateTablesOnGameOver(
 
   // Build SQL queries
   const sql_query_game_moves = `UPDATE game_moves SET pgn = ARRAY[${escapedPgnArray}], pgn_info = '${escapedJson}'::jsonb WHERE id = ${game_number_id};`;
-  const sql_query_games_table = `UPDATE games SET status = 'end' WHERE id = ${game_id};`;
+  const sql_query_games_table = `UPDATE games${game_id == game_id_b ? "_pairing" : ""} SET status = 'end' WHERE id = ${game_id};`;
   const sql_query_user_white = `UPDATE users SET "isActive" = false, rating = jsonb_set(rating, '{${ratingType}}', to_jsonb(${whiteelo})) WHERE u_id = '${white_id}'::uuid;`;
   const sql_query_user_black = `UPDATE users SET "isActive" = false, rating = jsonb_set(rating, '{${ratingType}}', to_jsonb(${blackelo})) WHERE u_id = '${black_id}'::uuid;`;
 
@@ -115,7 +117,7 @@ export async function dropTablesGameNumberGameMoves(
 
   const sql_query = `DROP TABLE game_number_${id};`;
   const sql_query_1 = `DELETE from game_moves where id = ${id};`;
-  const sql_query_2 = `DELETE from games where id = ${gameData.game_id};`;
+  const sql_query_2 = `DELETE from games${gameData.game_id == gameData.game_id_b ? "_pairing" : ""} where id = ${gameData.game_id};`;
   const sql_query_3 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.white}';`;
   const sql_query_4 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.black}';`;
   try {
@@ -154,13 +156,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.game_number_${id};
 `;
   try {
     const { data, error } = await supabase.rpc(`execute_sql`, { sql_query });
-    if (error) {
-      return error;
-    } else {
-      return data;
-    }
+   return {data, error};
   } catch (error) {
-    return error;
+    return {data: null, error};
   }
 }
 

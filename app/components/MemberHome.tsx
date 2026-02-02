@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import DemoUser from "./DemoUser";
 import {
   NavLink,
   useLoaderData,
+  useNavigate,
   useParams,
   useRouteLoaderData,
 } from "@remix-run/react";
 import { loader } from "~/root";
 import { memberWonLossOrient } from "~/utils/helper";
+import { GlobalContext } from "~/context/globalcontext";
 
 export default function MemberProfile() {
   //const GamePlayContext = useContext(GlobalContext);
@@ -15,8 +17,9 @@ export default function MemberProfile() {
   const { user, rowData } = useRouteLoaderData<typeof loader>("root");
   const Data = useLoaderData();
   const [gameHistory, setGameHistory] = useState([]);
+  const PlayContext = useContext(GlobalContext);
   const { username } = useParams();
-
+  const navigate = useNavigate();
   useEffect(() => {
     if (Data?.data) {
       const arrayData = Data.data.filter((item) => item.status == "end");
@@ -80,7 +83,7 @@ export default function MemberProfile() {
                   </span>
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
-                  <button className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                  <button onClick={() => {PlayContext.setMemberRequestForm({...PlayContext.memberRequestForm, memberData: Data?.data[0]}); navigate(`/member/challenge/${username}`)}} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
                     Challenge
                   </button>
                 </div>

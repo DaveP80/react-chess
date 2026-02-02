@@ -13,8 +13,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import LobbySection from "~/components/LobbySection";
 import { RatedGameSwitch } from "~/components/RatedGameSwitch";
 import { LobbyItem } from "~/types";
+import { gamesNewRequestOnUserColor } from "~/utils/action.server";
 import {
-  gamesNewRequestOnUserColor,
   getNewGamePairing,
   handleInsertedNewGame,
   updateActiveUserStatus,
@@ -193,18 +193,19 @@ export default function Index() {
 
     const useSupabase = async () => {
       const { data: authData, error: authError } =
-        await supabase2.auth.getUser();
+        await supabase3.auth.getUser();
       userId = authData?.user?.id;
     };
     useSupabase();
 
     const channel = supabase
-      .channel("realtime-messages")
+      .channel("realtime-messages-games")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "games" },
         async (payload: { eventType: string; }) => {
           if (payload.eventType === "INSERT") {
+            console.log(payload)
             const [colorPreference, timeControl] = timeAndColorPreferenceReducer(actionData?.data[0] || {});
             if (
               userId &&
@@ -221,7 +222,7 @@ export default function Index() {
                 actionData?.data[0].is_rated,
                 headers
               );
-            }
+           
           }
           if (payload.eventType === "UPDATE") {
             ("foo");
@@ -230,11 +231,12 @@ export default function Index() {
             ("bar");
           }
         }
+      }
       )
       .subscribe();
 
     const channel2 = supabase2
-      .channel("realtime-messages")
+      .channel("realtime-messages-game-moves")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "game_moves" },
@@ -242,7 +244,7 @@ export default function Index() {
           if (payload.eventType === "INSERT") {
 
             if (actionData?.data && userId) {
-              let response = await getNewGamePairing(actionData, supabase3);
+              let response = await getNewGamePairing(actionData.data[0], payload);
 
               if (response?.go) {
                 // Game found! Clear timer and stop searching
@@ -277,7 +279,7 @@ export default function Index() {
       supabase.removeChannel(channel);
       supabase2.removeChannel(channel2);
     };
-  }, [actionData]);
+  }, []);
 
   // Handle navigation state changes
   useEffect(() => {
