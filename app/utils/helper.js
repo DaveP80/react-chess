@@ -441,14 +441,15 @@ export function timeAndColorPreferenceReducer(actionData) {
   return data;
 }
 
-export const SUPABASE_CONFIG = [
-  String(import.meta.env.VITE_SUPABASE_URL),
-  String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY),
-  { isSingleton: false },
-];
-
-export const SUPABASE_CONFIG_ROOT = [
-  String(import.meta.env.VITE_SUPABASE_URL),
-  String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY),
-  { isSingleton: true },
-];
+export function generateMemberRequestFormObj(actionData) {
+  let memberRequestFormTempObj = actionData || {};
+  const tempObj = {};
+  if (memberRequestFormTempObj?.id) {
+    tempObj.id = memberRequestFormTempObj.id;
+    tempObj.white_username = memberRequestFormTempObj.white_username;
+    tempObj.black_username = memberRequestFormTempObj.black_username;
+    tempObj.white_rating_info = memberRequestFormTempObj.white_rating_info;
+    tempObj.black_rating_info = memberRequestFormTempObj.black_rating_info;
+  }
+  return tempObj;
+}

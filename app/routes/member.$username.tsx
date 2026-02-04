@@ -1,9 +1,8 @@
 import { ActionFunctionArgs, LoaderFunction } from "@remix-run/node";
 import { lazy, Suspense } from "react";
-import MemberHome from "~/components/MemberHome";
 import { getActiveGamesData } from "~/utils/apicalls.server";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
-const MyHome = lazy(() => import("~/components/MyHome"));
+const MemberHome = lazy(() => import("~/components/MemberHome"));
 
 export const loader: LoaderFunction = async ({ request, params }) => {
 
@@ -31,7 +30,7 @@ export async function action({ request }: ActionFunctionArgs) {
   
   const response = await getActiveGamesData({request});
   
-  return response;
+  return Response.json(response);
 }
 
 export default function Index() {

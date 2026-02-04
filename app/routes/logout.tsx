@@ -1,6 +1,7 @@
 import { ActionFunctionArgs, LoaderFunction } from "@remix-run/node";
-import { useLoaderData, useNavigate, useSearchParams } from "@remix-run/react";
-import { useEffect } from "react";
+import { useLoaderData, useNavigate, useRouteLoaderData, useSearchParams } from "@remix-run/react";
+import { useContext, useEffect } from "react";
+import { GlobalContext } from "~/context/globalcontext";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 export const loader: LoaderFunction = async ({ request }) => {
@@ -20,10 +21,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function Index() {
   const { error, ok } = useLoaderData<typeof loader>();
+  const Root = useRouteLoaderData("root");
   const [searchParams] = useSearchParams();
   const query = searchParams.get("query");
-  const supabase = getSupabaseBrowserClient(true);
+  const supabase = getSupabaseBrowserClient(Root?.VITE_SUPABASE_URL, Root?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY, true);
   const navigate = useNavigate();
+  const UserContext = useContext(GlobalContext);
 
   useEffect(() => {
     try {
@@ -34,7 +37,7 @@ export default function Index() {
       console.error(error);
     } finally {
       localStorage.removeItem("auth");
-
+      UserContext.setMemberRequest({});
       navigate("/login");
     }
 

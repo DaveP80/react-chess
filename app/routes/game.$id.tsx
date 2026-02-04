@@ -15,7 +15,6 @@ import {
   timeControlReducer,
   parseTimeControl,
   processIncomingPgn,
-  SUPABASE_CONFIG,
   parsePgnEntry,
   timeOutGameOverReducer,
   gameStartFinishReducer,
@@ -60,11 +59,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const { data: userData } = await client.auth.getClaims();
     const response = await lookup_userdata_on_gameid(
       client,
-      headers,
       Number(gameId),
       userData,
     );
-    return response;
+    return Response.json(response);
   } catch (error) {
     return redirect("/myhome");
   }
@@ -115,11 +113,11 @@ export default function Index() {
   );
   const [pgnInfoString, setpgnInfoString] = useState<string>("");
   const chessClockRef = useRef<ChessClockHandle>(null);
-  const supabase = getSupabaseBrowserClient(true);
+  const supabase = getSupabaseBrowserClient(UserContext?.VITE_SUPABASE_URL, UserContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY, true);
   const supabase2 = createBrowserClient(
-    SUPABASE_CONFIG[0],
-    SUPABASE_CONFIG[1],
-    SUPABASE_CONFIG[2],
+    UserContext?.VITE_SUPABASE_URL,
+    UserContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    { isSingleton: false },
   );
 
   // Clear countdown timer

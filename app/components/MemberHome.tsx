@@ -8,7 +8,7 @@ import {
   useRouteLoaderData,
 } from "@remix-run/react";
 import { loader } from "~/root";
-import { memberWonLossOrient } from "~/utils/helper";
+import { generateMemberRequestFormObj, memberWonLossOrient } from "~/utils/helper";
 import { GlobalContext } from "~/context/globalcontext";
 
 export default function MemberProfile() {
@@ -37,6 +37,8 @@ export default function MemberProfile() {
   } else {
     orientation = "black";
   }
+
+  const memberRequestFormTempObj = generateMemberRequestFormObj(Data?.data[0]);
 
   return (
     <div className="bg-gray-100 min-h-screen p-4 sm:p-6 lg:p-8">
@@ -83,7 +85,7 @@ export default function MemberProfile() {
                   </span>
                 </div>
                 <div className="mt-4 flex space-x-2 justify-center sm:justify-start">
-                  <button onClick={() => {PlayContext.setMemberRequestForm({...PlayContext.memberRequestForm, memberData: Data?.data[0]}); navigate(`/member/challenge/${username}`)}} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
+                  <button onClick={() => {PlayContext.setMemberRequestForm({...PlayContext.memberRequestForm, memberData: memberRequestFormTempObj}); navigate(`/member/challenge/${username}`)}} className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300">
                     Challenge
                   </button>
                 </div>

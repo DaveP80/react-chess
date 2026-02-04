@@ -14,7 +14,7 @@ import { Chess } from "chess.js";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 
 export default function UserProfile() {
-  const { user, rowData, provider } = useRouteLoaderData<typeof loader>("root");
+  const { user, rowData, provider, VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY } = useRouteLoaderData<typeof loader>("root");
   const Data = useLoaderData();
   const [gameHistory, setGameHistory] = useState([]);
   const [hadRoutingId, setHadRoutingId] = useState(null);
@@ -26,7 +26,7 @@ export default function UserProfile() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const supabase = getSupabaseBrowserClient(true);
+  const supabase = getSupabaseBrowserClient(VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY, true);
 
   useEffect(() => {
     if (user?.id) {

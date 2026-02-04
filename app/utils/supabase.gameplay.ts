@@ -1,6 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { timeControlReducer } from "./helper";
-import { data } from "@remix-run/node";
 
 export async function insertNewMoves(
   supabase: any,

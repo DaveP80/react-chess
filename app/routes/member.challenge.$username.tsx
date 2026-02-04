@@ -3,7 +3,6 @@ import {
   Form,
   Link,
   useActionData,
-  useNavigate,
   useNavigation,
   useParams,
   useRouteLoaderData,
@@ -12,10 +11,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { RatedGameSwitch } from "~/components/RatedGameSwitch";
 import { GlobalContext } from "~/context/globalcontext";
-import {
-  memberNewRequestPairing,
-} from "~/utils/action.server";
-import { SUPABASE_CONFIG } from "~/utils/helper";
+import { memberNewRequestPairing } from "~/utils/action.server";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 /* ---------------- LOADER ---------------- */
@@ -43,7 +39,7 @@ export async function action({ request }: ActionFunctionArgs) {
   ) {
     return Response.json(
       { message: "invalid form data submitted", go: false },
-      { headers }
+      { headers },
     );
   }
 
@@ -52,15 +48,14 @@ export async function action({ request }: ActionFunctionArgs) {
     const response = await memberNewRequestPairing(
       supabase,
       userId,
-      headers,
       String(formData?.username),
       JSON.parse(String(formData.currentUserElo)),
       JSON.parse(String(formData.memberData)),
       String(formData?.colorPreference),
       String(formData?.timeControl),
-      Boolean(formData?.isRated)
+      Boolean(formData?.isRated),
     );
-    return response;
+    return Response.json(response);
   }
   const timeControl = String(formData.timeControl);
 
@@ -92,7 +87,6 @@ export default function Index() {
   const navigation = useNavigation();
   const PlayContext = useRouteLoaderData<typeof loader>("root");
   const GameContext = useContext(GlobalContext);
-  const navigate = useNavigate();
 
   // Refs and state for countdown functionality
   const [isSearching, setIsSearching] = useState(false);
@@ -102,9 +96,9 @@ export default function Index() {
   const { username } = useParams();
 
   const supabase = createBrowserClient(
-    SUPABASE_CONFIG[0],
-    SUPABASE_CONFIG[1],
-    SUPABASE_CONFIG[2]
+    PlayContext?.VITE_SUPABASE_URL,
+    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    { isSingleton: true },
   );
 
   // Clear countdown timer
@@ -115,13 +109,27 @@ export default function Index() {
     }
   }, []);
 
-  // Cancel search handler
-  const handleCancelSearch = useCallback(() => {
+  async function handleCancelSearch() {
+    if (GameContext?.memberRequest.actionData.id) {
+      try {
+        const { error } = await supabase
+          .from("games_pairing")
+          .delete()
+          .eq("id", GameContext?.memberRequest.actionData.id);
+  
+        if (error) {
+          console.error(error);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
     clearCountdownTimer();
     setIsSearching(false);
     setCountdown(COUNTDOWN_SECONDS);
     setCountdownExpired(false);
-  }, [clearCountdownTimer, actionData, supabase]);
+    GameContext.setMemberRequest({});
+  };
 
   // Start the countdown timer
   const startCountdownTimer = useCallback(() => {
@@ -222,7 +230,7 @@ export default function Index() {
                 </div>
                 <div>
                   <p className="font-medium text-indigo-800">
-                    Searching for opponent...
+                    Outgoing request with {username}
                   </p>
                   <p className="text-sm text-indigo-600">
                     Time remaining:{" "}
@@ -374,7 +382,7 @@ export default function Index() {
                   hidden
                   name="memberData"
                   value={JSON.stringify(
-                    GameContext.memberRequestForm.memberData
+                    GameContext.memberRequestForm.memberData,
                   )}
                 />
                 <input

@@ -1,13 +1,12 @@
 import { useEffect, useState, useRef, useCallback, useContext } from "react";
-import { useNavigate } from "@remix-run/react";
+import { useLoaderData, useNavigate } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
-import { SUPABASE_CONFIG_ROOT } from "~/utils/helper";
 import {
   getNewGamePairing,
   getNewMemberGamePairing,
   handleInsertStartMemberGame,
   updateActiveUserStatus,
-} from "~/utils/game";
+} from "~/utils/game.client";
 import { GlobalContext } from "~/context/globalcontext";
 import { createNewGameTable } from "~/utils/supabase.gameplay";
 
@@ -24,25 +23,26 @@ export default function GameRequestNotification({
   const [isExiting, setIsExiting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const dismissTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const Root = useLoaderData();
   const navigate = useNavigate();
 
   const GameContext = useContext(GlobalContext);
 
   // Use different supabase clients with unique configurations
   const supabase = createBrowserClient(
-    SUPABASE_CONFIG_ROOT[0],
-    SUPABASE_CONFIG_ROOT[1],
-    { isSingleton: true }
+    Root?.VITE_SUPABASE_URL,
+    Root?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    { isSingleton: true },
   );
   const supabaseRealtimePairing = createBrowserClient(
-    SUPABASE_CONFIG_ROOT[0],
-    SUPABASE_CONFIG_ROOT[1],
-    { isSingleton: false }
+    Root?.VITE_SUPABASE_URL,
+    Root?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    { isSingleton: false },
   );
   const supabaseRealtimeMoves = createBrowserClient(
-    SUPABASE_CONFIG_ROOT[0],
-    SUPABASE_CONFIG_ROOT[1],
-    { isSingleton: false }
+    Root?.VITE_SUPABASE_URL,
+    Root?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    { isSingleton: false },
   );
 
   const isActive = rowData?.isActive;
@@ -69,16 +69,17 @@ export default function GameRequestNotification({
       try {
         const incomingData = GameContext?.memberRequest?.actionData;
         console.log("Inserting game_moves with data:", incomingData);
-        
+
         const { error: updateError } = await supabase
           .from("games_pairing")
           .update({
-            status: "playing"
-          }).eq("id", +incomingData.id);
-          if (updateError) {
-            console.error("Error inserting game moves:", updateError);
-            return { ok: false, updateError };
-          }
+            status: "playing",
+          })
+          .eq("id", +incomingData.id);
+        if (updateError) {
+          console.error("Error inserting game moves:", updateError);
+          return { ok: false, updateError };
+        }
         const { data, error } = await supabase
           .from("game_moves")
           .insert({
@@ -101,49 +102,61 @@ export default function GameRequestNotification({
             is_rated: incomingData.is_rated,
           })
           .select();
-          
+
         if (error) {
           console.error("Error inserting game moves:", error);
           return { ok: false, error };
         }
-        
+
         if (data && data.length > 0) {
-          console.log("Game moves inserted, creating game table for id:", data[0].id);
-          
+          console.log(
+            "Game moves inserted, creating game table for id:",
+            data[0].id,
+          );
+
           const { data: newTableData, error: newTableError } =
             await createNewGameTable(supabase, data[0].id);
-            
+
           if (newTableError) {
-            console.error("Error creating new game number table:", newTableError);
+            console.error(
+              "Error creating new game number table:",
+              newTableError,
+            );
             return { ok: false, error: newTableError };
           }
-          
+
           // FIX: Check for absence of error, not presence of data
           // createNewGameTable returns { data: null, error: null } on success
-          console.log("Game table created successfully, returning game_moves id:", data[0].id);
-            return {
-              ok: true,
+          console.log(
+            "Game table created successfully, returning game_moves id:",
+            data[0].id,
+          );
+          return {
+            ok: true,
             message: "successfully inserted game moves and created game table",
             gameMoveId: data[0].id,
-            };
-          }
-        
-        return { ok: false, message: "No data returned from game_moves insert" };
+          };
+        }
+
+        return {
+          ok: false,
+          message: "No data returned from game_moves insert",
+        };
       } catch (error) {
         console.error("Error in insertGameMovesGameNumber:", error);
         return { ok: false, error };
       }
     }
-    
+
     const result = await insertGameMovesGameNumber();
     console.log("insertGameMovesGameNumber result:", result);
-    
+
     if (result?.ok) {
       try {
         console.log("Looking up new game pairing...");
         let response = await getNewMemberGamePairing(
           GameContext.memberRequest.actionData,
-          supabase
+          supabase,
         );
         console.log("getNewGamePairing response:", response);
 
@@ -152,13 +165,13 @@ export default function GameRequestNotification({
           console.log("Game found, updating user status and navigating...");
           const update_res = await updateActiveUserStatus(userId, supabase);
           console.log("updateActiveUserStatus result:", update_res);
-          
+
           if (update_res && update_res.go) {
             localStorage.setItem(
               "pgnInfo",
               JSON.stringify({
                 routing_id: response.data?.navigateId,
-              })
+              }),
             );
           }
 
@@ -167,26 +180,32 @@ export default function GameRequestNotification({
           dismiss();
           navigate(`/game/${response?.data?.navigateId}`);
         } else {
-          console.log("getNewGamePairing returned go: false, response:", response);
+          console.log(
+            "getNewGamePairing returned go: false, response:",
+            response,
+          );
           // Even if getNewGamePairing fails, we can try navigating directly
           // using the game_moves id we just created
           if (result.gameMoveId) {
-            console.log("Attempting direct navigation with gameMoveId:", result.gameMoveId);
+            console.log(
+              "Attempting direct navigation with gameMoveId:",
+              result.gameMoveId,
+            );
             const update_res = await updateActiveUserStatus(userId, supabase);
             if (update_res && update_res.go) {
               localStorage.setItem(
                 "pgnInfo",
                 JSON.stringify({
                   routing_id: result.gameMoveId,
-                })
+                }),
               );
             }
             GameContext.setMemberRequest({});
             dismiss();
             navigate(`/game/${result.gameMoveId}`);
-        } else {
-          GameContext.setMemberRequest({});
-          dismiss();
+          } else {
+            GameContext.setMemberRequest({});
+            dismiss();
           }
         }
       } catch (error) {
@@ -228,7 +247,7 @@ export default function GameRequestNotification({
 
     console.log(
       "Setting up games_pairing websocket listener for user:",
-      userId
+      userId,
     );
 
     const channelPairing = supabaseRealtimePairing
@@ -251,18 +270,18 @@ export default function GameRequestNotification({
               const result = await handleInsertStartMemberGame(
                 supabase,
                 userId,
-                GameContext.setMemberRequest
+                GameContext.setMemberRequest,
               );
               console.log("handleInsertStartMemberGame result:", result);
             }
           } catch (error) {
             console.error(
               "Error processing games_pairing notification:",
-              error
+              error,
             );
             GameContext?.setMemberRequest({});
           }
-        }
+        },
       )
       .subscribe((status) => {
         console.log("games_pairing channel status:", status);
@@ -297,14 +316,12 @@ export default function GameRequestNotification({
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "game_moves" },
         async (payload: any) => {
-          console.log("game_moves INSERT received:", payload);
-
           try {
             if (GameContext?.memberRequest?.actionData && userId) {
               console.log("Looking up new game pairing...");
               let response = getNewGamePairing(
                 GameContext.memberRequest.actionData,
-                payload
+                payload,
               );
               console.log("getNewGamePairing response:", response);
 
@@ -312,14 +329,14 @@ export default function GameRequestNotification({
                 // Game found! Navigate to it
                 const update_res = await updateActiveUserStatus(
                   userId,
-                  supabase
+                  supabase,
                 );
                 if (update_res && update_res.go) {
                   localStorage.setItem(
                     "pgnInfo",
                     JSON.stringify({
                       routing_id: response.data?.navigateId,
-                    })
+                    }),
                   );
                 }
 
@@ -333,7 +350,7 @@ export default function GameRequestNotification({
           } catch (error) {
             console.error("Error processing game_moves notification:", error);
           }
-        }
+        },
       )
       .subscribe((status) => {
         console.log("game_moves channel status:", status);

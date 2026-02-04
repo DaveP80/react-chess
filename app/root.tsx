@@ -27,7 +27,7 @@ export const loader: LoaderFunction = async ({
   request,
 }: LoaderFunctionArgs) => {
   const response = await getMyHomeData({ request });
-  return response;
+  return Response.json({...response, VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY: process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY});
 };
 
 export function ErrorBoundary() {

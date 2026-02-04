@@ -92,21 +92,20 @@ export async function getMyHomeData({ request }: any) {
         } else if (urlIntent == "login") {
           await selectAll();
         } else {
-          return Response.json({
+          return {
             user: {},
             rowData: {},
             provider: {},
             intent: "",
             message: "missing params in myhome user profile handler.",
-          });
+          };
         }
       }
     } catch (error) {
       console.error(error);
       throw redirect("/login", { headers });
     } finally {
-      return Response.json(
-        {
+      return {
           user: userId
             ? {
                 id: userId,
@@ -120,9 +119,7 @@ export async function getMyHomeData({ request }: any) {
             : {},
           provider: p.some((item) => item === "github") ? "github" : "email",
           intent: urlIntent,
-        } satisfies MyHomeData,
-        { headers }
-      );
+        } satisfies MyHomeData;
     }
   } else {
     try {
@@ -136,16 +133,13 @@ export async function getMyHomeData({ request }: any) {
       const userEmail = data?.claims?.email;
 
       if (error) {
-        return Response.json(
-          {
+        return {
             user: {},
             rowData: {},
             error,
             provider: "",
             message: "error on supabase auth claims",
-          } satisfies MyHomeData,
-          { headers }
-        );
+          } satisfies MyHomeData;
       }
 
       if (userId && userEmail) {
@@ -155,8 +149,7 @@ export async function getMyHomeData({ request }: any) {
           .eq("u_id", userId);
       }
 
-      return Response.json(
-        {
+      return {
           user: userId
             ? {
                 id: userId,
@@ -173,16 +166,14 @@ export async function getMyHomeData({ request }: any) {
           )
             ? "github"
             : "email",
-        } satisfies MyHomeData,
-        { headers }
-      );
+        } satisfies MyHomeData;
     } catch (error) {
-      return Response.json({
+      return {
         user: {},
         rowData: {},
         provider: "",
         error,
-      } satisfies MyHomeData);
+      } satisfies MyHomeData;
     }
   }
 }
@@ -202,32 +193,25 @@ export async function getActiveGamesData({ request }: any) {
         }
       );
       if (error || activeGamesError) {
-        return Response.json(
-          { error: error || activeGamesError, go: false },
-          { headers }
-        );
+        return { error: error || activeGamesError, go: false }
       } else {
-        return Response.json(
-          {
+        return {
             data,
             message: "retrieved active game information on current user.",
             go: true,
-            routing_id: data[0].id,
-          },
-          { headers }
-        );
+            routing_id: data[0].id
+        }
       }
     } else {
       return redirect(`/game/${formData.get("intent")}`);
     }
   } catch (error) {
-    return Response.json({ error });
+    return { error };
   }
 }
 
 export async function lookup_userdata_on_gameid(
   supabase: any,
-  headers: any,
   id: number,
   userData: Record<any, any> | null
 ) {
@@ -277,15 +261,12 @@ select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_
     if (error) {
       return redirect("/myhome");
     } else {
-      return Response.json(
-        {
+      return {
           go: true,
           message: `retrieved game data on id: ${id}`,
           data: data[0],
           userData: userData?.claims?.sub,
-        },
-        { headers }
-      );
+        }
     }
   } catch (error) {
     return redirect("/myhome");
@@ -294,7 +275,6 @@ select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_
 
 export async function lookup_analysis_userdata_on_gameid(
   supabase: any,
-  headers: any,
   id: number,
   userData: Record<any, any> | null
 ) {
@@ -305,20 +285,17 @@ export async function lookup_analysis_userdata_on_gameid(
       { gameid_f: id }
     );
     if (error) {
-      return Response.json({ error }, { headers });
+      return { error };
     } else {
-      return Response.json(
-        {
+      return {
           go: true,
           message: `retrieved game data on id: ${id}`,
           data: data[0],
           userData: userData?.claims?.sub,
-        },
-        { headers }
-      );
+        }
     }
   } catch (error) {
-    return Response.json({ error }, { headers });
+    return { error };
   }
 }
 

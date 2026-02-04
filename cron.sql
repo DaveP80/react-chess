@@ -25,3 +25,26 @@ FROM cte
 ) z where z.game_result = '' and is_expired);
 end;
 $$;
+
+CREATE OR REPLACE PROCEDURE public.purge_old_game_rows()
+ LANGUAGE plpgsql
+AS $procedure$
+begin
+  delete from public.games where id not in (select game_id from public.game_moves)
+  and created_at < now() - INTERVAL '45 seconds';
+  delete from public.games_pairing where id not in (select game_id from public.game_moves)
+  and created_at < now() - INTERVAL '90 seconds';
+end;
+$procedure$
+
+SELECT cron.schedule(
+  job_name   => 'purge_old_game_rows_every_minute',
+  schedule   => '* * * * *',
+  command    => $$CALL public.purge_old_game_rows();$$
+);
+
+ALTER TABLE public.games
+  ALTER COLUMN id SET DEFAULT nextval('public.global_game_id_seq');
+
+ALTER TABLE public.games_pairing
+  ALTER COLUMN id SET DEFAULT nextval('public.global_game_id_seq');

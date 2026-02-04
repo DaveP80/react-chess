@@ -18,8 +18,8 @@ import {
   getNewGamePairing,
   handleInsertedNewGame,
   updateActiveUserStatus,
-} from "~/utils/game";
-import { SUPABASE_CONFIG, timeAndColorPreferenceReducer } from "~/utils/helper";
+} from "~/utils/game.client";
+import { timeAndColorPreferenceReducer } from "~/utils/helper";
 import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { get_similar_game_requests_lobby } from "~/utils/supabase.gameplay";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
@@ -52,12 +52,11 @@ export async function action({ request }: ActionFunctionArgs) {
     const response = await gamesNewRequestOnUserColor(
       supabase,
       userId,
-      headers,
       String(formData?.colorPreference),
       String(formData?.timeControl),
       Boolean(formData?.isRated)
     );
-    return response;
+    return Response.json(response);
   }
   const timeControl = String(formData.timeControl);
 
@@ -99,9 +98,13 @@ export default function Index() {
   const [countdownExpired, setCountdownExpired] = useState(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const supabase = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
-  const supabase2 = createBrowserClient(SUPABASE_CONFIG[0], SUPABASE_CONFIG[1], SUPABASE_CONFIG[2]);
-  const supabase3 = getSupabaseBrowserClient(true);
+  const supabase = createBrowserClient(PlayContext?.VITE_SUPABASE_URL,
+    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    { isSingleton: false });
+  const supabase2 = createBrowserClient(PlayContext?.VITE_SUPABASE_URL,
+    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    { isSingleton: false });
+  const supabase3 = getSupabaseBrowserClient(PlayContext?.VITE_SUPABASE_URL, PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY, true);
 
   // Clear countdown timer
   const clearCountdownTimer = useCallback(() => {
@@ -212,8 +215,7 @@ export default function Index() {
                 colorPreference,
                 timeControl,
                 actionData?.data[0].created_at,
-                actionData?.data[0].is_rated,
-                headers
+                actionData?.data[0].is_rated
               );
            
           }

@@ -6,7 +6,7 @@ import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 export default function SignInButtons() {
   const UserInfo = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
-  const supabase = getSupabaseBrowserClient(true);
+  const supabase = getSupabaseBrowserClient(UserInfo?.VITE_SUPABASE_URL, UserInfo?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY, true);
   
 
   const signInWithGitHub = async () => {

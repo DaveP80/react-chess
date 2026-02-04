@@ -40,14 +40,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const { data: userData } = await client.auth.getClaims();
     const response = await lookup_userdata_on_gameid(
       client,
-      headers,
       Number(gameId),
       userData
     );
-    return response;
+    return Response.json(response);
   } catch (error) {
-    const headers = new Headers();
-    return Response.json({ error }, { headers });
+    return Response.json(error);
   }
 }
 

@@ -6,7 +6,7 @@ import {
   useRouteLoaderData,
 } from "@remix-run/react";
 import SignInButtons from "~/components/SignInButtons";
-import { ActionFunctionArgs, LoaderFunction, redirect } from "@remix-run/node";
+import { ActionFunctionArgs, redirect } from "@remix-run/node";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { loader } from "~/root";
 
@@ -25,9 +25,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     const { error, data } = await supabase.auth.signUp({
       email: Email.toString() || "",
       password: Password.toString() || "",
-      //   options: {
-      //     emailRedirectTo: `${new URL(request.url).origin}/auth/confirm`,
-      //   },
     });
     if (error) {
       return Response.json(

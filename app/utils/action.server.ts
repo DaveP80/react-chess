@@ -3,7 +3,6 @@ import { timeControlReducer } from "./helper";
 export async function gamesNewRequestOnUserColor(
   localSupabase: any,
   userId: string,
-  headers: {},
   user_color: string,
   timeControl_req: string,
   isRated: boolean
@@ -27,38 +26,28 @@ export async function gamesNewRequestOnUserColor(
       insertObj
     );
     if (error) {
-      return Response.json(
-        {
+      return {
           error,
           go: false,
           message: `failed to insert new pairing request on ${user_color}_user_id`,
-        },
-        { headers }
-      );
+        }
     } else if (!data[0].timecontrol) {
-      return Response.json(
-        {
+      return {
           error,
           go: false,
           message: `Invalid row data, timecontrol entered on games pairing table`,
-        },
-        { headers }
-      );
+        }
     } else {
-      return Response.json(
-        { data, go: true, message: "new pairing insert on games table." },
-        { headers }
-      );
+      return { data, go: true, message: "new pairing insert on games table." };
     }
   } catch (error) {
-    return Response.json({ error, go: false }, { headers });
+    return { error, go: false };
   }
-}
+};
 
 export async function memberNewRequestPairing(
   localSupabase: any,
   userId: string,
-  headers: {},
   username: string,
   currentUserElo: Record<string, any>,
   memberData: Record<string, any>,
@@ -98,30 +87,21 @@ export async function memberNewRequestPairing(
       insertObj
     );
     if (error) {
-      return Response.json(
-        {
+      return {
           error,
           go: false,
           message: `failed to insert new member pairing request for ${username}`,
-        },
-        { headers }
-      );
+        }
     } else if (!data[0].timecontrol) {
-      return Response.json(
-        {
+      return {
           error,
           go: false,
           message: `Invalid row data, timecontrol entered on games pairing table`,
-        },
-        { headers }
-      );
+        }
     } else {
-      return Response.json(
-        { data, go: true, message: "new pairing insert on games table." },
-        { headers }
-      );
+      return { data, go: true, message: "new pairing insert on games table." };
     }
   } catch (error) {
-    return Response.json({ error, go: false }, { headers });
+    return { error, go: false };
   }
 }

@@ -153,25 +153,28 @@ INSERT INTO games (turn, status, whiteelo, blackelo, timecontrol, white_id, blac
 u_id_in, u_id_in, is_rated_f) returning *;
 $$;
 
-create or replace function insert_new_member_pairing_request(color_flag text, game_length text, whiteelo_f int, blackelo_f int, u_id_in text, username_f text, is_rated_f boolean)
+create or replace function get_member_pairing_by_id(u_id_in text)
 returns table (
   id int8,
   created_at text,
   status text,
+  whiteelo int,
+  blackelo int,
+  timecontrol text,
   white_id uuid,
   black_id uuid,
-  whiteelo int8,
-  blackelo int8,
-  timecontrol text,
-  is_rated boolean,
-  turn text
+  username_a text,
+  username_b text,
+  is_rated boolean
 )
 language sql
 security definer
 as $$
-INSERT INTO games_pairing (status, whiteelo, blackelo, timecontrol, white_id, black_id, is_rated) values ('pairing', 
-whiteelo_f, blackelo_f, game_length, case when color_flag = 'white' then (select u_id from users where username = username_f limit 1) else u_id_in::uuid end, case when color_flag = 'black' then (select u_id from users where username = username_f limit 1) else u_id_in::uuid end, 
-is_rated_f) returning *;
+SELECT id, gp.created_at, status, whiteelo, blackelo, timecontrol, white_id, black_id, u.username as username_a, ut.username as username_b, is_rated
+FROM public.games_pairing gp left join users u on gp.white_id = u.u_id left join users ut on gp.black_id = ut.u_id
+WHERE (white_id = u_id_in::uuid OR black_id = u_id_in::uuid) AND gp.status = 'pairing'
+  AND gp.created_at >= NOW() - INTERVAL '60 seconds'
+ORDER BY gp.created_at DESC;
 $$;
 
 -- version 2.0 12-27-25
