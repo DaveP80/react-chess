@@ -189,14 +189,7 @@ export default function Index() {
 
 
   useEffect(() => {
-    let userId: string | undefined;
-
-    const useSupabase = async () => {
-      const { data: authData, error: authError } =
-        await supabase3.auth.getUser();
-      userId = authData?.user?.id;
-    };
-    useSupabase();
+    const userId = PlayContext?.user?.id; 
 
     const channel = supabase
       .channel("realtime-messages-games")
@@ -242,9 +235,10 @@ export default function Index() {
         { event: "*", schema: "public", table: "game_moves" },
         async (payload: { eventType: string; }) => {
           if (payload.eventType === "INSERT") {
+            console.log(payload);
 
             if (actionData?.data && userId) {
-              let response = await getNewGamePairing(actionData.data[0], payload);
+              let response = getNewGamePairing(actionData.data[0], payload);
 
               if (response?.go) {
                 // Game found! Clear timer and stop searching
@@ -279,7 +273,7 @@ export default function Index() {
       supabase.removeChannel(channel);
       supabase2.removeChannel(channel2);
     };
-  }, []);
+  }, [actionData, PlayContext]);
 
   // Handle navigation state changes
   useEffect(() => {

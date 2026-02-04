@@ -67,8 +67,10 @@ export async function updateTablesOnGameOver(
   const sql_query_user_white = `UPDATE users SET "isActive" = false, rating = jsonb_set(rating, '{${ratingType}}', to_jsonb(${whiteelo})) WHERE u_id = '${white_id}'::uuid;`;
   const sql_query_user_black = `UPDATE users SET "isActive" = false, rating = jsonb_set(rating, '{${ratingType}}', to_jsonb(${blackelo})) WHERE u_id = '${black_id}'::uuid;`;
 
+  
   // Concatenate all queries
   const final_sql_query_string = sql_query_game_moves + sql_query_games_table + sql_query_user_white + sql_query_user_black;
+  console.log(final_sql_query_string)
 
   try {
     const { data, error } = await supabase.rpc(`execute_sql`, { sql_query: final_sql_query_string });

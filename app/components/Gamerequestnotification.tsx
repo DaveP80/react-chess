@@ -302,7 +302,7 @@ export default function GameRequestNotification({
           try {
             if (GameContext?.memberRequest?.actionData && userId) {
               console.log("Looking up new game pairing...");
-              let response = await getNewGamePairing(
+              let response = getNewGamePairing(
                 GameContext.memberRequest.actionData,
                 payload
               );

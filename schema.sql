@@ -318,8 +318,7 @@ select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_
 ) g join game_moves gm on g.id = gm.game_id join users u on u.u_id = g.white_id join users ut on ut.u_id = g.black_id where white_id = user_id::uuid or black_id = user_id::uuid;
 $$;
 
-create or replace function lookup_games_played_by_username(f_username text)
-returns table (
+create or replace function lookup_games_played_by_username (f_username text) returns table (
   id int,
   created_at text,
   status text,
@@ -337,13 +336,14 @@ returns table (
   game_id int,
   pgn_info jsonb,
   pgn text[]
-)
-language sql
-security definer
-as $$
+) language sql security definer as $$
 select gm.id, gm.created_at, status, whiteelo, blackelo, timecontrol, white_username, black_username, white_avatarurl, black_avatarurl, white_isactive, black_isactive,
 white_rating_info, black_rating_info, game_id, pgn_info, pgn from (select *, un.username as white_username, unt.username as black_username, un."avatarURL" as white_avatarurl, unt."avatarURL" as black_avatarurl,
-un."isActive" as white_isactive, unt."isActive" as black_isactive, un.rating as white_rating_info, unt.rating as black_rating_info from games gz join users un on gz.white_id = un.u_id
+un."isActive" as white_isactive, unt."isActive" as black_isactive, un.rating as white_rating_info, unt.rating as black_rating_info from (
+  select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_id, is_rated from games
+union all
+select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_id, is_rated from games_pairing
+) gz join users un on gz.white_id = un.u_id
 join users unt on gz.black_id = unt.u_id) g join game_moves gm on g.id = gm.game_id where lower(white_username) = lower(f_username)
  or lower(black_username) = lower(f_username);
 $$;

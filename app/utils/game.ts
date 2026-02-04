@@ -100,7 +100,7 @@ export async function handleInsertedNewGame(
   }
 }
 
-export async function getNewGamePairing(actionData: any, payload: any) {
+export function getNewGamePairing(actionData: any, payload: any) {
     //returns 1 row of data if found
     // const { data, error } = await supabase.rpc("lookup_new_game_moves", {
     //   find_id: +actionData.data[0].id,
