@@ -40,6 +40,14 @@ import { createBrowserClient } from "@supabase/ssr";
 import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
 import OfferDraw from "~/components/OfferDraw";
 import RatingInfo from "~/components/RatingInfo";
+import { 
+  preloadSounds, 
+  playMoveSound, 
+  checkLowTime, 
+  resetLowTimeWarnings,
+  playGameEndSound,
+  playSound 
+} from "~/utils/sounds";
 
 export const meta: MetaFunction = () => {
   return [
@@ -406,6 +414,13 @@ export default function Index() {
                     setActiveGame(newGame);
                     setCurrentMoveIndex(newGame.history().length - 1);
                     setIsReplay(null);
+                    const lastMoveIndex = newGame.history().length - 1;
+                    if (lastMoveIndex >= 0) {
+                      const moveHistory = newGame.history({ verbose: true });
+                      const lastMove = moveHistory[lastMoveIndex];
+                      const isCheck = newGame.isCheck();
+                      playMoveSound(lastMove, isCheck);
+                    }
 
                     // First move made - clear countdown for both players
                     if (newGame.history().length >= 1) {
@@ -560,14 +575,17 @@ export default function Index() {
         switch (finalGameData.pgn_info.result) {
           case "1-0": {
             winner_insert = "white";
+            toggleUsers.orientation == "white" ? playGameEndSound("Victory") : playGameEndSound("Loss");
             break;
           }
           case "0-1": {
             winner_insert = "black";
+            toggleUsers.orientation == "black" ? playGameEndSound("Victory") : playGameEndSound("Victory");
             break;
           }
           case "1/2-1/2": {
             winner_insert = "draw";
+            playGameEndSound("Draw");
             break;
           }
           case "0-0": {
@@ -637,6 +655,11 @@ export default function Index() {
       clearCountdownTimer();
     };
   }, [clearCountdownTimer]);
+
+  useEffect(() => {
+    preloadSounds();
+    resetLowTimeWarnings();
+  }, []);
 
   const goToStart = () => {
     if (activeGame.history().length > 0) {
@@ -716,6 +739,13 @@ export default function Index() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevious, goToNext, goToStart, goToEnd]);
 
+  useEffect(() => {
+    if (loadedWhiteTime !== undefined && loadedBlackTime !== undefined) {
+      const currentTurn = activeGame.turn();
+      checkLowTime(loadedWhiteTime, loadedBlackTime, currentTurn);
+    }
+  }, [loadedWhiteTime, loadedBlackTime, activeGame]);
+
   async function onDrop(sourceSquare: string, targetSquare: string) {
     const resultGame = finalGameData?.pgn_info;
     try {
@@ -742,6 +772,9 @@ export default function Index() {
       if (move === null) {
         return false;
       }
+
+      const isCheck = activeGame.isCheck();
+      playMoveSound(move, isCheck);
 
       // Move was successful - clear countdown timer since game has started
       if (activeGame.history().length === 1) {

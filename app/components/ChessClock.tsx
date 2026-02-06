@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Clock } from "lucide-react";
+import { playSound } from "~/utils/sounds";
 
 interface ChessClockProps {
   initialTime: number; // in seconds
@@ -17,6 +18,8 @@ interface ChessClockProps {
 export interface ChessClockHandle {
   getCurrentTimes: () => { whiteTime: number; blackTime: number };
 }
+
+const LOW_TIME_THRESHOLD = 60; // seconds
 
 export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
   initialTime,
@@ -37,6 +40,10 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const whiteTimeRef = useRef(whiteTime);
   const blackTimeRef = useRef(blackTime);
+  
+  // Track if low-time warning has been played for each player
+  const whiteLowTimePlayedRef = useRef(false);
+  const blackLowTimePlayedRef = useRef(false);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -74,6 +81,9 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
       setWhiteTime(initialTime);
       setBlackTime(initialTime);
       setIsActive(false);
+      // Reset low-time warning flags for new game
+      whiteLowTimePlayedRef.current = false;
+      blackLowTimePlayedRef.current = false;
     }
   }, [moveCount, initialTime]);
 
@@ -99,6 +109,33 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
     }
     lastMoveCountRef.current = moveCount;
   }, [moveCount, currentTurn, increment]);
+
+  // Check for low time and play warning sound
+  useEffect(() => {
+    if (!isActive || isGameOver || hasResult || isResign) return;
+
+    // Check white's time
+    if (
+      whiteTime < LOW_TIME_THRESHOLD && 
+      whiteTime > 0 && 
+      !whiteLowTimePlayedRef.current &&
+      currentTurn === "w"
+    ) {
+      playSound('lowTime');
+      whiteLowTimePlayedRef.current = true;
+    }
+
+    // Check black's time
+    if (
+      blackTime < LOW_TIME_THRESHOLD && 
+      blackTime > 0 && 
+      !blackLowTimePlayedRef.current &&
+      currentTurn === "b"
+    ) {
+      playSound('lowTime');
+      blackLowTimePlayedRef.current = true;
+    }
+  }, [whiteTime, blackTime, currentTurn, isActive, isGameOver, hasResult, isResign]);
 
   // Countdown timer
   useEffect(() => {
@@ -168,6 +205,7 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
     if (time <= 0) return "text-red-600 font-bold";
     if (time < 10) return "text-red-500 font-semibold";
     if (time < 30) return "text-orange-500";
+    if (time < LOW_TIME_THRESHOLD) return "text-yellow-600"; // Added visual indicator for low time
     if (isCurrentPlayer) return "text-slate-800";
     return "text-slate-500";
   };
@@ -183,7 +221,9 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
       <div
         className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
           currentTurn === "b" && isActive && !isGameOver
-            ? "border-blue-500 bg-blue-50"
+            ? blackTime < LOW_TIME_THRESHOLD
+              ? "border-red-500 bg-red-50" // Red border when low on time
+              : "border-blue-500 bg-blue-50"
             : "border-slate-200 bg-slate-50"
         }`}
       >
@@ -193,6 +233,9 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
             className={currentTurn === "b" && isActive ? "text-blue-600" : "text-slate-400"}
           />
           <span className="text-sm font-medium text-slate-600">Black</span>
+          {blackTime < LOW_TIME_THRESHOLD && blackTime > 0 && (
+            <span className="text-xs text-red-500 font-semibold animate-pulse">LOW TIME</span>
+          )}
         </div>
         <span
           className={`text-2xl font-mono tabular-nums ${getTimeColor(
@@ -208,7 +251,9 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
       <div
         className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
           currentTurn === "w" && isActive && !isGameOver
-            ? "border-blue-500 bg-blue-50"
+            ? whiteTime < LOW_TIME_THRESHOLD
+              ? "border-red-500 bg-red-50" // Red border when low on time
+              : "border-blue-500 bg-blue-50"
             : "border-slate-200 bg-slate-50"
         }`}
       >
@@ -218,6 +263,9 @@ export const ChessClock = forwardRef<ChessClockHandle, ChessClockProps>(({
             className={currentTurn === "w" && isActive ? "text-blue-600" : "text-slate-400"}
           />
           <span className="text-sm font-medium text-slate-600">White</span>
+          {whiteTime < LOW_TIME_THRESHOLD && whiteTime > 0 && (
+            <span className="text-xs text-red-500 font-semibold animate-pulse">LOW TIME</span>
+          )}
         </div>
         <span
           className={`text-2xl font-mono tabular-nums ${getTimeColor(
