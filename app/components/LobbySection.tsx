@@ -1,3 +1,4 @@
+import { LobbyItem } from "~/types";
 import { formatRelativeTime, getTimeControlCategory } from "~/utils/helper";
 
 

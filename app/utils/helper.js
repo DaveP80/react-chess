@@ -403,7 +403,7 @@ export function getTimeControlCategory(timeControl) {
   if (timeControl.startsWith("10")) {
     return "Rapid";
   }
-  return "Casual";
+  return "Unlimited";
 }
 
 // Helper function to format relative time
