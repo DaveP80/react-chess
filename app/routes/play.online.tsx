@@ -27,7 +27,6 @@ import { createSupabaseServerClient } from "~/utils/supabase.server";
 /* ---------------- LOADER ---------------- */
 
 export async function loader() {
-
   return Response.json({});
 }
 
@@ -43,7 +42,11 @@ export async function action({ request }: ActionFunctionArgs) {
     return Response.json({ error, go: false }, { headers });
   }
 
-  if (!userId || !String(formData?.colorPreference) || !String(formData?.timeControl)) {
+  if (
+    !userId ||
+    !String(formData?.colorPreference) ||
+    !String(formData?.timeControl)
+  ) {
     return redirect("/login");
   }
 
@@ -54,7 +57,7 @@ export async function action({ request }: ActionFunctionArgs) {
       userId,
       String(formData?.colorPreference),
       String(formData?.timeControl),
-      Boolean(formData?.isRated)
+      Boolean(formData?.isRated),
     );
     return Response.json(response);
   }
@@ -98,13 +101,21 @@ export default function Index() {
   const [countdownExpired, setCountdownExpired] = useState(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const supabase = createBrowserClient(PlayContext?.VITE_SUPABASE_URL,
+  const supabase = createBrowserClient(
+    PlayContext?.VITE_SUPABASE_URL,
     PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
-    { isSingleton: false });
-  const supabase2 = createBrowserClient(PlayContext?.VITE_SUPABASE_URL,
+    { isSingleton: false },
+  );
+  const supabase2 = createBrowserClient(
+    PlayContext?.VITE_SUPABASE_URL,
     PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
-    { isSingleton: false });
-  const supabase3 = getSupabaseBrowserClient(PlayContext?.VITE_SUPABASE_URL, PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY, true);
+    { isSingleton: false },
+  );
+  const supabase3 = getSupabaseBrowserClient(
+    PlayContext?.VITE_SUPABASE_URL,
+    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    true,
+  );
 
   // Clear countdown timer
   const clearCountdownTimer = useCallback(() => {
@@ -116,35 +127,21 @@ export default function Index() {
 
   // Cancel search handler
   const handleCancelSearch = useCallback(() => {
-
     if (actionData?.data[0]) {
       const del_id = actionData.data[0].id;
       async function cancel_outgoing_game_request() {
         try {
+          const { error } = await supabase
+            .from("games")
+            .delete()
+            .eq("id", del_id);
 
-          const
-            { error } =
-              await
-                supabase.from(
-                  "games"
-                ).delete().eq(
-                  "id"
-                  , del_id);
-
-          if
-            (error) {
-
-            console
-              .error(error);
+          if (error) {
+            console.error(error);
           }
-
-        } catch (error) {
-
-        }
-
+        } catch (error) {}
       }
       cancel_outgoing_game_request();
-
     }
     clearCountdownTimer();
     setIsSearching(false);
@@ -180,53 +177,50 @@ export default function Index() {
       startCountdownTimer();
 
       const getLobbyData = async () => {
-        const lobbyData = await get_similar_game_requests_lobby(supabase3, actionData.data[0].is_rated);
+        const lobbyData = await get_similar_game_requests_lobby(
+          supabase3,
+          actionData.data[0].is_rated,
+        );
         setShowLobby(lobbyData?.data || []);
-      }
+      };
       getLobbyData();
     }
     return () => {
       false;
-    }
+    };
   }, [actionData]);
 
-
   useEffect(() => {
-    const userId = PlayContext?.user?.id; 
+    const userId = PlayContext?.user?.id;
 
     const channel = supabase
       .channel("realtime-messages-games")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "games" },
-        async (payload: { eventType: string; }) => {
+        async (payload: { eventType: string }) => {
           if (payload.eventType === "INSERT") {
-            console.log(payload)
-            const [colorPreference, timeControl] = timeAndColorPreferenceReducer(actionData?.data[0] || {});
-            if (
-              userId &&
-              colorPreference &&
-              timeControl
-            ) {
-              const headers = new Headers();
+            console.log(payload);
+            const [colorPreference, timeControl] =
+              timeAndColorPreferenceReducer(actionData?.data[0] || {});
+            if (userId && colorPreference && timeControl) {
               await handleInsertedNewGame(
                 supabase3,
                 userId,
                 colorPreference,
                 timeControl,
                 actionData?.data[0].created_at,
-                actionData?.data[0].is_rated
+                actionData?.data[0].is_rated,
               );
-           
+            }
+            if (payload.eventType === "UPDATE") {
+              ("foo");
+            }
+            if (payload.eventType === "DELETE") {
+              ("bar");
+            }
           }
-          if (payload.eventType === "UPDATE") {
-            ("foo");
-          }
-          if (payload.eventType === "DELETE") {
-            ("bar");
-          }
-        }
-      }
+        },
       )
       .subscribe();
 
@@ -235,7 +229,7 @@ export default function Index() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "game_moves" },
-        async (payload: { eventType: string; }) => {
+        async (payload: { eventType: string }) => {
           if (payload.eventType === "INSERT") {
             console.log(payload);
 
@@ -249,7 +243,7 @@ export default function Index() {
                 setCountdownExpired(false);
                 const update_res = await updateActiveUserStatus(
                   userId,
-                  supabase3
+                  supabase3,
                 );
                 if (update_res && update_res.go) {
                   setRequestAlert(response);
@@ -257,9 +251,9 @@ export default function Index() {
                     "pgnInfo",
                     JSON.stringify({
                       routing_id: response.data?.navigateId,
-                    })
+                    }),
                   );
-                };
+                }
                 navigate(`/game/${response?.data?.navigateId}`);
               }
             }
@@ -267,7 +261,7 @@ export default function Index() {
           if (payload.eventType === "DELETE") {
             ("bar");
           }
-        }
+        },
       )
       .subscribe();
 
@@ -275,7 +269,7 @@ export default function Index() {
       supabase.removeChannel(channel);
       supabase2.removeChannel(channel2);
     };
-  }, [actionData, PlayContext]);
+  }, [actionData]);
 
   // Handle navigation state changes
   useEffect(() => {
@@ -290,15 +284,12 @@ export default function Index() {
     };
   }, [navigation]);
 
-
-
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       clearCountdownTimer();
     };
   }, [clearCountdownTimer]);
-
 
   return (
     <div className="mx-auto max-w-lg px-4 py-10">
@@ -318,29 +309,31 @@ export default function Index() {
           Find an Opponent
         </h1>
       )}
-      {
-        !PlayContext?.rowData.username && (
-          <section className="mt-2">
-            <Link
-              to="/settings"
-              className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 
+      {!PlayContext?.rowData.username && (
+        <section className="mt-2">
+          <Link
+            to="/settings"
+            className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 
                bg-amber-50 p-4 shadow-sm transition-all hover:bg-amber-100 
                hover:border-amber-300 hover:shadow-md group"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xl">⚠️</span>
-                <div>
-                  <p className="font-medium text-amber-800">Confirm your username</p>
-                  <p className="text-sm text-amber-600">Set up your profile to start playing games</p>
-                </div>
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="font-medium text-amber-800">
+                  Confirm your username
+                </p>
+                <p className="text-sm text-amber-600">
+                  Set up your profile to start playing games
+                </p>
               </div>
-              <span className="text-amber-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all">
-                →
-              </span>
-            </Link>
-          </section>
-        )
-      }
+            </div>
+            <span className="text-amber-400 group-hover:text-amber-600 group-hover:translate-x-1 transition-all">
+              →
+            </span>
+          </Link>
+        </section>
+      )}
 
       {/* Search Status Banner */}
       {isSearching && !countdownExpired && (
@@ -354,9 +347,14 @@ export default function Index() {
                   <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
                 </div>
                 <div>
-                  <p className="font-medium text-indigo-800">Searching for opponent...</p>
+                  <p className="font-medium text-indigo-800">
+                    Searching for opponent...
+                  </p>
                   <p className="text-sm text-indigo-600">
-                    Time remaining: <span className="font-mono font-semibold">{countdown}s</span>
+                    Time remaining:{" "}
+                    <span className="font-mono font-semibold">
+                      {countdown}s
+                    </span>
                   </p>
                 </div>
               </div>
@@ -374,7 +372,12 @@ export default function Index() {
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-200">
                 <div
                   className="h-full rounded-full bg-indigo-600 transition-all duration-1000 ease-linear"
-                  style={{ width: `${((COUNTDOWN_SECONDS - countdown) / COUNTDOWN_SECONDS) * 100}%` }}
+                  style={{
+                    width: `${
+                      ((COUNTDOWN_SECONDS - countdown) / COUNTDOWN_SECONDS) *
+                      100
+                    }%`,
+                  }}
                 ></div>
               </div>
             </div>
@@ -390,8 +393,18 @@ export default function Index() {
               <div className="flex items-center gap-3">
                 {/* Warning indicator */}
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-                  <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <svg
+                    className="h-6 w-6 text-amber-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
                   </svg>
                 </div>
                 <div>
@@ -410,7 +423,10 @@ export default function Index() {
         method="post"
         className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
       >
-        <fieldset className="space-y-3" disabled={isSearching && !countdownExpired}>
+        <fieldset
+          className="space-y-3"
+          disabled={isSearching && !countdownExpired}
+        >
           <legend className="mb-2 text-sm font-medium text-gray-700">
             Time Control
           </legend>
@@ -425,8 +441,11 @@ export default function Index() {
           ].map((option) => (
             <label
               key={option.value}
-              className={`flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 ${(isSearching && !countdownExpired) ? "opacity-60 cursor-not-allowed" : ""
-                }`}
+              className={`flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 ${
+                isSearching && !countdownExpired
+                  ? "opacity-60 cursor-not-allowed"
+                  : ""
+              }`}
             >
               <input
                 type="radio"
@@ -442,7 +461,10 @@ export default function Index() {
           ))}
         </fieldset>
         {/* ---- COLOR PREFERENCE ---- */}
-        <fieldset className="space-y-3" disabled={isSearching && !countdownExpired}>
+        <fieldset
+          className="space-y-3"
+          disabled={isSearching && !countdownExpired}
+        >
           <legend className="text-sm font-medium text-gray-700">
             Color Preference
           </legend>
@@ -454,8 +476,11 @@ export default function Index() {
           ].map((option) => (
             <label
               key={option.value}
-              className={`flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 ${(isSearching && !countdownExpired) ? "opacity-60 cursor-not-allowed" : ""
-                }`}
+              className={`flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 hover:bg-gray-50 ${
+                isSearching && !countdownExpired
+                  ? "opacity-60 cursor-not-allowed"
+                  : ""
+              }`}
             >
               <input
                 type="radio"
@@ -464,7 +489,7 @@ export default function Index() {
                 required
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
               />
-              <input hidden name="isRated" value={isRated ? "true" : "false"}/>
+              <input hidden name="isRated" value={isRated ? "true" : "false"} />
               <span className="text-sm font-medium text-gray-800">
                 {option.label}
               </span>
@@ -473,18 +498,26 @@ export default function Index() {
         </fieldset>
         <RatedGameSwitch
           defaultRated={false}
-          disabled={navigation.state === "submitting" || (isSearching && !countdownExpired)}
+          disabled={
+            navigation.state === "submitting" ||
+            (isSearching && !countdownExpired)
+          }
           isRated={isRated}
           setIsRated={setIsRated}
         />
 
         <button
           type="submit"
-          className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-indigo-500/40 ${(isSearching && !countdownExpired)
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-indigo-600 hover:bg-indigo-700"
-            }`}
-          disabled={PlayContext?.rowData?.isActive || !PlayContext?.rowData.username || (isSearching && !countdownExpired)}
+          className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-indigo-500/40 ${
+            isSearching && !countdownExpired
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-indigo-600 hover:bg-indigo-700"
+          }`}
+          disabled={
+            PlayContext?.rowData?.isActive ||
+            !PlayContext?.rowData.username ||
+            (isSearching && !countdownExpired)
+          }
         >
           <span
             className={
@@ -499,7 +532,11 @@ export default function Index() {
                 : ``
             }
           >
-            {loading ? "" : (isSearching && !countdownExpired) ? "Searching..." : "Find Game"}
+            {loading
+              ? ""
+              : isSearching && !countdownExpired
+              ? "Searching..."
+              : "Find Game"}
           </span>
         </button>
 

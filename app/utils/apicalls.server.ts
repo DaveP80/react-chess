@@ -106,20 +106,20 @@ export async function getMyHomeData({ request }: any) {
       throw redirect("/login", { headers });
     } finally {
       return {
-          user: userId
-            ? {
-                id: userId,
-                email: userEmail,
-              }
-            : {},
-          rowData: SupabaseData
-            ? SupabaseData?.data
-              ? SupabaseData.data[0]
-              : null
-            : {},
-          provider: p.some((item) => item === "github") ? "github" : "email",
-          intent: urlIntent,
-        } satisfies MyHomeData;
+        user: userId
+          ? {
+              id: userId,
+              email: userEmail,
+            }
+          : {},
+        rowData: SupabaseData
+          ? SupabaseData?.data
+            ? SupabaseData.data[0]
+            : null
+          : {},
+        provider: p.some((item) => item === "github") ? "github" : "email",
+        intent: urlIntent,
+      } satisfies MyHomeData;
     }
   } else {
     try {
@@ -134,12 +134,12 @@ export async function getMyHomeData({ request }: any) {
 
       if (error) {
         return {
-            user: {},
-            rowData: {},
-            error,
-            provider: "",
-            message: "error on supabase auth claims",
-          } satisfies MyHomeData;
+          user: {},
+          rowData: {},
+          error,
+          provider: "",
+          message: "error on supabase auth claims",
+        } satisfies MyHomeData;
       }
 
       if (userId && userEmail) {
@@ -150,23 +150,23 @@ export async function getMyHomeData({ request }: any) {
       }
 
       return {
-          user: userId
-            ? {
-                id: userId,
-                email: userEmail,
-              }
-            : {},
-          rowData: SupabaseData
-            ? SupabaseData?.data
-              ? SupabaseData.data[0]
-              : null
-            : {},
-          provider: data?.claims.app_metadata?.providers?.some(
-            (item) => item == "github"
-          )
-            ? "github"
-            : "email",
-        } satisfies MyHomeData;
+        user: userId
+          ? {
+              id: userId,
+              email: userEmail,
+            }
+          : {},
+        rowData: SupabaseData
+          ? SupabaseData?.data
+            ? SupabaseData.data[0]
+            : null
+          : {},
+        provider: data?.claims.app_metadata?.providers?.some(
+          (item) => item == "github",
+        )
+          ? "github"
+          : "email",
+      } satisfies MyHomeData;
     } catch (error) {
       return {
         user: {},
@@ -190,17 +190,17 @@ export async function getActiveGamesData({ request }: any) {
         "lookup_userdata_on_active_status",
         {
           user_id: userId,
-        }
+        },
       );
       if (error || activeGamesError) {
-        return { error: error || activeGamesError, go: false }
+        return { error: error || activeGamesError, go: false };
       } else {
         return {
-            data,
-            message: "retrieved active game information on current user.",
-            go: true,
-            routing_id: data[0].id
-        }
+          data,
+          message: "retrieved active game information on current user.",
+          go: true,
+          routing_id: data[0].id,
+        };
       }
     } else {
       return redirect(`/game/${formData.get("intent")}`);
@@ -210,11 +210,7 @@ export async function getActiveGamesData({ request }: any) {
   }
 }
 
-export async function lookup_userdata_on_gameid(
-  supabase: any,
-  id: number,
-  userData: Record<any, any> | null
-) {
+export async function lookup_userdata_on_gameid(supabase: any, id: number) {
   const sql_query = `select
   gm.id::INTEGER,
   gm.game_id::INTEGER,
@@ -246,7 +242,8 @@ export async function lookup_userdata_on_gameid(
     where
       black_id::text = gm.pgn_info ->> 'black'
       and status = 'end'
-  ) as black_count
+  ) as black_count,
+  g.status
 from
   game_number_${id} gm join (
   select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_id, is_rated from games
@@ -256,46 +253,68 @@ select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_
   try {
     const { data, error } = await supabase.rpc(
       `execute_sql_lookup_userdata_on_gameid`,
-      { sql_query }
+      { sql_query },
     );
     if (error) {
-      return redirect("/myhome");
-    } else {
       return {
-          go: true,
-          message: `retrieved game data on id: ${id}`,
-          data: data[0],
-          userData: userData?.claims?.sub,
-        }
+        go: false,
+        message: "error on exucute_sql rpc function"
+      }
+    } else if (!data) {
+      return {
+        go: false,
+        message: "possibly dropped game_number_x table"
+      }
+    }
+    else {
+      return {
+        go: true,
+        message: `retrieved game data on id: ${id}`,
+        data: data[0],
+      };
     }
   } catch (error) {
     return redirect("/myhome");
   }
 }
 
-export async function lookup_analysis_userdata_on_gameid(
+export async function lookup_userdata_on_gameid_for_analysis(
   supabase: any,
   id: number,
-  userData: Record<any, any> | null
 ) {
-
+  const sql_query = `select
+  gm.id::INTEGER,
+  gm.game_id::INTEGER,
+  gm.game_id_b::INTEGER,
+  gm.pgn_info,
+  gm.pgn,
+  g.timecontrol,
+  u.username as white_username,
+  u_t.username as black_username,
+  u."avatarURL" as white_avatar,
+  u_t."avatarURL" as black_avatar,
+  u.rating as white_rating,
+  u_t.rating as black_rating,
+  g.status from (select * from game_moves where id = ${id}) gm join (
+  select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_id, is_rated from games
+union all
+select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_id, is_rated from games_pairing
+) g on gm.game_id = g.id left join users u on gm.pgn_info ->> 'white' = u.u_id::text left join users u_t on gm.pgn_info ->> 'black' = u_t.u_id::text;`;
   try {
     const { data, error } = await supabase.rpc(
-      `execute_sql_lookup_userdata_on_gameid`,
-      { gameid_f: id }
+      `execute_sql_lookup_userdata_on_gameid_for_analysis`,
+      { sql_query },
     );
     if (error) {
-      return { error };
+      throw redirect("/myhome");
     } else {
       return {
-          go: true,
-          message: `retrieved game data on id: ${id}`,
-          data: data[0],
-          userData: userData?.claims?.sub,
-        }
+        go: true,
+        message: `retrieved game data on id: ${id}`,
+        data: data[0],
+      };
     }
   } catch (error) {
-    return { error };
+    return redirect("/myhome");
   }
-}
-
+};

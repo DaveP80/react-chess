@@ -10,6 +10,7 @@ import {
   FlagIcon,
   Search,
   Clipboard,
+  User,
 } from "lucide-react";
 import {
   timeControlReducer,
@@ -30,23 +31,24 @@ import {
   useRouteLoaderData,
 } from "@remix-run/react";
 import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
-import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import {
   dropTablesGameNumberGameMoves,
   insertNewMoves,
   updateTablesOnGameOver,
 } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
-import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
+import {
+  lookup_userdata_on_gameid,
+  lookup_userdata_on_gameid_for_analysis,
+} from "~/utils/apicalls.server";
 import OfferDraw from "~/components/OfferDraw";
 import RatingInfo from "~/components/RatingInfo";
-import { 
-  preloadSounds, 
-  playMoveSound, 
-  checkLowTime, 
+import {
+  preloadSounds,
+  playMoveSound,
+  checkLowTime,
   resetLowTimeWarnings,
   playGameEndSound,
-  playSound 
 } from "~/utils/sounds";
 
 export const meta: MetaFunction = () => {
@@ -64,13 +66,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   try {
     const { client, headers } = createSupabaseServerClient(request);
-    const { data: userData } = await client.auth.getClaims();
     const response = await lookup_userdata_on_gameid(
       client,
       Number(gameId),
-      userData,
     );
-    return Response.json(response);
+    if (response?.data) {
+      return Response.json(response);
+    } else {
+      const response = await lookup_userdata_on_gameid_for_analysis(
+        client,
+        Number(gameId),
+      );
+      return Response.json({ ...response, is_analysis: true });
+    }
   } catch (error) {
     return redirect("/myhome");
   }
@@ -121,7 +129,11 @@ export default function Index() {
   );
   const [pgnInfoString, setpgnInfoString] = useState<string>("");
   const chessClockRef = useRef<ChessClockHandle>(null);
-  const supabase = getSupabaseBrowserClient(UserContext?.VITE_SUPABASE_URL, UserContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY, true);
+  const supabase = createBrowserClient(
+    UserContext?.VITE_SUPABASE_URL,
+    UserContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    { isSingleton: true },
+  );
   const supabase2 = createBrowserClient(
     UserContext?.VITE_SUPABASE_URL,
     UserContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
@@ -373,6 +385,9 @@ export default function Index() {
 
   // Websocket subscription
   useEffect(() => {
+    if (gameData?.is_analysis) {
+      return;
+    }
     const channel = supabase2
       .channel("realtime-messages")
       .on(
@@ -535,7 +550,7 @@ export default function Index() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase2.removeChannel(channel);
     };
   }, []);
 
@@ -575,12 +590,16 @@ export default function Index() {
         switch (finalGameData.pgn_info.result) {
           case "1-0": {
             winner_insert = "white";
-            toggleUsers.orientation == "white" ? playGameEndSound("Victory") : playGameEndSound("Loss");
+            toggleUsers.orientation == "white"
+              ? playGameEndSound("Victory")
+              : playGameEndSound("Loss");
             break;
           }
           case "0-1": {
             winner_insert = "black";
-            toggleUsers.orientation == "black" ? playGameEndSound("Victory") : playGameEndSound("Victory");
+            toggleUsers.orientation == "black"
+              ? playGameEndSound("Victory")
+              : playGameEndSound("Victory");
             break;
           }
           case "1/2-1/2": {
@@ -593,7 +612,6 @@ export default function Index() {
             break;
           }
         }
-
         // Don't run updateTablesOnGameOver for abort - already handled by dropTables
         if (winner_insert === "abort") {
           return;
@@ -610,9 +628,9 @@ export default function Index() {
             timeOut !== "white" &&
             timeOut !== "black") ||
           (!processIncomingPgn(activeGame.turn(), toggleUsers.orientation) &&
-            (timeOut == "white" || timeOut == "black") &&
-            UserContext.rowData.isActive)
+            (timeOut == "white" || timeOut == "black"))
         ) {
+          if (gameData.status == "end") {return}
           updateTablesOnGameOver(
             supabase,
             gameData.game_id,
@@ -871,9 +889,11 @@ export default function Index() {
   };
 
   const isThreeFoldRepit = activeGame.isThreefoldRepetition();
+
   const isGameOver = Boolean(
     activeGame.isGameOver() ||
-      timeOut !== null ||
+      timeOut == "white" ||
+      timeOut == "black" ||
       resign ||
       isThreeFoldRepit ||
       finalGameData?.pgn_info?.result,
@@ -1052,10 +1072,12 @@ export default function Index() {
                 <h2 className="text-2xl font-bold text-slate-800 mb-1">
                   Game Info
                 </h2>
-                <RatingInfo
-                  gameData={gameData}
-                  winner={finalGameData?.pgn_info?.result || ""}
-                />
+                {!gameData?.is_analysis && (
+                  <RatingInfo
+                    gameData={gameData}
+                    winner={finalGameData?.pgn_info?.result || ""}
+                  />
+                )}
 
                 <ChessClock
                   ref={chessClockRef}

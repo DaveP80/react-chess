@@ -19,7 +19,7 @@ import {
 } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
-import { lookup_userdata_on_gameid } from "~/utils/apicalls.server";
+import { lookup_userdata_on_gameid_for_analysis } from "~/utils/apicalls.server";
 import Stockfish from "~/components/Stockfish";
 
 export const meta: MetaFunction = () => {
@@ -37,11 +37,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   try {
     const { client, headers } = createSupabaseServerClient(request);
-    const { data: userData } = await client.auth.getClaims();
-    const response = await lookup_userdata_on_gameid(
+    const response = await lookup_userdata_on_gameid_for_analysis(
       client,
       Number(gameId),
-      userData
     );
     return Response.json(response);
   } catch (error) {
@@ -75,7 +73,6 @@ const generateId = () => Math.random().toString(36).substring(2, 11);
 export default function AnalysisBoard() {
   const { data: gameData } = useLoaderData<typeof loader>();
   const UserContext = useRouteLoaderData<typeof loader>("root");
-
   // Core state
   const [moveTree, setMoveTree] = useState<MoveTree>(() => ({
     nodes: {},
@@ -544,6 +541,7 @@ export default function AnalysisBoard() {
   // Count moves and variations
   const moveCount = Object.values(moveTree.nodes).filter(n => n.id !== 'root').length;
   const variationCount = Object.values(moveTree.nodes).filter(n => !n.isMainLine && n.id !== 'root').length;
+
 
   return (
     <div className="min-h-screen bg-[#1a1a2e]">

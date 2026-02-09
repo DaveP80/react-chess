@@ -48,3 +48,62 @@ ALTER TABLE public.games
 
 ALTER TABLE public.games_pairing
   ALTER COLUMN id SET DEFAULT nextval('public.global_game_id_seq');
+
+-- finind all functions in schema
+select
+  n.nspname as schema,
+  p.proname as function_name,
+  pg_get_function_identity_arguments(p.oid) as args,
+  pg_get_functiondef(p.oid) as definition
+from
+  pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+where
+  n.nspname = 'public'
+order by
+  function_name,
+  args;
+
+-- drop game_number_x tables that are 5 hours old from create time.
+CREATE OR REPLACE FUNCTION public.drop_finished_game_number_tables()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  rec record;
+  should_drop boolean;
+BEGIN
+  -- Loop through all public.game_number_<digits> tables
+  FOR rec IN
+    SELECT n.nspname AS schema_name, c.relname AS table_name
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'r'
+      AND c.relname LIKE 'game_number_%'
+  LOOP
+    -- Keep only names with pure numeric suffix
+    IF substring(rec.table_name FROM '^game_number_([0-9]+)$') IS NULL THEN
+      CONTINUE;
+    END IF;
+
+    -- Check this table has non-empty result and is older than 5 hours
+    EXECUTE format(
+      'SELECT EXISTS (
+         SELECT 1
+         FROM %I.%I
+         WHERE pgn_info ->> ''timecontrol'' != ''unlimited''
+           AND created_at < now() - INTERVAL ''5 hours''
+         LIMIT 1
+       )',
+       rec.schema_name, rec.table_name
+    ) INTO should_drop;
+
+    IF should_drop THEN
+      RAISE NOTICE 'Dropping table %.%', rec.schema_name, rec.table_name;
+      EXECUTE format('DROP TABLE IF EXISTS %I.%I', rec.schema_name, rec.table_name);
+    END IF;
+  END LOOP;
+END;
+$$;

@@ -69,7 +69,6 @@ export async function updateTablesOnGameOver(
   
   // Concatenate all queries
   const final_sql_query_string = sql_query_game_moves + sql_query_games_table + sql_query_user_white + sql_query_user_black;
-  console.log(final_sql_query_string)
 
   try {
     const { data, error } = await supabase.rpc(`execute_sql`, { sql_query: final_sql_query_string });
@@ -135,6 +134,9 @@ select *, NULL as draw_offer
 from public.game_moves
 where id = ${id};
 ALTER TABLE public.game_number_${id} ADD PRIMARY KEY (id);
+ALTER TABLE public.game_number_${id}
+  ADD CONSTRAINT game_number_${id}_id_fkey
+  FOREIGN KEY (id) REFERENCES public.game_moves(id);
 ALTER TABLE public.game_number_${id} REPLICA IDENTITY FULL;
 ALTER TABLE public.game_number_${id} ENABLE ROW LEVEL SECURITY;
 create policy "game_number_${id}_policy"

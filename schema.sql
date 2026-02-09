@@ -276,7 +276,32 @@ RETURNS TABLE (
   white_rating jsonb,
   black_rating jsonb,
   white_count bigint,
-  black_count bigint
+  black_count bigint,
+  status text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY EXECUTE sql_query;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.execute_sql_lookup_userdata_on_gameid_for_analysis(sql_query text)
+RETURNS TABLE (
+  id int,
+  game_id int,
+  game_id_b int,
+  pgn_info jsonb,
+  pgn text[],
+  timecontrol text,
+  white_username text,
+  black_username text,
+  white_avatar text,
+  black_avatar text,
+  white_rating jsonb,
+  black_rating jsonb,
+  status text
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
