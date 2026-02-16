@@ -98,6 +98,7 @@ export default function GameRequestNotification({
               blackelo: incomingData.blackelo,
               time_control: incomingData.timecontrol,
               is_rated: incomingData.is_rated ? "rated" : "unrated",
+              eco: ""
             },
             is_rated: incomingData.is_rated,
           })

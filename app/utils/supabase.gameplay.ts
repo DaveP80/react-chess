@@ -1,5 +1,8 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { timeControlReducer } from "./helper";
+import { parsePgnEntry, timeControlReducer } from "./helper";
+import { Opening } from "~/types";
+import { useFetcher } from "@remix-run/react";
+import { Chess } from "chess.js";
 
 export async function insertNewMoves(
   supabase: any,
@@ -26,7 +29,7 @@ export async function insertNewMoves(
     const jsonString = JSON.stringify({
       ...gameData.pgn_info,
       result,
-      termination,
+      termination
     });
     const escapedJson = jsonString.replace(/'/g, "''");
     pgn_infoConcat = `, pgn_info = '${escapedJson}'::jsonb`;
@@ -50,15 +53,18 @@ export async function updateTablesOnGameOver(
   whiteelo: number,
   blackelo: number,
   timeControl: string,
-  game_number_id: number
+  game_number_id: number,
+  eco_data: any
 ) {
   // Convert to JSON string and escape single quotes for PostgreSQL
+  pgn_info.eco = eco_data;
   const jsonString = JSON.stringify(pgn_info);
   const escapedJson = jsonString.replace(/'/g, "''");
   const [, ratingType] = timeControlReducer(timeControl);
 
   // Convert pgn array to PostgreSQL array format and escape single quotes
   const escapedPgnArray = pgn.map(item => `'${item.replace(/'/g, "''")}'`).join(', ');
+
 
   // Build SQL queries
   const sql_query_game_moves = `UPDATE game_moves SET pgn = ARRAY[${escapedPgnArray}], pgn_info = '${escapedJson}'::jsonb WHERE id = ${game_number_id};`;
@@ -218,3 +224,17 @@ export async function get_similar_game_requests_lobby(supabase: SupabaseClient<a
 
   }
 }
+
+export async function finalGameDataECO(activeGame: any) {
+  const fenHistoryWithStart = [
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    ...activeGame.history({ verbose: true }).map(move => move.after)
+  ];
+  const fetcher = useFetcher<{ opening: Opening | null }>();
+  fetcher.load(`/api/opening?fen=${encodeURIComponent(fenHistoryWithStart.join(","))}`);
+  if (fetcher.data?.opening) {
+   return fetcher.data.opening;
+  } else {
+    return "";
+  }
+};

@@ -99,13 +99,7 @@ export async function handleInsertedNewGame(
 }
 
 export function getNewGamePairing(actionData: any, payload: any) {
-  //returns 1 row of data if found
-  // const { data, error } = await supabase.rpc("lookup_new_game_moves", {
-  //   find_id: +actionData.data[0].id,
-  // });
-  // if (error) {
-  //   return { go: false, error };
-  // }
+
   const newRow = payload?.new;
 
   if (
@@ -186,6 +180,7 @@ async function handleInsertStartGame(
           blackelo: updateLiveObj.black_elo_update,
           time_control: game_length,
           is_rated: joinedData.is_rated ? "rated" : "unrated",
+          eco: ""
         },
         is_rated: joinedData.is_rated,
       })
