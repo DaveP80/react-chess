@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
@@ -9,8 +9,6 @@ import {
   ChevronsRight,
   FlagIcon,
   Search,
-  Clipboard,
-  User,
 } from "lucide-react";
 import {
   timeControlReducer,
@@ -19,9 +17,6 @@ import {
   parsePgnEntry,
   timeOutGameOverReducer,
   gameStartFinishReducer,
-  EloEstimate,
-  copyDivContents,
-  makePGNInfoString,
 } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import {
@@ -34,7 +29,6 @@ import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
 import {
   dropTablesGameNumberGameMoves,
   insertNewMoves,
-  updateTablesOnGameOver,
 } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
 import {
@@ -48,8 +42,11 @@ import {
   playMoveSound,
   checkLowTime,
   resetLowTimeWarnings,
-  playGameEndSound,
 } from "~/utils/sounds";
+import { OpeningDisplay } from "~/components/OpeningDisplay";
+import { Opening } from "~/types";
+import PgnInfoString from "~/components/PgnInfoString";
+import UpdateTablesGameEnd from "~/components/updatetablesgameend";
 
 export const meta: MetaFunction = () => {
   return [
@@ -66,10 +63,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   try {
     const { client, headers } = createSupabaseServerClient(request);
-    const response = await lookup_userdata_on_gameid(
-      client,
-      Number(gameId),
-    );
+    const response = await lookup_userdata_on_gameid(client, Number(gameId));
     if (response?.data) {
       return Response.json(response);
     } else {
@@ -107,6 +101,7 @@ export default function Index() {
   const [finalGameData, setFinalGameData] = useState({});
   const [countdown, setCountdown] = useState<number | null>(null); // null = not started
   const [abortMessage, setAbortMessage] = useState("");
+  const [currentOpening, setCurrentOpening] = useState<Opening | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const abortCalledRef = useRef<boolean>(false);
   const countdownStartedRef = useRef<boolean>(false);
@@ -127,7 +122,6 @@ export default function Index() {
   const [loadedBlackTime, setLoadedBlackTime] = useState<number | undefined>(
     undefined,
   );
-  const [pgnInfoString, setpgnInfoString] = useState<string>("");
   const chessClockRef = useRef<ChessClockHandle>(null);
   const supabase = createBrowserClient(
     UserContext?.VITE_SUPABASE_URL,
@@ -272,7 +266,7 @@ export default function Index() {
       if (gameData.pgn_info.result) {
         const endGameData = gameData.pgn_info;
         setTimeOut("game over");
-        makePGNInfoString(gameData, setpgnInfoString);
+        //makePGNInfoString(gameData, setpgnInfoString);
         setFinalGameData(gameData);
         switch (endGameData.result) {
           case "1-0": {
@@ -321,13 +315,6 @@ export default function Index() {
 
   // Start countdown when toggleUsers is set and game hasn't started
   useEffect(() => {
-    // Only start if:
-    // 1. gameData exists
-    // 2. No result yet
-    // 3. No moves made
-    // 4. toggleUsers is initialized (orientation set)
-    // 5. Countdown hasn't started yet
-    // 6. No abort message
     if (
       gameData &&
       !gameData.pgn_info.result &&
@@ -494,11 +481,15 @@ export default function Index() {
                   if (data.pgn_info.result) {
                     const endGameData = data.pgn_info;
 
-                    setFinalGameData(data);
+                    //makePGNInfoString(data, setpgnInfoString);
                     if (!endGameData.termination.includes("time")) {
                       setTimeOut("game over");
                     }
-                    makePGNInfoString(data, setpgnInfoString);
+                    setFinalGameData({
+                      ...data,
+                      white_username: gameData.white_username,
+                      black_username: gameData.black_username,
+                    });
                     switch (endGameData.result) {
                       case "1-0": {
                         if (endGameData.termination.includes("resignation")) {
@@ -583,91 +574,6 @@ export default function Index() {
     updateGameResult();
   }, [timeOut]);
 
-  useEffect(() => {
-    if (finalGameData?.pgn_info?.result) {
-      try {
-        let winner_insert;
-        switch (finalGameData.pgn_info.result) {
-          case "1-0": {
-            winner_insert = "white";
-            toggleUsers.orientation == "white"
-              ? playGameEndSound("Victory")
-              : playGameEndSound("Loss");
-            break;
-          }
-          case "0-1": {
-            winner_insert = "black";
-            toggleUsers.orientation == "black"
-              ? playGameEndSound("Victory")
-              : playGameEndSound("Victory");
-            break;
-          }
-          case "1/2-1/2": {
-            winner_insert = "draw";
-            playGameEndSound("Draw");
-            break;
-          }
-          case "0-0": {
-            winner_insert = "abort";
-            break;
-          }
-        }
-        // Don't run updateTablesOnGameOver for abort - already handled by dropTables
-        if (winner_insert === "abort") {
-          return;
-        }
-
-        const [player_w, player_b] = EloEstimate({
-          white_elo: gameData.pgn_info.whiteelo,
-          black_elo: gameData.pgn_info.blackelo,
-          winner: winner_insert,
-          game_counts: [gameData.white_count, gameData.black_count],
-        });
-        if (
-          (processIncomingPgn(activeGame.turn(), toggleUsers.orientation) &&
-            timeOut !== "white" &&
-            timeOut !== "black") ||
-          (!processIncomingPgn(activeGame.turn(), toggleUsers.orientation) &&
-            (timeOut == "white" || timeOut == "black"))
-        ) {
-          if (gameData.status == "end") {return}
-          updateTablesOnGameOver(
-            supabase,
-            gameData.game_id,
-            gameData.game_id_b,
-            {
-              ...finalGameData?.pgn_info,
-              whiteelo:
-                gameData.pgn_info.is_rated == "rated"
-                  ? player_w
-                  : gameData.pgn_info.whiteelo,
-              blackelo:
-                gameData.pgn_info.is_rated == "rated"
-                  ? player_b
-                  : gameData.pgn_info.blackelo,
-            },
-            finalGameData?.pgn,
-            gameData.pgn_info.white,
-            gameData.pgn_info.black,
-            gameData.pgn_info.is_rated == "rated"
-              ? player_w
-              : gameData.pgn_info.whiteelo,
-            gameData.pgn_info.is_rated == "rated"
-              ? player_b
-              : gameData.pgn_info.blackelo,
-            gameData.timecontrol,
-            gameData.id,
-          );
-        }
-      } catch (error) {
-        console.error(error);
-      } finally {
-        localStorage.removeItem("pgnInfo");
-      }
-    }
-  }, [finalGameData, toggleUsers.orientation]);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       clearCountdownTimer();
@@ -764,6 +670,14 @@ export default function Index() {
     }
   }, [loadedWhiteTime, loadedBlackTime, activeGame]);
 
+  const fenHistoryWithStart = useMemo(() => {
+    if (!activeGame?.history()?.length) return [];
+    return [
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      ...activeGame.history({ verbose: true }).map((move) => move.after),
+    ];
+  }, [activeGame.fen()]);
+
   async function onDrop(sourceSquare: string, targetSquare: string) {
     const resultGame = finalGameData?.pgn_info;
     try {
@@ -781,7 +695,9 @@ export default function Index() {
         return false;
       }
 
-      const move = activeGame.move({
+      const updateGame = activeGame;
+
+      const move = updateGame.move({
         from: sourceSquare,
         to: targetSquare,
         promotion: "q",
@@ -791,22 +707,22 @@ export default function Index() {
         return false;
       }
 
-      const isCheck = activeGame.isCheck();
+      const isCheck = updateGame.isCheck();
       playMoveSound(move, isCheck);
 
       // Move was successful - clear countdown timer since game has started
-      if (activeGame.history().length === 1) {
+      if (updateGame.history().length === 1) {
         clearCountdownTimer();
         setCountdown(null);
       }
 
-      setActiveGame(new Chess(activeGame.fen()));
-      setCurrentMoveIndex(activeGame.history().length - 1);
+      setActiveGame(updateGame);
+      setCurrentMoveIndex(updateGame.history().length - 1);
 
       const currentTimes = chessClockRef.current?.getCurrentTimes();
 
       const [result, termination] = gameStartFinishReducer(
-        activeGame,
+        updateGame,
         timeOut,
         gameData,
         resign,
@@ -1092,6 +1008,11 @@ export default function Index() {
                   loadedBlackTime={loadedBlackTime}
                   isResign={resign}
                 />
+                <OpeningDisplay
+                  fenHistoryWithStart={fenHistoryWithStart}
+                  currentOpening={currentOpening}
+                  setCurrentOpening={setCurrentOpening}
+                />
 
                 <h3 className="text-xl font-bold text-slate-800 mb-3 mt-3">
                   Move History
@@ -1131,20 +1052,20 @@ export default function Index() {
                       </span>
                     </aside>
                   )}
-                  {pgnInfoString?.length > 0 && (
-                    <aside className="bg-slate-50 rounded-md border border-slate-60">
-                      <h3 className="text-black text-sm font-medium mb-2">
-                        PGN File
-                      </h3>
-                      <Clipboard
-                        onClick={() => copyDivContents("PGN_Live")}
-                        className="hover:bg-gray-100 cursor-pointer"
-                      />
-                      <p className="text-black text-s font-mono break-all leading-relaxed PGN_Live">
-                        {pgnInfoString}
-                      </p>
-                    </aside>
-                  )}
+
+                  <PgnInfoString
+                    finalGameData={finalGameData}
+                    currentOpening={currentOpening}
+                  />
+                  <UpdateTablesGameEnd
+                    finalGameData={finalGameData}
+                    orientation={toggleUsers.orientation}
+                    gameData={gameData}
+                    timeOut={timeOut}
+                    supabase={supabase}
+                    activeGame={activeGame}
+                    currentOpening={currentOpening}
+                  />
                   <div className="mt-3 flex items-center justify-center gap-2 bg-slate-200 rounded-lg p-2">
                     <button
                       onClick={goToStart}

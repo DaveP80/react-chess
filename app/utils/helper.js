@@ -37,7 +37,7 @@ export function isValidUsername(username) {
 
   if (
     ["undefined", "null", "NULL", "None"].some(
-      (item) => username.toLowerCase() == item.toLowerCase()
+      (item) => username.toLowerCase() == item.toLowerCase(),
     )
   ) {
     return false;
@@ -49,7 +49,7 @@ export function isValidUsername(username) {
 export function isValidAvatarURL(avatarURL) {
   if (avatarURL.length < 7) return false;
   let check = [".jpg", ".jpeg", ".png", ".svg"].some((item) =>
-    avatarURL.toLowerCase().endsWith(item)
+    avatarURL.toLowerCase().endsWith(item),
   );
   return check;
 }
@@ -136,13 +136,10 @@ export function parsePgnEntry(pgnEntry) {
   };
 }
 
-export function setFenHistoryHelper(
-  gameCopy,
-  newMove,
-  move_san,
-  moveHistory
-) {
-  const fenHistory = activeGame.history({verbose: true}).map((item) => item.after);
+export function setFenHistoryHelper(gameCopy, newMove, move_san, moveHistory) {
+  const fenHistory = activeGame
+    .history({ verbose: true })
+    .map((item) => item.after);
   if (!gameCopy.history().length) {
     return [true, [gameCopy], [move_san]];
   }
@@ -175,12 +172,7 @@ export function timeOutGameOverReducer(args) {
   return r;
 }
 
-export function gameStartFinishReducer(
-  activeGame,
-  timeOut,
-  gameData,
-  resign
-) {
+export function gameStartFinishReducer(activeGame, timeOut, gameData, resign) {
   // const actualGame =
   //   fenHistory.length > 0 ? fenHistory[fenHistory.length - 1] : null;
   if (!activeGame?.history()?.length) return [null, null];
@@ -348,43 +340,45 @@ export function memberWonLossOrient(Data, username) {
   return orientation;
 }
 
-export function makePGNInfoString(gameData, setpgnInfoString) {
-  if (gameData.pgn_info.result == "0-0") {return};
+export async function makePGNInfoString(
+  gameData,
+  setpgnInfoString,
+  ECO
+) {
+  if (gameData.pgn_info.result == "0-0") {
+    return;
+  }
   const tempGame = new Chess();
   const moveArr = gameData.pgn;
   tempGame.setHeader(
-    "Event", `${gameData.pgn_info.is_rated == "rated" ? "Rated Game" : "Unrated Game"}`);
+    "Event",
+    `${gameData.pgn_info.is_rated == "rated" ? "Rated Game" : "Unrated Game"}`,
+  );
+  tempGame.setHeader("Site", "Online");
+  tempGame.setHeader("Date", new Date(gameData.pgn_info.date).toDateString());
+  tempGame.setHeader("Round", "1");
+  tempGame.setHeader("White", gameData.white_username);
+  tempGame.setHeader("Black", gameData.black_username);
+  tempGame.setHeader("Result", gameData.pgn_info.result);
+  tempGame.setHeader("Termination", gameData.pgn_info.termination);
+  tempGame.setHeader("WhiteElo", gameData.pgn_info.whiteelo);
+  tempGame.setHeader("BlackElo", gameData.pgn_info.blackelo);
   tempGame.setHeader(
-    "Site", "Online");
-  tempGame.setHeader(
-    "Date", new Date(gameData.pgn_info.date).toDateString());
-  tempGame.setHeader(
-    "Round", "1");
-  tempGame.setHeader(
-    "White", gameData.white_username);
-  tempGame.setHeader(
-    "Black", gameData.black_username);
-  tempGame.setHeader(
-    "Result", gameData.pgn_info.result);
-  tempGame.setHeader(
-    "Termination", gameData.pgn_info.termination);
-  tempGame.setHeader(
-    "WhiteElo", gameData.pgn_info.whiteelo);
-  tempGame.setHeader(
-    "BlackElo", gameData.pgn_info.blackelo);
-  tempGame.setHeader(
-    "EndTime", gameData.pgn[gameData.pgn.length - 1].split("$")[2]);
+    "EndTime",
+    gameData.pgn[gameData.pgn.length - 1].split("$")[2],
+  );
+  tempGame.setHeader("ECO", ECO);
   moveArr.forEach((pgnEntry, index) => {
-      const parsed = parsePgnEntry(pgnEntry);
-      tempGame.move({
-        from: parsed.from,
-        to: parsed.to,
-        promotion: 'q',
-      });
+    const parsed = parsePgnEntry(pgnEntry);
+    tempGame.move({
+      from: parsed.from,
+      to: parsed.to,
+      promotion: "q",
     });
-    const gamePGNFile = tempGame.pgn();
-    setpgnInfoString(gamePGNFile);
-}
+  });
+  const gamePGNFile = tempGame.pgn();
+  setpgnInfoString(gamePGNFile);
+};
 
 export function copyDivContents(flag) {
   let divContent = document.querySelector(`.${flag || "NULL"}`)?.textContent;
@@ -412,7 +406,7 @@ export function formatRelativeTime(createdAt) {
   const now = new Date();
   const diffMs = now.getTime() - created.getTime();
   const diffSec = Math.floor(diffMs / 1000);
-  
+
   if (diffSec < 60) {
     return "Just now";
   }
@@ -422,7 +416,7 @@ export function formatRelativeTime(createdAt) {
   }
   const diffHour = Math.floor(diffMin / 60);
   return `${diffHour}h ago`;
-};
+}
 
 export function timeAndColorPreferenceReducer(actionData) {
   const data = [];
@@ -430,7 +424,6 @@ export function timeAndColorPreferenceReducer(actionData) {
   else if (actionData.white_id && actionData.black_id) {
     data[0] = "random";
     data[1] = actionData.timecontrol;
-    
   } else if (actionData.white_id && !actionData.black_id) {
     data[0] = "white";
     data[1] = actionData.timecontrol;

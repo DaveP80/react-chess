@@ -50,3 +50,10 @@ export interface LobbyItem {
   username: string;
   is_rated: boolean;
 }
+
+export interface Opening {
+  name: string;
+  eco: string;
+  moves: string;
+  idx: number;
+}

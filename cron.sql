@@ -65,8 +65,7 @@ order by
   args;
 
 -- drop game_number_x tables that are 5 hours old from create time.
-CREATE OR REPLACE FUNCTION public.drop_finished_game_number_tables()
-RETURNS void
+CREATE OR REPLACE PROCEDURE public.drop_finished_game_number_tables()
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -74,7 +73,6 @@ DECLARE
   rec record;
   should_drop boolean;
 BEGIN
-  -- Loop through all public.game_number_<digits> tables
   FOR rec IN
     SELECT n.nspname AS schema_name, c.relname AS table_name
     FROM pg_class c
@@ -83,17 +81,15 @@ BEGIN
       AND c.relkind = 'r'
       AND c.relname LIKE 'game_number_%'
   LOOP
-    -- Keep only names with pure numeric suffix
     IF substring(rec.table_name FROM '^game_number_([0-9]+)$') IS NULL THEN
       CONTINUE;
     END IF;
 
-    -- Check this table has non-empty result and is older than 5 hours
     EXECUTE format(
       'SELECT EXISTS (
          SELECT 1
          FROM %I.%I
-         WHERE pgn_info ->> ''timecontrol'' != ''unlimited''
+         WHERE btrim(pgn_info->>''time_control'') != ''unlimited''
            AND created_at < now() - INTERVAL ''5 hours''
          LIMIT 1
        )',
