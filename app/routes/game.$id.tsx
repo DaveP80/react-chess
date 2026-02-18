@@ -46,7 +46,7 @@ import {
 import { OpeningDisplay } from "~/components/OpeningDisplay";
 import { Opening } from "~/types";
 import PgnInfoString from "~/components/PgnInfoString";
-import UpdateTablesGameEnd from "~/components/updatetablesgameend";
+import UpdateTablesGameEnd from "~/components/UpdateTablesGameEnd";
 
 export const meta: MetaFunction = () => {
   return [

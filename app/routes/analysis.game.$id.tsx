@@ -11,23 +11,23 @@ import {
   GitBranch,
   Trash2,
   FlipVertical,
-  Clipboard
+  Clipboard,
 } from "lucide-react";
-import {
-  copyDivContents,
-  parsePgnEntry,
-} from "~/utils/helper";
+import { copyDivContents, parsePgnEntry } from "~/utils/helper";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 import { useLoaderData, useRouteLoaderData } from "@remix-run/react";
 import { lookup_userdata_on_gameid_for_analysis } from "~/utils/apicalls.server";
 import Stockfish from "~/components/Stockfish";
+import { Opening } from "~/types";
+import { AnalysisOpeningDisplay } from "~/components/AnalysisOpeningDisplay";
 
 export const meta: MetaFunction = () => {
   return [
     { title: "Analyze Game - Chess Analysis Board" },
     {
       name: "description",
-      content: "Analyze your chess games with move variations and branching lines",
+      content:
+        "Analyze your chess games with move variations and branching lines",
     },
   ];
 };
@@ -50,15 +50,15 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 // Types for the move tree structure
 interface MoveNode {
   id: string;
-  san: string;           // Standard algebraic notation (e.g., "e4", "Nf3")
-  fen: string;           // Position after this move
-  from: string;          // Source square
-  to: string;            // Target square
+  san: string; // Standard algebraic notation (e.g., "e4", "Nf3")
+  fen: string; // Position after this move
+  from: string; // Source square
+  to: string; // Target square
   parent: string | null; // Parent node ID
-  children: string[];    // Child node IDs (variations)
-  isMainLine: boolean;   // Is this part of the original game?
-  moveNumber: number;    // Full move number
-  color: 'w' | 'b';      // Who made this move
+  children: string[]; // Child node IDs (variations)
+  isMainLine: boolean; // Is this part of the original game?
+  moveNumber: number; // Full move number
+  color: "w" | "b"; // Who made this move
 }
 
 interface MoveTree {
@@ -76,76 +76,80 @@ export default function AnalysisBoard() {
   // Core state
   const [moveTree, setMoveTree] = useState<MoveTree>(() => ({
     nodes: {},
-    rootId: 'root',
-    currentNodeId: 'root',
+    rootId: "root",
+    currentNodeId: "root",
   }));
-  const [displayPosition, setDisplayPosition] = useState<string>(new Chess().fen());
+  const [displayPosition, setDisplayPosition] = useState<string>(
+    new Chess().fen(),
+  );
   const [orientation, setOrientation] = useState<"white" | "black">("white");
-  const [selectedNodeId, setSelectedNodeId] = useState<string>('root');
+  const [selectedNodeId, setSelectedNodeId] = useState<string>("root");
   const [pgnInfoString, setpgnInfoString] = useState<string>("");
+  const [currentOpening, setCurrentOpening] = useState<Opening | null>(null);
   // Initialize the move tree from loaded game data
   useEffect(() => {
     if (gameData?.pgn?.length) {
       const initialTree: MoveTree = {
         nodes: {},
-        rootId: 'root',
-        currentNodeId: 'root',
+        rootId: "root",
+        currentNodeId: "root",
       };
 
       // Create root node (starting position)
       const startingFen = new Chess().fen();
-      initialTree.nodes['root'] = {
-        id: 'root',
-        san: '',
+      initialTree.nodes["root"] = {
+        id: "root",
+        san: "",
         fen: startingFen,
-        from: '',
-        to: '',
+        from: "",
+        to: "",
         parent: null,
         children: [],
         isMainLine: true,
         moveNumber: 0,
-        color: 'w',
+        color: "w",
       };
 
       // Build the main line from game PGN
-      let currentParentId = 'root';
+      let currentParentId = "root";
       const tempGame = new Chess();
       tempGame.setHeader(
-        "Event", `${gameData.pgn_info.is_rated == "rated" ? "Rated Game" : "Unrated Game"}`);
+        "Event",
+        `${
+          gameData.pgn_info.is_rated == "rated" ? "Rated Game" : "Unrated Game"
+        }`,
+      );
+      tempGame.setHeader("Site", "Online");
       tempGame.setHeader(
-        "Site", "Online");
+        "Date",
+        new Date(gameData.pgn_info.date).toDateString(),
+      );
+      tempGame.setHeader("Date", new Date(gameData.pgn_info.date).toDateString());
+      tempGame.setHeader("Round", "1");
+      tempGame.setHeader("White", gameData.white_username);
+      tempGame.setHeader("Black", gameData.black_username);
+      tempGame.setHeader("Result", gameData.pgn_info.result);
+      tempGame.setHeader("Termination", gameData.pgn_info.termination);
+      tempGame.setHeader("WhiteElo", gameData.pgn_info.whiteelo);
+      tempGame.setHeader("BlackElo", gameData.pgn_info.blackelo);
       tempGame.setHeader(
-        "Date", new Date(gameData.pgn_info.date).toDateString());
-      tempGame.setHeader(
-        "Round", "1");
-      tempGame.setHeader(
-        "White", gameData.white_username);
-      tempGame.setHeader(
-        "Black", gameData.black_username);
-      tempGame.setHeader(
-        "Result", gameData.pgn_info.result);
-      tempGame.setHeader(
-        "Termination", gameData.pgn_info.termination);
-      tempGame.setHeader(
-        "WhiteElo", gameData.pgn_info.whiteelo);
-      tempGame.setHeader(
-        "BlackElo", gameData.pgn_info.blackelo);
-      tempGame.setHeader(
-        "EndTime", gameData.pgn[gameData.pgn.length - 1].split("$")[2]);
-
+        "EndTime",
+        gameData.pgn[gameData.pgn.length - 1].split("$")[2],
+      );
+      tempGame.setHeader("ECO", gameData.pgn_info?.eco);
 
       gameData.pgn.forEach((pgnEntry: string, index: number) => {
         const parsed = parsePgnEntry(pgnEntry);
         const move = tempGame.move({
           from: parsed.from,
           to: parsed.to,
-          promotion: 'q',
+          promotion: "q",
         });
 
         if (move) {
           const nodeId = generateId();
           const moveNumber = Math.floor(index / 2) + 1;
-          const color = index % 2 === 0 ? 'w' : 'b';
+          const color = index % 2 === 0 ? "w" : "b";
 
           initialTree.nodes[nodeId] = {
             id: nodeId,
@@ -176,96 +180,115 @@ export default function AnalysisBoard() {
       setpgnInfoString(gamePGNFile);
       // Set orientation based on user
       if (UserContext?.rowData?.username) {
-        const isWhite = gameData.white_username === UserContext.rowData.username;
+        const isWhite =
+          gameData.white_username === UserContext.rowData.username;
         setOrientation(isWhite ? "white" : "black");
       }
     }
   }, [gameData, UserContext]);
 
   // Navigate to a specific node
-  const goToNode = useCallback((nodeId: string) => {
-    const node = moveTree.nodes[nodeId];
-    if (node) {
-      setSelectedNodeId(nodeId);
-      setDisplayPosition(node.fen);
-      setMoveTree(prev => ({ ...prev, currentNodeId: nodeId }));
-    }
-  }, [moveTree.nodes]);
+  const goToNode = useCallback(
+    (nodeId: string) => {
+      const node = moveTree.nodes[nodeId];
+      if (node) {
+        setSelectedNodeId(nodeId);
+        setDisplayPosition(node.fen);
+        setMoveTree((prev) => ({ ...prev, currentNodeId: nodeId }));
+      }
+    },
+    [moveTree.nodes],
+  );
 
   // Handle piece drop - create new move or variation
-  const onDrop = useCallback((sourceSquare: string, targetSquare: string): boolean => {
-    const currentNode = moveTree.nodes[selectedNodeId];
-    if (!currentNode) return false;
+  const onDrop = useCallback(
+    (sourceSquare: string, targetSquare: string): boolean => {
+      const currentNode = moveTree.nodes[selectedNodeId];
+      if (!currentNode) return false;
 
-    // Create a chess instance from current position
-    const tempGame = new Chess(currentNode.fen);
+      // Create a chess instance from current position
+      const tempGame = new Chess(currentNode.fen);
 
-    try {
-      const move = tempGame.move({
-        from: sourceSquare,
-        to: targetSquare,
-        promotion: 'q',
-      });
+      try {
+        const move = tempGame.move({
+          from: sourceSquare,
+          to: targetSquare,
+          promotion: "q",
+        });
 
-      if (!move) return false;
+        if (!move) return false;
 
-      // Check if this move already exists as a child
-      const existingChild = currentNode.children.find(childId => {
-        const child = moveTree.nodes[childId];
-        return child && child.from === sourceSquare && child.to === targetSquare;
-      });
+        // Check if this move already exists as a child
+        const existingChild = currentNode.children.find((childId) => {
+          const child = moveTree.nodes[childId];
+          return (
+            child && child.from === sourceSquare && child.to === targetSquare
+          );
+        });
 
-      if (existingChild) {
-        // Move already exists, just navigate to it
-        goToNode(existingChild);
-        return true;
-      }
+        if (existingChild) {
+          // Move already exists, just navigate to it
+          goToNode(existingChild);
+          return true;
+        }
 
-      // Create new node for this move
-      const newNodeId = generateId();
-      const isWhiteMove = currentNode.color === 'w' ? (currentNode.fen == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" ? "w" : "b") : 'w';
-      const moveNumber = isWhiteMove === 'w'
-        ? (currentNode.fen == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1" ? 1 : currentNode.moveNumber + 1)
-        : currentNode.moveNumber;
+        // Create new node for this move
+        const newNodeId = generateId();
+        const isWhiteMove =
+          currentNode.color === "w"
+            ? currentNode.fen ==
+              "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+              ? "w"
+              : "b"
+            : "w";
+        const moveNumber =
+          isWhiteMove === "w"
+            ? currentNode.fen ==
+              "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+              ? 1
+              : currentNode.moveNumber + 1
+            : currentNode.moveNumber;
 
-      const newNode: MoveNode = {
-        id: newNodeId,
-        san: move.san,
-        fen: tempGame.fen(),
-        from: sourceSquare,
-        to: targetSquare,
-        parent: selectedNodeId,
-        children: [],
-        isMainLine: false, // Variations are not main line
-        moveNumber,
-        color: isWhiteMove,
-      };
+        const newNode: MoveNode = {
+          id: newNodeId,
+          san: move.san,
+          fen: tempGame.fen(),
+          from: sourceSquare,
+          to: targetSquare,
+          parent: selectedNodeId,
+          children: [],
+          isMainLine: false, // Variations are not main line
+          moveNumber,
+          color: isWhiteMove,
+        };
 
-      setMoveTree(prev => ({
-        ...prev,
-        nodes: {
-          ...prev.nodes,
-          [newNodeId]: newNode,
-          [selectedNodeId]: {
-            ...prev.nodes[selectedNodeId],
-            children: [...prev.nodes[selectedNodeId].children, newNodeId],
+        setMoveTree((prev) => ({
+          ...prev,
+          nodes: {
+            ...prev.nodes,
+            [newNodeId]: newNode,
+            [selectedNodeId]: {
+              ...prev.nodes[selectedNodeId],
+              children: [...prev.nodes[selectedNodeId].children, newNodeId],
+            },
           },
-        },
-        currentNodeId: newNodeId,
-      }));
+          currentNodeId: newNodeId,
+        }));
 
-      setSelectedNodeId(newNodeId);
-      setDisplayPosition(tempGame.fen());
-      return true;
-    } catch (error) {
-      console.error("Invalid move:", error);
-      return false;
-    }
-  }, [moveTree, selectedNodeId, goToNode]);
+        setSelectedNodeId(newNodeId);
+        setDisplayPosition(tempGame.fen());
+        return true;
+      } catch (error) {
+        console.error("Invalid move:", error);
+        return false;
+      }
+    },
+    [moveTree, selectedNodeId, goToNode],
+  );
 
   // Navigation functions
   const goToStart = useCallback(() => {
-    goToNode('root');
+    goToNode("root");
   }, [goToNode]);
 
   const goToEnd = useCallback(() => {
@@ -275,7 +298,9 @@ export default function AnalysisBoard() {
 
     while (node && node.children.length > 0) {
       // Prefer main line children, otherwise take first child
-      const mainLineChild = node.children.find(id => moveTree.nodes[id]?.isMainLine);
+      const mainLineChild = node.children.find(
+        (id) => moveTree.nodes[id]?.isMainLine,
+      );
       nodeId = mainLineChild || node.children[0];
       node = moveTree.nodes[nodeId];
     }
@@ -294,73 +319,80 @@ export default function AnalysisBoard() {
     const currentNode = moveTree.nodes[selectedNodeId];
     if (currentNode?.children.length > 0) {
       // Prefer main line, otherwise first child
-      const mainLineChild = currentNode.children.find(id => moveTree.nodes[id]?.isMainLine);
+      const mainLineChild = currentNode.children.find(
+        (id) => moveTree.nodes[id]?.isMainLine,
+      );
       goToNode(mainLineChild || currentNode.children[0]);
     }
   }, [moveTree.nodes, selectedNodeId, goToNode]);
 
   // Delete variation from current node
-  const deleteVariation = useCallback((nodeId: string) => {
-    const node = moveTree.nodes[nodeId];
-    if (!node || node.isMainLine || !node.parent) return;
+  const deleteVariation = useCallback(
+    (nodeId: string) => {
+      const node = moveTree.nodes[nodeId];
+      if (!node || node.isMainLine || !node.parent) return;
 
-    // Collect all descendant IDs to remove
-    const toRemove = new Set<string>();
-    const collectDescendants = (id: string) => {
-      toRemove.add(id);
-      moveTree.nodes[id]?.children.forEach(collectDescendants);
-    };
-    collectDescendants(nodeId);
-
-    setMoveTree(prev => {
-      const newNodes = { ...prev.nodes };
-
-      // Remove from parent's children
-      const parent = newNodes[node.parent!];
-      if (parent) {
-        newNodes[node.parent!] = {
-          ...parent,
-          children: parent.children.filter(id => id !== nodeId),
-        };
-      }
-
-      // Remove all collected nodes
-      toRemove.forEach(id => delete newNodes[id]);
-
-      // If current node was deleted, go to parent
-      const newCurrentId = toRemove.has(prev.currentNodeId)
-        ? node.parent!
-        : prev.currentNodeId;
-
-      return {
-        ...prev,
-        nodes: newNodes,
-        currentNodeId: newCurrentId,
+      // Collect all descendant IDs to remove
+      const toRemove = new Set<string>();
+      const collectDescendants = (id: string) => {
+        toRemove.add(id);
+        moveTree.nodes[id]?.children.forEach(collectDescendants);
       };
-    });
+      collectDescendants(nodeId);
 
-    if (toRemove.has(selectedNodeId)) {
-      goToNode(node.parent!);
-    }
-  }, [moveTree.nodes, selectedNodeId, goToNode]);
+      setMoveTree((prev) => {
+        const newNodes = { ...prev.nodes };
+
+        // Remove from parent's children
+        const parent = newNodes[node.parent!];
+        if (parent) {
+          newNodes[node.parent!] = {
+            ...parent,
+            children: parent.children.filter((id) => id !== nodeId),
+          };
+        }
+
+        // Remove all collected nodes
+        toRemove.forEach((id) => delete newNodes[id]);
+
+        // If current node was deleted, go to parent
+        const newCurrentId = toRemove.has(prev.currentNodeId)
+          ? node.parent!
+          : prev.currentNodeId;
+
+        return {
+          ...prev,
+          nodes: newNodes,
+          currentNodeId: newCurrentId,
+        };
+      });
+
+      if (toRemove.has(selectedNodeId)) {
+        goToNode(node.parent!);
+      }
+    },
+    [moveTree.nodes, selectedNodeId, goToNode],
+  );
 
   // Reset to original game position
   const resetToMainLine = useCallback(() => {
     // Remove all non-main-line nodes
     let finalFen = "";
     let finalNodeId = "";
-    setMoveTree(prev => {
+    setMoveTree((prev) => {
       const newNodes: Record<string, MoveNode> = {};
 
-      Object.values(prev.nodes).forEach(node => {
+      Object.values(prev.nodes).forEach((node) => {
         if (node.isMainLine && node.children.length == 0) {
           finalFen = node.fen;
           finalNodeId = node.id;
         }
-        if (node.isMainLine || node.id === 'root') {
+        if (node.isMainLine || node.id === "root") {
           newNodes[node.id] = {
             ...node,
-            children: node.children.filter(childId => prev.nodes[childId]?.isMainLine),
+            children: node.children.filter(
+              (childId) => prev.nodes[childId]?.isMainLine,
+            ),
           };
         }
       });
@@ -387,13 +419,13 @@ export default function AnalysisBoard() {
       while (currentId && !visited.has(currentId)) {
         visited.add(currentId);
         const node = moveTree.nodes[currentId];
-        if (!node || currentId === 'root') {
+        if (!node || currentId === "root") {
           break;
         }
 
         const isSelected = currentId === selectedNodeId;
         const moveNum = node.moveNumber;
-        const showMoveNumber = node.color === 'w' || isFirst;
+        const showMoveNumber = node.color === "w" || isFirst;
 
         elements.push(
           <span
@@ -402,17 +434,19 @@ export default function AnalysisBoard() {
             className={`
               inline-flex items-center cursor-pointer px-1.5 py-0.5 rounded text-sm
               transition-all duration-150
-              ${isSelected
-                ? 'bg-amber-400 text-slate-900 font-bold shadow-sm'
-                : node.isMainLine
-                  ? 'text-slate-200 hover:bg-slate-700'
-                  : 'text-emerald-400 hover:bg-slate-700'
+              ${
+                isSelected
+                  ? "bg-amber-400 text-slate-900 font-bold shadow-sm"
+                  : node.isMainLine
+                  ? "text-slate-200 hover:bg-slate-700"
+                  : "text-emerald-400 hover:bg-slate-700"
               }
             `}
           >
             {showMoveNumber && (
               <span className="text-slate-500 mr-1 text-xs">
-                {moveNum}{node.color === 'w' ? '.' : '...'}
+                {moveNum}
+                {node.color === "w" ? "." : "..."}
               </span>
             )}
             {node.san}
@@ -428,7 +462,7 @@ export default function AnalysisBoard() {
                 <Trash2 size={12} />
               </button>
             )}
-          </span>
+          </span>,
         );
 
         isFirst = false;
@@ -439,11 +473,15 @@ export default function AnalysisBoard() {
             const varNode = moveTree.nodes[varId];
             if (varNode && !visited.has(varId)) {
               elements.push(
-                <span key={`var-${varId}`} className="text-slate-500 mx-1">(</span>
+                <span key={`var-${varId}`} className="text-slate-500 mx-1">
+                  (
+                </span>,
               );
               elements.push(...renderLine(varId, depth + 1));
               elements.push(
-                <span key={`var-end-${varId}`} className="text-slate-500 mx-1">)</span>
+                <span key={`var-end-${varId}`} className="text-slate-500 mx-1">
+                  )
+                </span>,
               );
             }
           });
@@ -461,7 +499,7 @@ export default function AnalysisBoard() {
     };
 
     // Start from root's first child
-    const rootNode = moveTree.nodes['root'];
+    const rootNode = moveTree.nodes["root"];
     if (rootNode?.children.length > 0) {
       const mainLineElements: JSX.Element[] = [];
 
@@ -474,11 +512,18 @@ export default function AnalysisBoard() {
           const varNode = moveTree.nodes[varId];
           if (varNode && !visited.has(varId)) {
             mainLineElements.push(
-              <span key={`root-var-${varId}`} className="text-slate-500 mx-1">(</span>
+              <span key={`root-var-${varId}`} className="text-slate-500 mx-1">
+                (
+              </span>,
             );
             mainLineElements.push(...renderLine(varId, 1));
             mainLineElements.push(
-              <span key={`root-var-end-${varId}`} className="text-slate-500 mx-1">)</span>
+              <span
+                key={`root-var-end-${varId}`}
+                className="text-slate-500 mx-1"
+              >
+                )
+              </span>,
             );
           }
         });
@@ -486,7 +531,7 @@ export default function AnalysisBoard() {
       lines.push(
         <div key="main-line" className="flex flex-wrap gap-1 items-center">
           {mainLineElements}
-        </div>
+        </div>,
       );
     }
 
@@ -510,43 +555,47 @@ export default function AnalysisBoard() {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
         return;
       }
 
       switch (e.key) {
-        case 'ArrowLeft':
+        case "ArrowLeft":
           e.preventDefault();
           goToPrevious();
           break;
-        case 'ArrowRight':
+        case "ArrowRight":
           e.preventDefault();
           goToNext();
           break;
-        case 'ArrowUp':
+        case "ArrowUp":
           e.preventDefault();
           goToStart();
           break;
-        case 'ArrowDown':
+        case "ArrowDown":
           e.preventDefault();
           goToEnd();
           break;
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [goToPrevious, goToNext, goToStart, goToEnd]);
 
   // Count moves and variations
-  const moveCount = Object.values(moveTree.nodes).filter(n => n.id !== 'root').length;
-  const variationCount = Object.values(moveTree.nodes).filter(n => !n.isMainLine && n.id !== 'root').length;
-
+  const moveCount = Object.values(moveTree.nodes).filter(
+    (n) => n.id !== "root",
+  ).length;
+  const variationCount = Object.values(moveTree.nodes).filter(
+    (n) => !n.isMainLine && n.id !== "root",
+  ).length;
 
   return (
     <div className="min-h-screen bg-[#1a1a2e]">
-
-
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Header */}
         <header className="mb-6">
@@ -567,19 +616,29 @@ export default function AnalysisBoard() {
             {/* Player info - opponent */}
             <div className="flex items-center gap-3 px-2">
               <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 font-semibold text-sm">
-                {(orientation === 'white' ? gameData.black_username : gameData.white_username).charAt(0).toUpperCase() || '?'}
+                {(orientation === "white"
+                  ? gameData.black_username
+                  : gameData.white_username
+                )
+                  .charAt(0)
+                  .toUpperCase() || "?"}
               </div>
               <div>
                 <p className="text-white font-medium">
-                  {orientation === 'white' ? gameData.black_username : gameData.white_username}
+                  {orientation === "white"
+                    ? gameData.black_username
+                    : gameData.white_username}
                 </p>
                 <p className="text-slate-500 text-sm">
-                  {orientation === 'white' ? gameData.pgn_info.blackelo : gameData.pgn_info.whiteelo}
+                  {orientation === "white"
+                    ? gameData.pgn_info.blackelo
+                    : gameData.pgn_info.whiteelo}
                 </p>
               </div>
-              {currentGame.turn() === (orientation === 'white' ? 'b' : 'w') && !currentGame.isGameOver() && (
-                <div className="ml-auto w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-              )}
+              {currentGame.turn() === (orientation === "white" ? "b" : "w") &&
+                !currentGame.isGameOver() && (
+                  <div className="ml-auto w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                )}
             </div>
 
             {/* Chess Board */}
@@ -598,7 +657,7 @@ export default function AnalysisBoard() {
                 )}
                 {isDraw && (
                   <span className="bg-slate-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-lg">
-                    {isStalemate ? 'Stalemate' : 'Draw'}
+                    {isStalemate ? "Stalemate" : "Draw"}
                   </span>
                 )}
               </div>
@@ -608,33 +667,46 @@ export default function AnalysisBoard() {
               <Chessboard
                 position={displayPosition}
                 onPieceDrop={onDrop}
-                boardWidth={Math.min(700, typeof window !== "undefined" ? window.innerWidth - 60 : 700)}
+                boardWidth={Math.min(
+                  700,
+                  typeof window !== "undefined" ? window.innerWidth - 60 : 700,
+                )}
                 boardOrientation={orientation}
                 customBoardStyle={{
-                  borderRadius: '8px',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                  borderRadius: "8px",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
                 }}
-                customDarkSquareStyle={{ backgroundColor: '#4a5568' }}
-                customLightSquareStyle={{ backgroundColor: '#718096' }}
+                customDarkSquareStyle={{ backgroundColor: "#4a5568" }}
+                customLightSquareStyle={{ backgroundColor: "#718096" }}
               />
             </div>
 
             {/* Player info - user */}
             <div className="flex items-center gap-3 px-2">
               <div className="w-10 h-10 rounded-full bg-amber-400/20 border-2 border-amber-400 flex items-center justify-center text-amber-400 font-semibold text-sm">
-                {(orientation === 'white' ? gameData.white_username : gameData.black_username).charAt(0).toUpperCase() || '?'}
+                {(orientation === "white"
+                  ? gameData.white_username
+                  : gameData.black_username
+                )
+                  .charAt(0)
+                  .toUpperCase() || "?"}
               </div>
               <div>
                 <p className="text-white font-medium">
-                  {orientation === 'white' ? gameData.white_username : gameData.black_username}
+                  {orientation === "white"
+                    ? gameData.white_username
+                    : gameData.black_username}
                 </p>
                 <p className="text-slate-500 text-sm">
-                  {orientation === 'white' ? gameData.pgn_info.whiteelo : gameData.pgn_info.blackelo}
+                  {orientation === "white"
+                    ? gameData.pgn_info.whiteelo
+                    : gameData.pgn_info.blackelo}
                 </p>
               </div>
-              {currentGame.turn() === (orientation === 'white' ? 'w' : 'b') && !currentGame.isGameOver() && (
-                <div className="ml-auto w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
-              )}
+              {currentGame.turn() === (orientation === "white" ? "w" : "b") &&
+                !currentGame.isGameOver() && (
+                  <div className="ml-auto w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
+                )}
             </div>
 
             {/* Board controls */}
@@ -655,7 +727,7 @@ export default function AnalysisBoard() {
               </button>
               <span className="px-4 py-2 text-sm text-slate-400 min-w-[80px] text-center font-mono">
                 {moveTree.nodes[selectedNodeId]?.moveNumber || 0}.
-                {moveTree.nodes[selectedNodeId]?.san || '...'}
+                {moveTree.nodes[selectedNodeId]?.san || "..."}
               </span>
               <button
                 onClick={goToNext}
@@ -673,7 +745,9 @@ export default function AnalysisBoard() {
               </button>
               <div className="w-px h-8 bg-slate-700 mx-2" />
               <button
-                onClick={() => setOrientation(o => o === 'white' ? 'black' : 'white')}
+                onClick={() =>
+                  setOrientation((o) => (o === "white" ? "black" : "white"))
+                }
                 className="p-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors border border-slate-700"
                 title="Flip board"
               >
@@ -693,7 +767,9 @@ export default function AnalysisBoard() {
                   </span>
                 </div>
                 {gameData?.pgn_info?.termination && (
-                  <p className="text-slate-500 text-sm mt-1">{gameData.pgn_info.termination}</p>
+                  <p className="text-slate-500 text-sm mt-1">
+                    {gameData.pgn_info.termination}
+                  </p>
                 )}
               </div>
             )}
@@ -724,18 +800,21 @@ export default function AnalysisBoard() {
 
               <div className="p-4 max-h-[400px] overflow-y-auto custom-scrollbar">
                 {moveCount === 0 ? (
-                  <p className="text-slate-500 text-center py-8">No moves yet</p>
+                  <p className="text-slate-500 text-center py-8">
+                    No moves yet
+                  </p>
                 ) : (
-                  <div className="space-y-2">
-                    {moveListDisplay}
-                  </div>
+                  <div className="space-y-2">{moveListDisplay}</div>
                 )}
               </div>
             </div>
+            <AnalysisOpeningDisplay fenHistoryWithStart={[displayPosition]} setCurrentOpening={setCurrentOpening} currentOpening={currentOpening}/>
 
             {/* Analysis Tips */}
             <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
-              <h3 className="text-slate-300 text-sm font-medium mb-3">How to Analyze</h3>
+              <h3 className="text-slate-300 text-sm font-medium mb-3">
+                How to Analyze
+              </h3>
               <ul className="space-y-2 text-slate-500 text-sm">
                 <li className="flex items-start gap-2">
                   <span className="text-amber-400 mt-0.5">•</span>
@@ -747,26 +826,42 @@ export default function AnalysisBoard() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-400 mt-0.5">•</span>
-                  <span>Variations appear in <span className="text-emerald-400">green</span></span>
+                  <span>
+                    Variations appear in{" "}
+                    <span className="text-emerald-400">green</span>
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-400 mt-0.5">•</span>
-                  <span>Click <Trash2 size={12} className="inline" /> to delete a variation</span>
+                  <span>
+                    Click <Trash2 size={12} className="inline" /> to delete a
+                    variation
+                  </span>
                 </li>
               </ul>
             </div>
 
             {/* Position Info */}
             <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
-              <h3 className="text-slate-300 text-sm font-medium mb-2">Position</h3>
-              <Clipboard onClick={() => copyDivContents("FEN")} className="hover:bg-gray-400 cursor-pointer" />
+              <h3 className="text-slate-300 text-sm font-medium mb-2">
+                Position
+              </h3>
+              <Clipboard
+                onClick={() => copyDivContents("FEN")}
+                className="hover:bg-gray-400 cursor-pointer"
+              />
               <p className="text-slate-600 text-xs font-mono break-all leading-relaxed FEN">
                 FEN: {displayPosition}
               </p>
             </div>
             <div className="bg-slate-800/30 rounded-xl p-4 border border-slate-700/30">
-              <h3 className="text-slate-300 text-sm font-medium mb-2">PGN File</h3>
-              <Clipboard onClick={() => copyDivContents("PGN")} className="hover:bg-gray-400 cursor-pointer" />
+              <h3 className="text-slate-300 text-sm font-medium mb-2">
+                PGN File
+              </h3>
+              <Clipboard
+                onClick={() => copyDivContents("PGN")}
+                className="hover:bg-gray-400 cursor-pointer"
+              />
               <p className="text-slate-600 text-xs font-mono break-all leading-relaxed PGN">
                 {pgnInfoString}
               </p>

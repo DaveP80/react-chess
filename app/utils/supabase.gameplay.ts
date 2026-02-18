@@ -1,8 +1,5 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { parsePgnEntry, timeControlReducer } from "./helper";
-import { Opening } from "~/types";
-import { useFetcher } from "@remix-run/react";
-import { Chess } from "chess.js";
+import { timeControlReducer } from "./helper";
 
 export async function insertNewMoves(
   supabase: any,
@@ -222,19 +219,5 @@ export async function get_similar_game_requests_lobby(supabase: SupabaseClient<a
   } catch (error) {
     return { error, ok: false };
 
-  }
-}
-
-export async function finalGameDataECO(activeGame: any) {
-  const fenHistoryWithStart = [
-    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-    ...activeGame.history({ verbose: true }).map(move => move.after)
-  ];
-  const fetcher = useFetcher<{ opening: Opening | null }>();
-  fetcher.load(`/api/opening?fen=${encodeURIComponent(fenHistoryWithStart.join(","))}`);
-  if (fetcher.data?.opening) {
-   return fetcher.data.opening;
-  } else {
-    return "";
   }
 };
