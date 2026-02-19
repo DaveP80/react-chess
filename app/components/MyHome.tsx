@@ -39,7 +39,7 @@ export default function UserProfile() {
       if (provider === "email") {
         window.localStorage.setItem(
           "auth",
-          JSON.stringify({ new_signup: true, is_logged_in: true })
+          JSON.stringify({ new_signup: false, is_logged_in: true })
         );
       }
     }

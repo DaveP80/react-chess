@@ -38,13 +38,7 @@ export async function getMyHomeData({ request }: any) {
           SupabaseData = await supabase
             .from("users")
             .update({
-              created_at: new Date().toISOString(),
               verified: true,
-              rating: {
-                rapid_rating: 1500,
-                blitz_rating: 1500,
-                bullet_rating: 1500,
-              },
             })
             .eq("u_id", userId)
             .select();

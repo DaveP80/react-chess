@@ -21,62 +21,74 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const Email = formData?.email;
   const Username = formData?.username;
 
-  if (Intent == "signup") {
-    const { error, data } = await supabase.auth.signUp({
-      email: Email.toString() || "",
-      password: Password.toString() || "",
-    });
-    if (error) {
+  try {
+    if (Intent == "signup") {
+      const { error, data } = await supabase.auth.signUp({
+        email: Email.toString() || "",
+        password: Password.toString() || "",
+        options: {
+          data: {
+            username: Username,
+          },
+        },
+      });
+      if (error) {
+        return Response.json(
+          {
+            error,
+            user: null,
+            intent: Intent,
+          },
+          { headers },
+        );
+      } else {
+        return Response.json(
+          {
+            message: `Thanks for signing up! Email sent to ${Email}`,
+            intent: "signup",
+          },
+          { headers },
+        );
+      }
+    } else if (Intent == "login") {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.signInWithPassword({
+        email: Email.toString() || "",
+        password: Password.toString() || "",
+      });
+      if (user?.id) {
+        return redirect(`/myhome?intent=login&provider=email`, { headers });
+      } else {
+        return Response.json(
+          {
+            error,
+            user,
+            intent: Intent,
+          },
+          { headers },
+        );
+      }
+    } else {
       return Response.json(
         {
-          error,
+          error: "Unknown server response",
           user: null,
           intent: Intent,
         },
-        { headers }
-      );
-    } else {
-      return redirect(
-        `/myhome?intent=signup&username=${Username}&verified=false&provider=email`,
-        { headers }
+        { headers },
       );
     }
-  } else if (Intent == "login") {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.signInWithPassword({
-      email: Email.toString() || "",
-      password: Password.toString() || "",
-    });
-    if (user?.id) {
-      return redirect(`/myhome?intent=login&provider=email`, { headers });
-    } else {
-      return Response.json(
-        {
-          error,
-          user,
-          intent: Intent,
-        },
-        { headers }
-      );
-    }
-  } else {
-    return Response.json(
-      {
-        error: "Unknown server response",
-        user: null,
-        intent: Intent,
-      },
-      { headers }
-    );
+  } catch (error) {
+    return Response.json({ error }, { status: 500 });
   }
 };
 
 export default function Login() {
   const loginAction = useActionData<typeof action>();
   const [isSignUp, setIsSignUp] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
+  const [emailSent, setEmailSent] = useState<string | null>(null);
   const [btnDisable, setBtnDisable] = useState(false);
   const [loading, setIsLoading] = useState(false);
   const [isError, setError] = useState(false);
@@ -86,16 +98,20 @@ export default function Login() {
   useEffect(() => {
     const checkSignUp = localStorage.getItem("auth");
     if (checkSignUp && JSON.parse(checkSignUp).new_signup) {
-      setEmailSent(true);
+      setEmailSent(
+        `This Email is not yet verified: ${UserContext?.user?.email}`,
+      );
     }
-    if (UserContext?.user?.id) {
+    if (UserContext?.user?.id || loginAction?.message) {
       setBtnDisable(true);
     }
     if (loginAction?.error && loginAction?.intent) {
       setError(true);
-      console.error(loginAction?.error);
+      console.error(loginAction.error);
     }
-
+    if (loginAction?.error) {
+      setError(true);
+    }
     if (navigation.state === "submitting") {
       setIsLoading(true);
     } else if (navigation.state === "idle") {
@@ -192,11 +208,9 @@ export default function Login() {
               </span>
             </button>
             <div className="text-center">
-              {emailSent && (
+              {(emailSent || loginAction?.message) && (
                 <div className="text-green-900">
-                  <h3 className="">
-                    This Email is not yet verified: {UserContext?.user?.email}.
-                  </h3>
+                  <h3 className="">{emailSent || loginAction.message}</h3>
                 </div>
               )}
               {isError && (
