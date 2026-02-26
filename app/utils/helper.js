@@ -445,4 +445,29 @@ export function generateMemberRequestFormObj(actionData) {
     tempObj.black_rating_info = memberRequestFormTempObj.black_rating_info;
   }
   return tempObj;
+};
+
+export function newUserGameDataReturnObject(newUserGameData, their_username) {
+  if (!newUserGameData.length) return [];
+  let whiteidx = 0;
+  let blackidx = 1;
+  if (newUserGameData[0].username == their_username) {
+    whiteidx = 1;
+    blackidx = 0;
+  }
+  return [{
+    white_username: newUserGameData[whiteidx].username,
+    black_username: newUserGameData[blackidx].username,
+    white_rating_info: newUserGameData[whiteidx].rating,
+    black_rating_info: newUserGameData[blackidx].rating,
+    white_isactive: newUserGameData[whiteidx].is_active,
+    black_isactive: newUserGameData[blackidx].is_active,
+    white_avatarurl: newUserGameData[whiteidx].avatarURL,
+    black_avatarurl: newUserGameData[blackidx].avatarURL,
+    white_created_at: newUserGameData[whiteidx].created_at,
+    black_created_at: newUserGameData[blackidx].created_at,
+    isNoGameData: true,
+    id: 1
+  }];
 }
+
