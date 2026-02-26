@@ -53,7 +53,7 @@ export async function action({ request }: ActionFunctionArgs) {
       JSON.parse(String(formData.memberData)),
       String(formData?.colorPreference),
       String(formData?.timeControl),
-      Boolean(formData?.isRated),
+      String(formData?.isRated),
     );
     return Response.json(response);
   }

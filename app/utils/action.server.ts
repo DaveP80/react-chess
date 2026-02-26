@@ -5,7 +5,7 @@ export async function gamesNewRequestOnUserColor(
   userId: string,
   user_color: string,
   timeControl_req: string,
-  isRated: boolean
+  isRated: string
 ) {
   try {
     const [game_length, timeControl] = timeControlReducer(timeControl_req);
@@ -53,7 +53,7 @@ export async function memberNewRequestPairing(
   memberData: Record<string, any>,
   user_color: string,
   game_length: string,
-  isRated: boolean
+  isRated: string
 ) {
   try {
     const randomIdx = Math.floor(Math.random() * 2);

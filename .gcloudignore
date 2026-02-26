@@ -1,6 +1,8 @@
 notes.txt
 .env
+.env.local
 gpt.md
 ReadMe.md
 cron.sql
 schema.sql
+supabase

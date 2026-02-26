@@ -5,7 +5,7 @@ export function createSupabaseServerClient(request: Request) {
   const headers = new Headers();
   const supabase = {
     headers,
-    client: createServerClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY!, {
+    client: createServerClient(process.env.VITE_SUPABASE_URL!, process.env.VITE_SUPABASE_SECRET_KEY!, {
       cookies: {
         getAll() {
           return parseCookieHeader(request.headers.get('Cookie') ?? '').map(({ name, value }) => ({
