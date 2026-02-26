@@ -4,10 +4,17 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "build": "remix vite:build",
     "dev": "remix vite:dev",
-    "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
+    "build": "remix vite:build",
     "start": "remix-serve ./build/server/index.js",
+    "start:dev": "dotenv -e .env.dev remix vite:dev",
+    "build:qa": "dotenv -e .env.qa remix vite:build",
+    "start:qa": "dotenv -e .env.qa remix-serve ./build/server/index.js",
+    "build:uat": "dotenv -e .env.uat remix vite:build",
+    "start:uat": "dotenv -e .env.uat remix-serve ./build/server/index.js",
+    "build:prod": "dotenv -e .env.production remix vite:build",
+    "start:prod": "dotenv -e .env.production remix-serve ./build/server/index.js",
+    "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
     "typecheck": "tsc"
   },
   "dependencies": {
