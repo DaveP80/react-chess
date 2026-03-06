@@ -56,6 +56,7 @@ export async function memberNewRequestPairing(
   isRated: string
 ) {
   try {
+    const db_user_color = user_color;
     const randomIdx = Math.floor(Math.random() * 2);
     const color_flag_arr = ["white", "black"];
     const [, ratingType] = timeControlReducer(game_length);
@@ -80,6 +81,7 @@ export async function memberNewRequestPairing(
       u_id_in: userId,
       username_f: username,
       is_rated_f: isRated,
+      is_random_f: db_user_color == "random" ? true : false,
     };
 
     const { data, error } = await localSupabase.rpc(
@@ -99,7 +101,68 @@ export async function memberNewRequestPairing(
           message: `Invalid row data, timecontrol entered on games pairing table`,
         }
     } else {
-      return { data, go: true, message: "new pairing insert on games table." };
+      return { data, go: true, message: "new pairing insert on games_pairing table." };
+    }
+  } catch (error) {
+    return { error, go: false };
+  }
+};
+
+export async function rematchRequestNewRequestPairing(
+  localSupabase: any,
+  userId: string,
+  username: string,
+  requestGameData: Record<string, any>,
+  user_color: string,
+  game_length: string,
+  isRated: string
+) {
+  try {
+    const db_user_color = user_color;
+    const randomIdx = Math.floor(Math.random() * 2);
+    const color_flag_arr = ["white", "black"];
+
+    user_color =
+      user_color == "random" ? color_flag_arr[randomIdx] : user_color;
+    let whiteelo;
+    let blackelo;
+    if (user_color == "white") {
+      blackelo = requestGameData.black_username == username ? requestGameData.black_rating_info : requestGameData.white_rating_info;
+      whiteelo = requestGameData.currentUserElo;
+    } else if (user_color == "black") {
+      whiteelo = requestGameData.white_username == username ? requestGameData.white_rating_info : requestGameData.black_rating_info;
+      blackelo = requestGameData.currentUserElo;
+    }
+
+    const insertObj = {
+      color_flag: user_color,
+      game_length,
+      whiteelo_f: whiteelo,
+      blackelo_f: blackelo,
+      u_id_in: userId,
+      username_f: username,
+      is_rated_f: isRated,
+      is_random_f: db_user_color == "random" ? true : false,
+    };
+
+    const { data, error } = await localSupabase.rpc(
+      "insert_new_member_pairing_request",
+      insertObj
+    );
+    if (error) {
+      return {
+          error,
+          go: false,
+          message: `failed to insert new member pairing request for ${username}`,
+        }
+    } else if (!data[0].timecontrol) {
+      return {
+          error,
+          go: false,
+          message: `Invalid row data, timecontrol entered on games pairing table`,
+        }
+    } else {
+      return { data, go: true, message: "new pairing insert on games_pairing table." };
     }
   } catch (error) {
     return { error, go: false };

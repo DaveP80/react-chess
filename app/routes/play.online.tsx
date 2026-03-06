@@ -111,11 +111,16 @@ export default function Index() {
     PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
     { isSingleton: false },
   );
-  const supabase3 = getSupabaseBrowserClient(
+  const supabase3 = createBrowserClient(
     PlayContext?.VITE_SUPABASE_URL,
-    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
-    true,
+    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY
   );
+  const supabase4 = createBrowserClient(
+    PlayContext?.VITE_SUPABASE_URL,
+    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+  );
+
+  
 
   // Clear countdown timer
   const clearCountdownTimer = useCallback(() => {
@@ -178,7 +183,7 @@ export default function Index() {
 
       const getLobbyData = async () => {
         const lobbyData = await get_similar_game_requests_lobby(
-          supabase3,
+          supabase4,
           actionData.data[0].is_rated,
         );
         setShowLobby(lobbyData?.data || []);
@@ -200,7 +205,6 @@ export default function Index() {
         { event: "*", schema: "public", table: "games" },
         async (payload: { eventType: string }) => {
           if (payload.eventType === "INSERT") {
-            console.log(payload);
             const [colorPreference, timeControl] =
               timeAndColorPreferenceReducer(actionData?.data[0] || {});
             if (userId && colorPreference && timeControl) {
@@ -213,12 +217,7 @@ export default function Index() {
                 actionData?.data[0].is_rated,
               );
             }
-            if (payload.eventType === "UPDATE") {
-              ("foo");
-            }
-            if (payload.eventType === "DELETE") {
-              ("bar");
-            }
+
           }
         },
       )
@@ -231,7 +230,6 @@ export default function Index() {
         { event: "*", schema: "public", table: "game_moves" },
         async (payload: { eventType: string }) => {
           if (payload.eventType === "INSERT") {
-            console.log(payload);
 
             if (actionData?.data && userId) {
               let response = getNewGamePairing(actionData.data[0], payload);
@@ -257,9 +255,6 @@ export default function Index() {
                 navigate(`/game/${response?.data?.navigateId}`);
               }
             }
-          }
-          if (payload.eventType === "DELETE") {
-            ("bar");
           }
         },
       )

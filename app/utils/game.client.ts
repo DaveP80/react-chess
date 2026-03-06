@@ -80,7 +80,8 @@ export async function handleInsertedNewGame(
         } else {
           const response = await handleInsertStartGame(
             localSupabase,
-            { joinedData: data_a[0] },
+            //is_random is used to determine if the game is a random color request game.
+            { joinedData: data_a[0], is_random: user_color == "random" ? 1 : 0 },
             game_length,
             updateLiveObj
           );
@@ -114,7 +115,7 @@ export function getNewGamePairing(actionData: any, payload: any) {
   } else {
     return {
       go: false,
-      message: `no game found with reference id: ${+actionData.id.id}.`,
+      message: `no game found with reference id: ${+actionData.id}.`,
     };
   }
 }
@@ -139,7 +140,7 @@ export async function getNewMemberGamePairing(actionData: any, supabase: any) {
       } else {
         return {
           go: false,
-          message: `no game found with reference id: ${+actionData.id.id}.`,
+          message: `no game found with reference id: ${+actionData.id}.`,
         };
       }
     }
@@ -170,7 +171,7 @@ async function handleInsertStartGame(
         pgn_info: {
           date: new Date().toISOString(),
           //game_moves id
-          gameid: 0,
+          gameid: incomingData.is_random,
           round: 1,
           white: updateLiveObj.white_id_update,
           black: updateLiveObj.black_id_update,

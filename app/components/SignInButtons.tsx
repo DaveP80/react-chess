@@ -1,12 +1,12 @@
 // app/components/SignInButtons.tsx
 import { useNavigate, useRouteLoaderData } from "@remix-run/react";
+import { createBrowserClient } from "@supabase/ssr";
 import { loader } from "~/root";
-import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 
 export default function SignInButtons() {
   const UserInfo = useRouteLoaderData<typeof loader>("root");
   const navigate = useNavigate();
-  const supabase = getSupabaseBrowserClient(UserInfo?.VITE_SUPABASE_URL, UserInfo?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY, true);
+  const supabase = createBrowserClient(UserInfo?.VITE_SUPABASE_URL, UserInfo?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY);
   
 
   const signInWithGitHub = async () => {

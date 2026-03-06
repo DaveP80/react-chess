@@ -15,7 +15,7 @@ interface GameRequestNotificationProps {
   rowData: any;
 }
 
-export default function GameRequestNotification({
+export default function RematchRequestNotification({
   userId,
   rowData,
 }: GameRequestNotificationProps) {
@@ -88,8 +88,7 @@ export default function GameRequestNotification({
             pgn: [],
             pgn_info: {
               date: new Date().toISOString(),
-              //if a random pairing this is shown in gameid field.
-              gameid: incomingData.is_random == true ? 1 : 0,
+              gameid: 0,
               round: 1,
               white: incomingData.white_id,
               black: incomingData.black_id,
@@ -99,7 +98,7 @@ export default function GameRequestNotification({
               blackelo: incomingData.blackelo,
               time_control: incomingData.timecontrol,
               is_rated: incomingData.is_rated ? "rated" : "unrated",
-              eco: "",
+              eco: ""
             },
             is_rated: incomingData.is_rated,
           })
@@ -245,13 +244,8 @@ export default function GameRequestNotification({
 
   // Listen for new games_pairing inserts (incoming challenge requests)
   useEffect(() => {
-    if (!supabaseRealtimePairing) {
-      return () => {
-        if (dismissTimerRef.current) {
-          clearTimeout(dismissTimerRef.current);
-        }
-      };
-    }
+    if (!userId || isActive) return;
+
     console.log(
       "Setting up games_pairing websocket listener for user:",
       userId,
@@ -263,13 +257,15 @@ export default function GameRequestNotification({
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "games_pairing" },
         async (payload: any) => {
+          console.log("games_pairing INSERT received:", payload);
+
           try {
             // Check if this pairing involves the current user as the challenged party
             // The current user should NOT be the one who created the request
             if (
               rowData &&
               !rowData.isActive &&
-              !GameContext?.memberRequest?.actionData && !GameContext.memberRequestLock
+              !GameContext?.memberRequest?.actionData
             ) {
               console.log("Calling handleInsertStartMemberGame...");
               const result = await handleInsertStartMemberGame(
@@ -311,9 +307,8 @@ export default function GameRequestNotification({
 
   // Listen for game_moves inserts (game actually started)
   useEffect(() => {
-    if (!supabaseRealtimeMoves) {
-      return () => { false; }
-      };
+    if (!userId || !GameContext?.memberRequest?.ref) return;
+
     console.log("Setting up game_moves websocket listener");
 
     const channelMoves = supabaseRealtimeMoves
@@ -345,6 +340,7 @@ export default function GameRequestNotification({
                     }),
                   );
                 }
+
                 // Clean up and navigate
                 GameContext.setMemberRequest({});
                 navigate(`/game/${response?.data?.navigateId}`);
