@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, useContext } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import {
   ChevronsLeft,
   ChevronLeft,
@@ -47,6 +47,9 @@ import { OpeningDisplay } from "~/components/OpeningDisplay";
 import { Opening } from "~/types";
 import PgnInfoString from "~/components/PgnInfoString";
 import UpdateTablesGameEnd from "~/components/UpdateTablesGameEnd";
+import RematchRequestMaker from "~/components/RematchRequestMaker";
+import { GlobalContext } from "~/context/globalcontext";
+import { action as gameActionFunction } from "~/actions/rematch_handler.server";
 
 export const meta: MetaFunction = () => {
   return [
@@ -76,6 +79,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   } catch (error) {
     return redirect("/myhome");
   }
+}
+
+export async function action(args: ActionFunctionArgs) {
+  return gameActionFunction(args);
 }
 
 export default function Index() {
@@ -122,6 +129,7 @@ export default function Index() {
   const [loadedBlackTime, setLoadedBlackTime] = useState<number | undefined>(
     undefined,
   );
+  const ActiveContext = useContext(GlobalContext);
   const chessClockRef = useRef<ChessClockHandle>(null);
   const supabase = createBrowserClient(
     UserContext?.VITE_SUPABASE_URL,
@@ -151,9 +159,10 @@ export default function Index() {
     clearCountdownTimer();
     await dropTablesGameNumberGameMoves(supabase, gameData.id, gameData);
     setAbortMessage("Game Aborted.");
+    
     localStorage.removeItem("pgnInfo");
   }, [supabase, gameData, clearCountdownTimer]);
-
+  
   // Handle manual abort by white player
   const handleAbortGame = useCallback(async () => {
     if (abortCalledRef.current) {
@@ -161,6 +170,7 @@ export default function Index() {
     }
     await executeAbort();
     setCountdown(0);
+    ActiveContext.setMemberRequestLock(true);
   }, [executeAbort]);
 
   // Setup toggleUsers when gameData loads
@@ -354,13 +364,15 @@ export default function Index() {
               dropTablesGameNumberGameMoves(supabase, gameData.id, gameData)
                 .then(() => {
                   setAbortMessage("Game Aborted.");
+                  ActiveContext.setMemberRequestLock(true);
                   localStorage.removeItem("pgnInfo");
                 })
                 .catch(console.error);
-            }
-          } else {
-            // Black player just shows message
-            setAbortMessage("Game Aborted.");
+              }
+            } else {
+              // Black player just shows message
+              setAbortMessage("Game Aborted.");
+              ActiveContext.setMemberRequestLock(true);
             localStorage.removeItem("pgnInfo");
           }
         } else {
@@ -873,6 +885,7 @@ export default function Index() {
                       Resign
                     </button>
                   )}
+                  {((finalGameData?.pgn_info?.result || abortMessage) && !gameData?.is_analysis) && (<RematchRequestMaker currentGameData={{toggleUsers, finalGameData, gameData}} username={toggleUsers.oppUsername} timeControl={gameData.timecontrol} isRated={gameData.pgn_info.is_rated == "rated"} colorPreference={gameData.pgn_info.gameid == 1 ? "random" : toggleUsers.orientation} supabase={supabase} />)}
 
                   {!isGameOver && (
                     <OfferDraw

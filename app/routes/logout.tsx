@@ -38,6 +38,7 @@ export default function Index() {
     } finally {
       localStorage.removeItem("auth");
       UserContext.setMemberRequest({});
+      UserContext.setMemberRequestForm({});
       navigate("/login");
     }
 

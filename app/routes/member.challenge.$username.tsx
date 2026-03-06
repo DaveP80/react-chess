@@ -344,6 +344,24 @@ export default function Index() {
             ))}
           </fieldset>
           {/* ---- COLOR PREFERENCE ---- */}
+          <input
+                  hidden
+                  name="isRated"
+                  value={isRated ? "true" : "false"}
+                />
+                <input hidden name="username" value={username} />
+                <input
+                  hidden
+                  name="memberData"
+                  value={JSON.stringify(
+                    GameContext.memberRequestForm.memberData,
+                  )}
+                />
+                <input
+                  hidden
+                  name="currentUserElo"
+                  value={JSON.stringify(PlayContext.rowData.rating)}
+                />
           <fieldset
             className="space-y-3"
             disabled={isSearching && !countdownExpired}
@@ -372,24 +390,7 @@ export default function Index() {
                   required
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                 />
-                <input
-                  hidden
-                  name="isRated"
-                  value={isRated ? "true" : "false"}
-                />
-                <input hidden name="username" value={username} />
-                <input
-                  hidden
-                  name="memberData"
-                  value={JSON.stringify(
-                    GameContext.memberRequestForm.memberData,
-                  )}
-                />
-                <input
-                  hidden
-                  name="currentUserElo"
-                  value={JSON.stringify(PlayContext.rowData.rating)}
-                />
+
                 <span className="text-sm font-medium text-gray-800">
                   {option.label}
                 </span>

@@ -35,5 +35,3 @@ coverage
 
 # Bolt (if using)
 .bolt
-
-supabase

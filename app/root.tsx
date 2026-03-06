@@ -48,7 +48,7 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
-  const { user, rowData, provider } = useLoaderData<typeof loader>();
+  const Root = useLoaderData<typeof loader>();
 
   return (
     <html lang="en">
@@ -60,9 +60,13 @@ export default function App() {
       </head>
       <body>
         <GlobalContextProvider>
-          <Navigation user={user} />
+          <Navigation user={Root?.user} />
           {/* GameRequestNotification handles its own websocket subscriptions internally */}
-          {user?.id && <GameRequestNotification userId={user.id} rowData={rowData} />}
+          {
+            Root && (
+              <GameRequestNotification userId={Root?.user?.id} rowData={Root?.rowData} />
+            )
+          }
           <Outlet />
         </GlobalContextProvider>
         <ScrollRestoration />

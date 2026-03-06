@@ -340,11 +340,7 @@ export function memberWonLossOrient(Data, username) {
   return orientation;
 }
 
-export async function makePGNInfoString(
-  gameData,
-  setpgnInfoString,
-  ECO
-) {
+export async function makePGNInfoString(gameData, setpgnInfoString, ECO) {
   if (gameData.pgn_info.result == "0-0") {
     return;
   }
@@ -378,7 +374,7 @@ export async function makePGNInfoString(
   });
   const gamePGNFile = tempGame.pgn();
   setpgnInfoString(gamePGNFile);
-};
+}
 
 export function copyDivContents(flag) {
   let divContent = document.querySelector(`.${flag || "NULL"}`)?.textContent;
@@ -445,7 +441,22 @@ export function generateMemberRequestFormObj(actionData) {
     tempObj.black_rating_info = memberRequestFormTempObj.black_rating_info;
   }
   return tempObj;
-};
+}
+
+export function generateRematchRequestFormObj(actionData) {
+  const { toggleUsers, finalGameData, gameData } = actionData;
+  const tempObj = {};
+  tempObj.white_username = gameData.white_username;
+  tempObj.black_username = gameData.black_username;
+  tempObj.white_rating_info = finalGameData?.result
+    ? finalGameData.whiteelo
+    : gameData.pgn_info.whiteelo;
+  tempObj.black_rating_info = finalGameData?.result
+    ? finalGameData.blackelo
+    : gameData.pgn_info.blackelo;
+  tempObj.currentUserElo = toggleUsers.orientation == "white" ? tempObj.white_rating_info : tempObj.black_rating_info;
+  return tempObj;
+}
 
 export function newUserGameDataReturnObject(newUserGameData, their_username) {
   if (!newUserGameData.length) return [];
@@ -455,19 +466,20 @@ export function newUserGameDataReturnObject(newUserGameData, their_username) {
     whiteidx = 1;
     blackidx = 0;
   }
-  return [{
-    white_username: newUserGameData[whiteidx].username,
-    black_username: newUserGameData[blackidx].username,
-    white_rating_info: newUserGameData[whiteidx].rating,
-    black_rating_info: newUserGameData[blackidx].rating,
-    white_isactive: newUserGameData[whiteidx].is_active,
-    black_isactive: newUserGameData[blackidx].is_active,
-    white_avatarurl: newUserGameData[whiteidx].avatarURL,
-    black_avatarurl: newUserGameData[blackidx].avatarURL,
-    white_created_at: newUserGameData[whiteidx].created_at,
-    black_created_at: newUserGameData[blackidx].created_at,
-    isNoGameData: true,
-    id: 1
-  }];
+  return [
+    {
+      white_username: newUserGameData[whiteidx].username,
+      black_username: newUserGameData[blackidx].username,
+      white_rating_info: newUserGameData[whiteidx].rating,
+      black_rating_info: newUserGameData[blackidx].rating,
+      white_isactive: newUserGameData[whiteidx].is_active,
+      black_isactive: newUserGameData[blackidx].is_active,
+      white_avatarurl: newUserGameData[whiteidx].avatarURL,
+      black_avatarurl: newUserGameData[blackidx].avatarURL,
+      white_created_at: newUserGameData[whiteidx].created_at,
+      black_created_at: newUserGameData[blackidx].created_at,
+      isNoGameData: true,
+      id: 1,
+    },
+  ];
 }
-

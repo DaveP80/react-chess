@@ -80,12 +80,13 @@ returns table (
   black_id uuid,
   username_a text,
   username_b text,
-  is_rated boolean
+  is_rated boolean,
+  is_random boolean
 )
 language sql
 security definer
 as $$
-SELECT id, gp.created_at, status, whiteelo, blackelo, timecontrol, white_id, black_id, u.username as username_a, ut.username as username_b, is_rated
+SELECT id, gp.created_at, status, whiteelo, blackelo, timecontrol, white_id, black_id, u.username as username_a, ut.username as username_b, is_rated, is_random
 FROM public.games_pairing gp left join users u on gp.white_id = u.u_id left join users ut on gp.black_id = ut.u_id
 WHERE (white_id = u_id_in::uuid OR black_id = u_id_in::uuid)
   AND gp.created_at >= NOW() - INTERVAL '60 seconds'
@@ -139,7 +140,8 @@ create or replace function public.insert_new_member_pairing_request (
   blackelo_f integer,
   u_id_in text,
   username_f text,
-  is_rated_f boolean
+  is_rated_f boolean,
+  is_random_f boolean
 ) RETURNS table (
   id bigint,
   created_at text,
@@ -150,8 +152,10 @@ create or replace function public.insert_new_member_pairing_request (
   blackelo bigint,
   timecontrol text,
   is_rated boolean,
-  turn text
-) LANGUAGE sql SECURITY DEFINER as $function$ INSERT INTO games_pairing (status, whiteelo, blackelo, timecontrol, white_id, black_id, is_rated) values ('pairing', whiteelo_f, blackelo_f, game_length, case when color_flag = 'white' then u_id_in::uuid else (select u_id from users where username = username_f limit 1) end, case when color_flag = 'black' then u_id_in::uuid else (select u_id from users where username = username_f limit 1) end, is_rated_f) returning *; $function$
+  turn text,
+  is_random boolean
+) LANGUAGE sql SECURITY DEFINER as $function$ INSERT INTO games_pairing (status, whiteelo, blackelo, timecontrol, white_id, black_id, is_rated, is_random) values ('pairing', whiteelo_f, blackelo_f, game_length, case when color_flag = 'white' then u_id_in::uuid else (select u_id from users where username = username_f limit 1) end,
+ case when color_flag = 'black' then u_id_in::uuid else (select u_id from users where username = username_f limit 1) end, is_rated_f, is_random_f) returning *; $function$
 
 
 create or replace function insert_new_random_pairing_request(timecontrol_f text, game_length text, u_id_in uuid, is_rated_f boolean)

@@ -14,13 +14,16 @@ export default function GlobalContextProvider({
 
   const [memberRequest, setMemberRequest] = useState<Record<string, any>>({});
   const [memberRequestForm, setMemberRequestForm] = useState<Record<string, any>>({});
+  const [memberRequestLock, setMemberRequestLock] = useState(false);
   return (
     <GlobalContext.Provider
       value={{
         memberRequest,
         setMemberRequest,
         memberRequestForm,
-        setMemberRequestForm
+        setMemberRequestForm,
+        memberRequestLock,
+        setMemberRequestLock
       }}
     >
       {children}
