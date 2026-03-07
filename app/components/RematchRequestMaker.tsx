@@ -1,11 +1,10 @@
-import { Form, useActionData, useNavigate, useNavigation, useRouteLoaderData } from "@remix-run/react";
+import { Form, useActionData, useNavigation } from "@remix-run/react";
 import { useContext, useEffect, useState } from "react";
 import { action as rematchRequestAction } from "~/actions/rematch_handler.server";
 import { GlobalContext } from "~/context/globalcontext";
-import { loader } from "~/root";
 import { generateRematchRequestFormObj } from "~/utils/helper";
-
-// Constants for countdown
+import { RotateCcw, Clock, Trophy, User } from "lucide-react";
+import RematchRequestNotification from "./RematchRequestNotification";
 
 export default function RematchRequestMaker({
   currentGameData,
@@ -13,20 +12,21 @@ export default function RematchRequestMaker({
   timeControl,
   isRated,
   colorPreference,
-  supabase,
+  abortMessage,
 }) {
   const actionData = useActionData<typeof rematchRequestAction>();
-  const [rematchRequest, setRematchRequest] = useState(null);
+  const [rematchRequest, setRematchRequest] = useState({});
+  const [showNotification, setShowNotification] = useState(false);
   const ActiveContext = useContext(GlobalContext);
   const navigation = useNavigation();
 
-  const isSubmitting = navigation.state == "submitting";
-
+  const isSubmitting = navigation.state === "submitting";
   const isDisabled = isSubmitting || actionData?.data?.[0]?.id;
+  const hasSentRequest = actionData?.go === true && rematchRequest?.ref === 1;
 
   // Handle successful form submission - start searching and countdown timer
   useEffect(() => {
-    if (actionData?.go == true) {
+    if (actionData?.go === true) {
       setRematchRequest((prev) => ({
         ...prev,
         actionData: actionData.data[0],
@@ -41,7 +41,7 @@ export default function RematchRequestMaker({
   useEffect(() => {
     const timer = setTimeout(() => {
       ActiveContext.setMemberRequestLock(false);
-    }, 180_000); // 180 seconds
+    }, 180_000);
 
     return () => {
       clearTimeout(timer);
@@ -50,54 +50,134 @@ export default function RematchRequestMaker({
 
   const RematchRequestMemberData =
     generateRematchRequestFormObj(currentGameData);
+    console.log(currentGameData);
 
-  return (
-    <div className="mx-auto max-w-lg px-4 py-10">
-      <main>
-        <h3>Send Rematch with: {username}</h3>
-        <Form
-          method="post"
-          className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
-        >
-          <input
-            name="timeControl"
-            value={timeControl}
-            required
-            hidden
-            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-          />
-          <input
-            name="colorPreference"
-            value={colorPreference}
-            required
-            hidden
-            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-          />
-          <input hidden name="isRated" value={isRated ? "true" : "false"} />
-          <input hidden name="username" value={username} />
-          <input
-            hidden
-            name="requestGameData"
-            value={JSON.stringify(RematchRequestMemberData)}
-          />
+  if (currentGameData.gameData?.is_analysis) {
+    return null;
+  } else if (currentGameData?.finalGameData?.pgn_info?.result || abortMessage.length > 0) {
+    return (
+      <div className="w-full max-w-sm">
+        <div className="rounded-xl border border-slate-700 bg-slate-800/90 shadow-xl overflow-hidden">
+          {/* Header accent */}
+          <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500" />
 
-          <button
-            type="submit"
-            disabled={isDisabled}
-            className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition focus:outline-none focus:ring-2 focus:ring-indigo-500/40 ${
-                isDisabled
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-indigo-600 hover:bg-indigo-700"
-            }`}
-          >
-            Send Rematch Request
-          </button>
+          <div className="p-4">
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-4">
+              <RotateCcw className="text-amber-400" size={20} />
+              <h3 className="text-white font-semibold">Rematch</h3>
+            </div>
 
-          {actionData?.error && (
-            <p className="text-sm text-red-600">{actionData.error}</p>
-          )}
-        </Form>
-      </main>
-    </div>
-  );
+            {/* Opponent info card */}
+            <div className="flex items-center gap-3 mb-4 rounded-lg bg-slate-700/50 p-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white">
+                {username?.charAt(0)?.toUpperCase() || "?"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate flex items-center gap-2">
+                  <User size={14} className="text-slate-400" />
+                  {username}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-slate-400 mt-1">
+                  <span className="flex items-center gap-1">
+                    <Clock size={12} />
+                    {timeControl}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Trophy size={12} />
+                    {isRated ? "Rated" : "Casual"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Notification area - shows when waiting for response or receiving request */}
+            <RematchRequestNotification
+              rematchRequest={rematchRequest}
+              setRematchRequest={setRematchRequest}
+              showNotification={showNotification}
+              setShowNotification={setShowNotification}
+            />
+
+            {/* Send rematch form - hide when notification is showing */}
+            {!showNotification && !hasSentRequest && (
+              <Form method="post">
+                <input name="timeControl" value={timeControl} required hidden />
+                <input
+                  name="colorPreference"
+                  value={colorPreference}
+                  required
+                  hidden
+                />
+                <input
+                  hidden
+                  name="isRated"
+                  value={isRated ? "true" : "false"}
+                />
+                <input hidden name="username" value={username} />
+                <input
+                  hidden
+                  name="requestGameData"
+                  value={JSON.stringify(RematchRequestMemberData)}
+                />
+
+                <button
+                  type="submit"
+                  disabled={isDisabled}
+                  className={`w-full flex items-center justify-center gap-2 rounded-lg px-4 py-3 
+                             text-sm font-semibold text-white shadow-sm transition-all
+                             focus:outline-none focus:ring-2 focus:ring-amber-500/40
+                             ${
+                               isDisabled
+                                 ? "bg-slate-600 cursor-not-allowed opacity-60"
+                                 : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:scale-[0.98]"
+                             }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw size={16} />
+                      Send Rematch Request
+                    </>
+                  )}
+                </button>
+
+                {actionData?.error && (
+                  <p className="mt-2 text-sm text-red-400 text-center">
+                    {actionData.error}
+                  </p>
+                )}
+              </Form>
+            )}
+
+            {/* Waiting indicator when request sent */}
+            {hasSentRequest && !showNotification && (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <div className="h-8 w-8 rounded-full border-2 border-amber-500/30" />
+                    <div className="absolute inset-0 h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-amber-400">
+                      Waiting for {username}...
+                    </p>
+                    <p className="text-xs text-amber-400/70 mt-0.5">
+                      Request expires in 3 minutes
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  } else {
+    return null;
+  }
 }

@@ -154,8 +154,8 @@ create or replace function public.insert_new_member_pairing_request (
   is_rated boolean,
   turn text,
   is_random boolean
-) LANGUAGE sql SECURITY DEFINER as $function$ INSERT INTO games_pairing (status, whiteelo, blackelo, timecontrol, white_id, black_id, is_rated, is_random) values ('pairing', whiteelo_f, blackelo_f, game_length, case when color_flag = 'white' then u_id_in::uuid else (select u_id from users where username = username_f limit 1) end,
- case when color_flag = 'black' then u_id_in::uuid else (select u_id from users where username = username_f limit 1) end, is_rated_f, is_random_f) returning *; $function$
+) LANGUAGE sql SECURITY DEFINER as $function$ INSERT INTO games_pairing (status, whiteelo, blackelo, timecontrol, white_id, black_id, is_rated, is_random) values ('pairing', whiteelo_f, blackelo_f, game_length, case when color_flag = 'white' then u_id_in::uuid else (select u_id from users where username = username_f  and "isActive" = false limit 1) end,
+ case when color_flag = 'black' then u_id_in::uuid else (select u_id from users where username = username_f and "isActive" = false limit 1) end, is_rated_f, is_random_f) returning *; $function$
 
 
 create or replace function insert_new_random_pairing_request(timecontrol_f text, game_length text, u_id_in uuid, is_rated_f boolean)

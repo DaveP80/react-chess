@@ -39,6 +39,7 @@ export default function Index() {
       localStorage.removeItem("auth");
       UserContext.setMemberRequest({});
       UserContext.setMemberRequestForm({});
+      UserContext.setMemberRequestLock(false);
       navigate("/login");
     }
 

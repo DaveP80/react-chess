@@ -446,16 +446,58 @@ export function generateMemberRequestFormObj(actionData) {
 export function generateRematchRequestFormObj(actionData) {
   const { toggleUsers, finalGameData, gameData } = actionData;
   const tempObj = {};
+  const [player_w, player_b] = generatePgnRatingsInserts(
+    finalGameData,
+    gameData,
+  );
   tempObj.white_username = gameData.white_username;
   tempObj.black_username = gameData.black_username;
-  tempObj.white_rating_info = finalGameData?.result
-    ? finalGameData.whiteelo
-    : gameData.pgn_info.whiteelo;
-  tempObj.black_rating_info = finalGameData?.result
-    ? finalGameData.blackelo
-    : gameData.pgn_info.blackelo;
-  tempObj.currentUserElo = toggleUsers.orientation == "white" ? tempObj.white_rating_info : tempObj.black_rating_info;
+  tempObj.white_rating_info = gameData.pgn_info.is_rated == "rated" ? player_w : gameData.pgn_info.whiteelo;
+  tempObj.black_rating_info = gameData.pgn_info.is_rated == "rated" ? player_b : gameData.pgn_info.blackelo;
+  tempObj.currentUserElo =
+    toggleUsers.orientation == "white"
+      ? tempObj.white_rating_info
+      : tempObj.black_rating_info;
   return tempObj;
+}
+
+function generatePgnRatingsInserts(finalGameData, gameData) {
+  if (finalGameData?.pgn_info?.result) {
+    let winner_insert;
+    switch (finalGameData.pgn_info.result) {
+      case "1-0": {
+        winner_insert = "white";
+        break;
+      }
+      case "0-1": {
+        winner_insert = "black";
+      }
+      case "1/2-1/2": {
+        winner_insert = "draw";
+        break;
+      }
+      case "0-0": {
+        winner_insert = "abort";
+        break;
+      }
+    }
+    // Don't run updateTablesOnGameOver for abort - already handled by dropTables
+    if (winner_insert === "abort") {
+      return [
+        finalGameData?.pgn_info?.whiteelo || gameData.pgn_info.whiteelo,
+        finalGameData?.pgn_info?.blackelo || gameData.pgn_info.blackelo,
+      ];
+    }
+
+    return EloEstimate({
+      white_elo: gameData.pgn_info.whiteelo,
+      black_elo: gameData.pgn_info.blackelo,
+      winner: winner_insert,
+      game_counts: [gameData.white_count, gameData.black_count],
+    });
+  } else {
+    return [gameData.pgn_info.whiteelo, gameData.pgn_info.blackelo];
+  }
 }
 
 export function newUserGameDataReturnObject(newUserGameData, their_username) {

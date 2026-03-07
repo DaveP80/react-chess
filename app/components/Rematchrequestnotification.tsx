@@ -1,32 +1,28 @@
 import { useEffect, useState, useRef, useCallback, useContext } from "react";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useNavigate, useRouteLoaderData } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import {
   getNewGamePairing,
   getNewMemberGamePairing,
-  handleInsertStartMemberGame,
+  handleInsertStartRematchGame,
   updateActiveUserStatus,
 } from "~/utils/game.client";
 import { GlobalContext } from "~/context/globalcontext";
 import { createNewGameTable } from "~/utils/supabase.gameplay";
-
-interface GameRequestNotificationProps {
-  userId: string;
-  rowData: any;
-}
+import { Check, Swords, X } from "lucide-react";
 
 export default function RematchRequestNotification({
-  userId,
-  rowData,
-}: GameRequestNotificationProps) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
+  rematchRequest,
+  setRematchRequest,
+  showNotification,
+  setShowNotification,
+}) {
   const [isProcessing, setIsProcessing] = useState(false);
   const dismissTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const Root = useLoaderData();
+  const Root = useRouteLoaderData("root");
   const navigate = useNavigate();
 
-  const GameContext = useContext(GlobalContext);
+  const ActiveContext = useContext(GlobalContext);
 
   // Use different supabase clients with unique configurations
   const supabase = createBrowserClient(
@@ -45,29 +41,26 @@ export default function RematchRequestNotification({
     { isSingleton: false },
   );
 
-  const isActive = rowData?.isActive;
-
   const dismiss = useCallback(() => {
-    setIsExiting(true);
+    setShowNotification(false);
     setTimeout(() => {
-      setIsVisible(false);
-      setIsExiting(false);
       setIsProcessing(false);
     }, 300);
     if (dismissTimerRef.current) {
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
     }
-  }, [GameContext]);
+  }, [setShowNotification]);
 
   const handleAccept = async () => {
-    if (!GameContext?.memberRequest?.actionData || !userId || isProcessing)
+    if (!rematchRequest?.actionData || !Root?.user?.id || isProcessing) {
       return;
+    }
 
     setIsProcessing(true);
     async function insertGameMovesGameNumber() {
       try {
-        const incomingData = GameContext?.memberRequest?.actionData;
+        const incomingData = rematchRequest?.actionData;
         console.log("Inserting game_moves with data:", incomingData);
 
         const { error: updateError } = await supabase
@@ -88,7 +81,7 @@ export default function RematchRequestNotification({
             pgn: [],
             pgn_info: {
               date: new Date().toISOString(),
-              gameid: 0,
+              gameid: rematchRequest.actionData.is_random ? 1 : 0,
               round: 1,
               white: incomingData.white_id,
               black: incomingData.black_id,
@@ -98,7 +91,7 @@ export default function RematchRequestNotification({
               blackelo: incomingData.blackelo,
               time_control: incomingData.timecontrol,
               is_rated: incomingData.is_rated ? "rated" : "unrated",
-              eco: ""
+              eco: "",
             },
             is_rated: incomingData.is_rated,
           })
@@ -156,7 +149,7 @@ export default function RematchRequestNotification({
       try {
         console.log("Looking up new game pairing...");
         let response = await getNewMemberGamePairing(
-          GameContext.memberRequest.actionData,
+          rematchRequest?.actionData,
           supabase,
         );
         console.log("getNewGamePairing response:", response);
@@ -164,7 +157,10 @@ export default function RematchRequestNotification({
         if (response?.go) {
           // Game found! Navigate to it
           console.log("Game found, updating user status and navigating...");
-          const update_res = await updateActiveUserStatus(userId, supabase);
+          const update_res = await updateActiveUserStatus(
+            Root?.user.id,
+            supabase,
+          );
           console.log("updateActiveUserStatus result:", update_res);
 
           if (update_res && update_res.go) {
@@ -177,9 +173,10 @@ export default function RematchRequestNotification({
           }
 
           // Clean up and navigate
-          GameContext.setMemberRequest({});
+          setRematchRequest({});
           dismiss();
-          navigate(`/game/${response?.data?.navigateId}`);
+          //navigate(`/game/${response?.data?.navigateId}`);
+          window.location.href = `/game/${response?.data?.navigateId}`;
         } else {
           console.log(
             "getNewGamePairing returned go: false, response:",
@@ -192,7 +189,10 @@ export default function RematchRequestNotification({
               "Attempting direct navigation with gameMoveId:",
               result.gameMoveId,
             );
-            const update_res = await updateActiveUserStatus(userId, supabase);
+            const update_res = await updateActiveUserStatus(
+              Root?.user?.id,
+              supabase,
+            );
             if (update_res && update_res.go) {
               localStorage.setItem(
                 "pgnInfo",
@@ -201,22 +201,27 @@ export default function RematchRequestNotification({
                 }),
               );
             }
-            GameContext.setMemberRequest({});
+            setRematchRequest({});
             dismiss();
-            navigate(`/game/${result.gameMoveId}`);
+            ActiveContext.setRematchRequestLock(false);
+            //navigate(`/game/${result.gameMoveId}`);
+            window.location.href = `/game/${result.gameMoveId}`;
           } else {
-            GameContext.setMemberRequest({});
+            setRematchRequest({});
             dismiss();
+            ActiveContext.setRematchRequestLock(false);
           }
         }
       } catch (error) {
         console.error("Error processing game navigation:", error);
-        GameContext.setMemberRequest({});
+        setRematchRequest({});
         dismiss();
+        ActiveContext.setRematchRequestLock(false);
       }
     } else {
       console.error("insertGameMovesGameNumber failed:", result);
-      GameContext.setMemberRequest({});
+      setRematchRequest({});
+      ActiveContext.setRematchRequestLock(false);
       dismiss();
     }
   };
@@ -224,31 +229,25 @@ export default function RematchRequestNotification({
   const handleReject = async () => {
     // TODO: Optionally delete the games_pairing row or mark it as rejected
     try {
-      async function deleteGamesPairing() {
-        try {
-          const { data, error } = await supabase
-            .from("games_pairing")
-            .delete()
-            .eq("id", GameContext?.memberRequest?.actionData?.id);
-        } catch (error) {
-          console.error("Error deleting games pairing:", error);
-        }
-      }
-      await deleteGamesPairing();
+      await supabase
+        .from("games_pairing")
+        .delete()
+        .eq("id", rematchRequest?.actionData?.id);
     } catch (error) {
       console.error("Error rejecting game request:", error);
     }
     dismiss();
-    GameContext.setMemberRequest({});
+    setRematchRequest({});
+    ActiveContext.setMemberRequestLock(false);
   };
 
   // Listen for new games_pairing inserts (incoming challenge requests)
   useEffect(() => {
-    if (!userId || isActive) return;
+    if (!Root?.user?.id) return;
 
     console.log(
       "Setting up games_pairing websocket listener for user:",
-      userId,
+      Root?.rowData?.username,
     );
 
     const channelPairing = supabaseRealtimePairing
@@ -262,16 +261,12 @@ export default function RematchRequestNotification({
           try {
             // Check if this pairing involves the current user as the challenged party
             // The current user should NOT be the one who created the request
-            if (
-              rowData &&
-              !rowData.isActive &&
-              !GameContext?.memberRequest?.actionData
-            ) {
+            if (!rematchRequest?.actionData) {
               console.log("Calling handleInsertStartMemberGame...");
-              const result = await handleInsertStartMemberGame(
+              const result = await handleInsertStartRematchGame(
                 supabase,
-                userId,
-                GameContext.setMemberRequest,
+                Root?.user.id,
+                setRematchRequest,
               );
               console.log("handleInsertStartMemberGame result:", result);
             }
@@ -280,7 +275,7 @@ export default function RematchRequestNotification({
               "Error processing games_pairing notification:",
               error,
             );
-            GameContext?.setMemberRequest({});
+            setRematchRequest({});
           }
         },
       )
@@ -296,18 +291,16 @@ export default function RematchRequestNotification({
       }
     };
   }, [
-    userId,
-    isActive,
-    rowData,
+    Root?.user?.id,
     supabase,
     supabaseRealtimePairing,
     dismiss,
-    GameContext,
+    rematchRequest,
   ]);
 
   // Listen for game_moves inserts (game actually started)
   useEffect(() => {
-    if (!userId || !GameContext?.memberRequest?.ref) return;
+    if (!supabaseRealtimeMoves) return;
 
     console.log("Setting up game_moves websocket listener");
 
@@ -318,10 +311,10 @@ export default function RematchRequestNotification({
         { event: "INSERT", schema: "public", table: "game_moves" },
         async (payload: any) => {
           try {
-            if (GameContext?.memberRequest?.actionData && userId) {
+            if (rematchRequest?.ref && Root?.user?.id) {
               console.log("Looking up new game pairing...");
               let response = getNewGamePairing(
-                GameContext.memberRequest.actionData,
+                rematchRequest.actionData,
                 payload,
               );
               console.log("getNewGamePairing response:", response);
@@ -329,7 +322,7 @@ export default function RematchRequestNotification({
               if (response?.go) {
                 // Game found! Navigate to it
                 const update_res = await updateActiveUserStatus(
-                  userId,
+                  Root?.user?.id,
                   supabase,
                 );
                 if (update_res && update_res.go) {
@@ -340,12 +333,15 @@ export default function RematchRequestNotification({
                     }),
                   );
                 }
-
                 // Clean up and navigate
-                GameContext.setMemberRequest({});
-                navigate(`/game/${response?.data?.navigateId}`);
+                setRematchRequest({});
+                setShowNotification(false);
+                ActiveContext.setMemberRequestLock(false);
+                //navigate(`/game/${response?.data?.navigateId}`);
+                window.location.href = `/game/${response?.data?.navigateId}`;
               } else {
-                GameContext.setMemberRequest({});
+                setRematchRequest({});
+                setShowNotification(false);
               }
             }
           } catch (error) {
@@ -361,13 +357,22 @@ export default function RematchRequestNotification({
       console.log("Cleaning up game_moves channel");
       supabaseRealtimeMoves.removeChannel(channelMoves);
     };
-  }, [userId, supabase, supabaseRealtimeMoves, navigate, GameContext]);
+  }, [
+    Root?.user.id,
+    supabase,
+    supabaseRealtimeMoves,
+    navigate,
+    rematchRequest,
+  ]);
 
   // Show notification when memberRequest.actionData is set
   useEffect(() => {
-    if (GameContext?.memberRequest?.actionData && !isVisible) {
-      setIsVisible(true);
-      setIsExiting(false);
+    if (
+      rematchRequest?.actionData &&
+      !rematchRequest?.ref &&
+      !showNotification
+    ) {
+      setShowNotification(true);
 
       // Auto-dismiss after 60 seconds
       if (dismissTimerRef.current) {
@@ -375,136 +380,102 @@ export default function RematchRequestNotification({
       }
       dismissTimerRef.current = setTimeout(() => {
         dismiss();
-      }, 60000);
+      }, 180000);
     }
-  }, [GameContext?.memberRequest?.actionData, isVisible, dismiss]);
+  }, [rematchRequest?.actionData, showNotification, dismiss]);
 
   // Don't render if no actionData or not visible
   if (
-    !isVisible ||
-    !GameContext?.memberRequest?.actionData ||
-    GameContext?.memberRequest?.ref == 1
-  )
+    !showNotification ||
+    !rematchRequest?.actionData ||
+    rematchRequest?.ref == 1
+  ) {
     return null;
-
-  const actionData = GameContext.memberRequest.actionData;
-  const timeControl = actionData?.timecontrol || "unknown";
-  const isRated = actionData?.is_rated;
+  }
   const opponentName =
-    GameContext?.memberRequest?.actionData.username_a == rowData?.username
-      ? GameContext?.memberRequest?.actionData.username_b
-      : GameContext?.memberRequest?.actionData?.username_a;
-
+    rematchRequest.actionData.username_a === Root?.rowData?.username
+      ? rematchRequest.actionData.username_b
+      : rematchRequest.actionData.username_a;
   return (
-    <div
-      className={`fixed top-20 right-4 z-50 w-80 transition-all duration-300 ease-out ${
-        isExiting ? "translate-x-full opacity-0" : "translate-x-0 opacity-100"
-      }`}
-    >
-      <div className="rounded-xl border border-slate-700 bg-slate-800 shadow-2xl overflow-hidden">
-        {/* Top accent bar */}
-        <div className="h-1 bg-gradient-to-r from-emerald-500 via-blue-500 to-emerald-500" />
+    <div className="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-3">
+        <Swords className="text-emerald-400" size={18} />
+        <p className="text-sm font-semibold text-emerald-400">
+          Rematch Challenge!
+        </p>
+      </div>
 
-        {/* Content */}
-        <div className="p-4">
-          {/* Header */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xl">♟️</span>
-            <p className="text-sm font-semibold text-white">Game Challenge</p>
-            {isRated && (
-              <span className="ml-auto inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-400">
-                Rated
-              </span>
-            )}
-          </div>
+      {/* Challenger info */}
+      <div className="flex items-center gap-3 mb-4 rounded-lg bg-slate-700/50 p-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-bold text-white">
+          {opponentName?.charAt(0)?.toUpperCase() || "?"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white truncate">
+            {opponentName}
+          </p>
+          <p className="text-xs text-slate-400">wants a rematch</p>
+        </div>
+      </div>
 
-          {/* Opponent info */}
-          <div className="flex items-center gap-3 mb-3 rounded-lg bg-slate-700/50 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-sm font-bold text-white">
-              {opponentName?.charAt(0)?.toUpperCase() || "?"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {opponentName}
-              </p>
-              <p className="text-xs text-slate-400">
-                {timeControl} • {isRated ? "Rated" : "Casual"}
-              </p>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={handleAccept}
-              disabled={isProcessing}
-              className={`flex-1 flex items-center justify-center gap-2 rounded-lg 
-                         px-4 py-2.5 text-sm font-semibold text-white shadow-sm 
-                         transition-all active:scale-95
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={handleAccept}
+          disabled={isProcessing}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 
+                     text-sm font-semibold text-white shadow-sm transition-all active:scale-[0.98]
                          ${
                            isProcessing
                              ? "bg-emerald-800 cursor-wait"
-                             : "bg-emerald-600 hover:bg-emerald-500 hover:shadow-md"
+                             : "bg-emerald-600 hover:bg-emerald-500"
                          }`}
-            >
-              {isProcessing ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Accept
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleReject}
-              disabled={isProcessing}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-red-600 
+        >
+          {isProcessing ? (
+            <>
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Starting...
+            </>
+          ) : (
+            <>
+              <Check size={16} />
+              Accept
+            </>
+          )}
+        </button>
+        <button
+          onClick={handleReject}
+          disabled={isProcessing}
+          className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-slate-600 
                          px-4 py-2.5 text-sm font-semibold text-white shadow-sm 
-                         transition-all hover:bg-red-500 hover:shadow-md 
-                         active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              Reject
-            </button>
-          </div>
-        </div>
-
-        {/* Auto-dismiss progress bar */}
-        <div className="h-1 bg-slate-700">
-          <div
-            className="h-full bg-slate-500 animate-shrink-width"
-            style={{ animationDuration: "60s" }}
-          />
-        </div>
+                     transition-all hover:bg-slate-500 active:scale-[0.98]
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <X size={16} />
+          Decline
+        </button>
       </div>
+
+      {/* Timer indicator */}
+      <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-slate-700">
+        <div
+          className="h-full bg-emerald-500 rounded-full"
+          style={{
+            animation: "shrink-width 180s linear forwards",
+          }}
+        />
+      </div>
+      <p className="text-xs text-slate-500 text-center mt-1">
+        Expires in 3 minutes
+      </p>
+
+      <style>{`
+        @keyframes shrink-width {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
     </div>
   );
 }

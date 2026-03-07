@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { EloEstimate, processIncomingPgn } from "~/utils/helper";
 import { playGameEndSound } from "~/utils/sounds";
 import { updateTablesOnGameOver } from "~/utils/supabase.gameplay";
@@ -12,28 +12,49 @@ export default function UpdateTablesGameEnd({
   activeGame,
   currentOpening,
 }) {
+  // Track whether we've already played the game end sound for this game
+  const soundPlayedRef = useRef<boolean>(false);
+  // Track the game ID to reset the ref if we navigate to a different game
+  const gameIdRef = useRef<number | null>(null);
+
   useEffect(() => {
-    if (finalGameData?.pgn_info?.result && orientation && currentOpening) {
+    if (finalGameData?.pgn_info?.result && orientation) {
+      // Reset sound played flag if this is a different game
+      if (gameIdRef.current !== gameData?.id) {
+        gameIdRef.current = gameData?.id;
+        soundPlayedRef.current = false;
+      }
+
       try {
         let winner_insert;
         switch (finalGameData.pgn_info.result) {
           case "1-0": {
             winner_insert = "white";
-            orientation == "white"
-              ? playGameEndSound("Victory")
-              : playGameEndSound("Loss");
+            // Only play sound if it hasn't been played yet for this game
+            if (!soundPlayedRef.current) {
+              soundPlayedRef.current = true;
+              orientation == "white"
+                ? playGameEndSound("Victory")
+                : playGameEndSound("Loss");
+            }
             break;
           }
           case "0-1": {
             winner_insert = "black";
-            orientation == "black"
-              ? playGameEndSound("Victory")
-              : playGameEndSound("Victory");
+            if (!soundPlayedRef.current) {
+              soundPlayedRef.current = true;
+              orientation == "black"
+                ? playGameEndSound("Victory")
+                : playGameEndSound("Loss");
+            }
             break;
           }
           case "1/2-1/2": {
             winner_insert = "draw";
-            playGameEndSound("Draw");
+            if (!soundPlayedRef.current) {
+              soundPlayedRef.current = true;
+              playGameEndSound("Draw");
+            }
             break;
           }
           case "0-0": {
@@ -66,17 +87,7 @@ export default function UpdateTablesGameEnd({
             supabase,
             gameData.game_id,
             gameData.game_id_b,
-            {
-              ...finalGameData?.pgn_info,
-              whiteelo:
-                gameData.pgn_info.is_rated == "rated"
-                  ? player_w
-                  : gameData.pgn_info.whiteelo,
-              blackelo:
-                gameData.pgn_info.is_rated == "rated"
-                  ? player_b
-                  : gameData.pgn_info.blackelo,
-            },
+            finalGameData.pgn_info,
             finalGameData?.pgn,
             gameData.pgn_info.white,
             gameData.pgn_info.black,
@@ -88,7 +99,7 @@ export default function UpdateTablesGameEnd({
               : gameData.pgn_info.blackelo,
             gameData.timecontrol,
             gameData.id,
-            currentOpening.eco,
+            currentOpening?.eco || "",
           );
         };
       } catch (error) {

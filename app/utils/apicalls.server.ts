@@ -252,15 +252,14 @@ select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_
     if (error) {
       return {
         go: false,
-        message: "error on exucute_sql rpc function"
-      }
+        message: "error on exucute_sql rpc function",
+      };
     } else if (!data) {
       return {
         go: false,
-        message: "possibly dropped game_number_x table"
-      }
-    }
-    else {
+        message: "possibly dropped game_number_x table",
+      };
+    } else {
       return {
         go: true,
         message: `retrieved game data on id: ${id}`,
@@ -305,10 +304,10 @@ select id, created_at, status, timecontrol, whiteelo, blackelo, white_id, black_
       return {
         go: true,
         message: `retrieved game data on id: ${id}`,
-        data: data[0],
+        data: { ...data[0], is_analysis: true },
       };
     }
   } catch (error) {
     return redirect("/myhome");
   }
-};
+}
