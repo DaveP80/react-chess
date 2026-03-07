@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useContext } from "react";
-import { useLoaderData, useNavigate } from "@remix-run/react";
+import { useLoaderData, useLocation, useNavigate } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import {
   getNewGamePairing,
@@ -25,6 +25,7 @@ export default function GameRequestNotification({
   const dismissTimerRef = useRef<NodeJS.Timeout | null>(null);
   const Root = useLoaderData();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const GameContext = useContext(GlobalContext);
 
@@ -58,7 +59,8 @@ export default function GameRequestNotification({
       clearTimeout(dismissTimerRef.current);
       dismissTimerRef.current = null;
     }
-  }, [GameContext]);
+    //possibly add GameContext back to dependency array
+  }, []);
 
   const handleAccept = async () => {
     if (!GameContext?.memberRequest?.actionData || !userId || isProcessing)
@@ -180,7 +182,7 @@ export default function GameRequestNotification({
           // Clean up and navigate
           GameContext.setMemberRequest({});
           dismiss();
-          navigate(`/game/${response?.data?.navigateId}`);
+          navigateToGame(response?.data?.navigateId);
         } else {
           console.log(
             "getNewGamePairing returned go: false, response:",
@@ -204,7 +206,7 @@ export default function GameRequestNotification({
             }
             GameContext.setMemberRequest({});
             dismiss();
-            navigate(`/game/${result.gameMoveId}`);
+            navigateToGame(result.gameMoveId);
           } else {
             GameContext.setMemberRequest({});
             dismiss();
@@ -306,7 +308,7 @@ export default function GameRequestNotification({
     supabase,
     supabaseRealtimePairing,
     dismiss,
-    GameContext,
+    GameContext.memberRequest,
   ]);
 
   // Listen for game_moves inserts (game actually started)
@@ -323,7 +325,7 @@ export default function GameRequestNotification({
         { event: "INSERT", schema: "public", table: "game_moves" },
         async (payload: any) => {
           try {
-            if (GameContext?.memberRequest?.actionData && userId) {
+            if (GameContext?.memberRequest?.ref && userId) {
               console.log("Looking up new game pairing...");
               let response = getNewGamePairing(
                 GameContext.memberRequest.actionData,
@@ -347,7 +349,7 @@ export default function GameRequestNotification({
                 }
                 // Clean up and navigate
                 GameContext.setMemberRequest({});
-                navigate(`/game/${response?.data?.navigateId}`);
+                navigateToGame(response?.data?.navigateId);
               } else {
                 GameContext.setMemberRequest({});
               }
@@ -365,11 +367,11 @@ export default function GameRequestNotification({
       console.log("Cleaning up game_moves channel");
       supabaseRealtimeMoves.removeChannel(channelMoves);
     };
-  }, [userId, supabase, supabaseRealtimeMoves, navigate, GameContext]);
+  }, [userId, supabase, supabaseRealtimeMoves, GameContext.memberRequest]);
 
   // Show notification when memberRequest.actionData is set
   useEffect(() => {
-    if (GameContext?.memberRequest?.actionData && !isVisible) {
+    if ((GameContext?.memberRequest?.actionData && !GameContext.memberRequest.ref) && !isVisible) {
       setIsVisible(true);
       setIsExiting(false);
 
@@ -382,6 +384,18 @@ export default function GameRequestNotification({
       }, 60000);
     }
   }, [GameContext?.memberRequest?.actionData, isVisible, dismiss]);
+
+  const navigateToGame = (gameId: string | number) => {
+    const isOnGameRoute = location.pathname.startsWith("/game/");
+    
+    if (isOnGameRoute) {
+      // Hard refresh when already on a game route
+      window.location.href = `/game/${gameId}`;
+    } else {
+      // Soft navigate when coming from other routes
+      navigate(`/game/${gameId}`);
+    }
+  };
 
   // Don't render if no actionData or not visible
   if (

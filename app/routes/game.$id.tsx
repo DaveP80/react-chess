@@ -1,7 +1,18 @@
-import { useEffect, useState, useRef, useCallback, useMemo, useContext } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  useContext,
+} from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
-import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
+import type {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  MetaFunction,
+} from "@remix-run/node";
 import {
   ChevronsLeft,
   ChevronLeft,
@@ -159,10 +170,10 @@ export default function Index() {
     clearCountdownTimer();
     await dropTablesGameNumberGameMoves(supabase, gameData.id, gameData);
     setAbortMessage("Game Aborted.");
-    
+
     localStorage.removeItem("pgnInfo");
   }, [supabase, gameData, clearCountdownTimer]);
-  
+
   // Handle manual abort by white player
   const handleAbortGame = useCallback(async () => {
     if (abortCalledRef.current) {
@@ -368,11 +379,11 @@ export default function Index() {
                   localStorage.removeItem("pgnInfo");
                 })
                 .catch(console.error);
-              }
-            } else {
-              // Black player just shows message
-              setAbortMessage("Game Aborted.");
-              ActiveContext.setMemberRequestLock(true);
+            }
+          } else {
+            // Black player just shows message
+            setAbortMessage("Game Aborted.");
+            ActiveContext.setMemberRequestLock(true);
             localStorage.removeItem("pgnInfo");
           }
         } else {
@@ -845,7 +856,7 @@ export default function Index() {
   const showCountdown = countdown !== null && countdown > 0 && !abortMessage;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" key={gameData?.id || 0}>
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
@@ -885,7 +896,24 @@ export default function Index() {
                       Resign
                     </button>
                   )}
-                  {((finalGameData?.pgn_info?.result || abortMessage) && !gameData?.is_analysis) && (<RematchRequestMaker currentGameData={{toggleUsers, finalGameData, gameData}} username={toggleUsers.oppUsername} timeControl={gameData.timecontrol} isRated={gameData.pgn_info.is_rated == "rated"} colorPreference={gameData.pgn_info.gameid == 1 ? "random" : toggleUsers.orientation} supabase={supabase} />)}
+                  {(finalGameData?.pgn_info?.result || abortMessage) &&
+                    !gameData?.is_analysis && (
+                      <RematchRequestMaker
+                        currentGameData={{
+                          toggleUsers,
+                          finalGameData,
+                          gameData,
+                        }}
+                        username={toggleUsers.oppUsername}
+                        timeControl={gameData.timecontrol}
+                        isRated={gameData.pgn_info.is_rated == "rated"}
+                        colorPreference={
+                          gameData.pgn_info.gameid == 1
+                            ? "random"
+                            : toggleUsers.orientation
+                        }
+                      />
+                    )}
 
                   {!isGameOver && (
                     <OfferDraw

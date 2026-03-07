@@ -255,6 +255,43 @@ export async function handleInsertStartMemberGame(
   }
 };
 
+export async function handleInsertStartRematchGame(
+  supabase: any,
+  userId: any,
+  setRematchRequest: (prev: any) => {}
+) {
+  //to determine game_id to use in foreign key.
+  try {
+    const { data: supData, error: error_a } = await supabase.rpc(
+      `get_member_pairing_by_id`,
+      { u_id_in: userId }
+    );
+    if (error_a) {
+      return {
+        error: error_a,
+        message: "error on: get_member_pairing_by_id",
+        ok: false,
+      };
+    }
+    //throws error if duplicate game entry.
+    //only continue if the user is the first to request a game.
+    //TODO: more infmation needed to enter on game_moves table.
+    if (supData && !supData.length) {
+      return { ok: false, message: "no games_pairing data on user id." };
+    }
+    setRematchRequest((prev: Record<string, any>) => ({
+      ...prev,
+      actionData: supData[0],
+    }));
+  } catch (error) {
+    return {
+      go: false,
+      error,
+      message: "unknown supabase error on handleInsertStartMemberGame",
+    };
+  }
+};
+
 export async function updateActiveUserStatus(userId: any, supabase: any) {
   try {
     const { data, error } = await supabase
