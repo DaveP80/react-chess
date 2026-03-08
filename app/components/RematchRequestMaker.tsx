@@ -2,7 +2,10 @@ import { Form, useActionData, useNavigation } from "@remix-run/react";
 import { useContext, useEffect, useState } from "react";
 import { action as rematchRequestAction } from "~/actions/rematch_handler.server";
 import { GlobalContext } from "~/context/globalcontext";
-import { generateRematchRequestFormObj } from "~/utils/helper";
+import {
+  generateRematchRequestFormObj,
+  resolveRematchComponent,
+} from "~/utils/helper";
 import { RotateCcw, Clock, Trophy, User } from "lucide-react";
 import RematchRequestNotification from "./RematchRequestNotification";
 
@@ -39,22 +42,39 @@ export default function RematchRequestMaker({
   }, [actionData]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      ActiveContext.setMemberRequestLock(false);
-    }, 180_000);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const gameEnded =
+      currentGameData?.finalGameData?.pgn_info?.result ||
+      abortMessage.length > 0;
+
+    // Only set the timeout if game ended AND we haven't already started the timeout
+    if (gameEnded && !ActiveContext.rematchTimeoutStarted) {
+      // Mark that we've started the timeout (persists across remounts)
+      ActiveContext.setRematchTimeoutStarted(true);
+
+      let seconds_diff = 0;
+      resolveRematchComponent(currentGameData, seconds_diff, abortMessage);
+
+      timer = setTimeout(() => {
+        ActiveContext.setMemberRequestLock(false);
+      }, 180_000 - seconds_diff);
+    }
 
     return () => {
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     };
-  }, []);
+  }, [currentGameData.finalGameData, abortMessage]);
 
   const RematchRequestMemberData =
     generateRematchRequestFormObj(currentGameData);
-    console.log(currentGameData);
 
   if (currentGameData.gameData?.is_analysis) {
     return null;
-  } else if (currentGameData?.finalGameData?.pgn_info?.result || abortMessage.length > 0) {
+  } else if (
+    currentGameData?.finalGameData?.pgn_info?.result ||
+    abortMessage.length > 0
+  ) {
     return (
       <div className="w-full max-w-sm">
         <div className="rounded-xl border border-slate-700 bg-slate-800/90 shadow-xl overflow-hidden">

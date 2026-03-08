@@ -247,7 +247,7 @@ export default function GameRequestNotification({
 
   // Listen for new games_pairing inserts (incoming challenge requests)
   useEffect(() => {
-    if (!supabaseRealtimePairing) {
+    if (!supabaseRealtimePairing || !Root?.user?.id) {
       return () => {
         if (dismissTimerRef.current) {
           clearTimeout(dismissTimerRef.current);
@@ -313,7 +313,7 @@ export default function GameRequestNotification({
 
   // Listen for game_moves inserts (game actually started)
   useEffect(() => {
-    if (!supabaseRealtimeMoves) {
+    if (!supabaseRealtimeMoves || !Root?.user?.id) {
       return () => { false; }
       };
     console.log("Setting up game_moves websocket listener");

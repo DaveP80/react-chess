@@ -524,4 +524,12 @@ export function newUserGameDataReturnObject(newUserGameData, their_username) {
       id: 1,
     },
   ];
+};
+
+export function resolveRematchComponent(currentGameData, seconds_diff, abortMessage) {
+  if (abortMessage.length > 0) return;
+  const currGamePgn = currentGameData.finalGameData.pgn;
+  const lastEntry = parsePgnEntry(currGamePgn[currGamePgn.length - 1]);
+  const currentTime = new Date().toISOString();
+  seconds_diff = Math.abs(new Date(currentTime) - new Date(lastEntry.timestamp));
 }
