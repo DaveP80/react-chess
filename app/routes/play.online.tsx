@@ -9,9 +9,10 @@ import {
   useRouteLoaderData,
 } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import LobbySection from "~/components/LobbySection";
 import { RatedGameSwitch } from "~/components/RatedGameSwitch";
+import { GlobalContext } from "~/context/globalcontext";
 import { LobbyItem } from "~/types";
 import { gamesNewRequestOnUserColor } from "~/utils/action.server";
 import {
@@ -99,6 +100,7 @@ export default function Index() {
   const [isSearching, setIsSearching] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [countdownExpired, setCountdownExpired] = useState(false);
+  const ActiveContext = useContext(GlobalContext);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const supabase = createBrowserClient(

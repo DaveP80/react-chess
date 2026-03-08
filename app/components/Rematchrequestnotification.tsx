@@ -279,6 +279,27 @@ export default function RematchRequestNotification({
           }
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "games_pairing" },
+        (payload: any) => {
+          console.log("games_pairing DELETE received:", payload);
+
+          // Check if the deleted row matches our pending rematch request
+          const deletedRow = payload.old;
+          if (
+            rematchRequest?.actionData?.id &&
+            deletedRow?.id === rematchRequest.actionData.id &&
+            rematchRequest?.ref
+          ) {
+            console.log("Our rematch request was declined, resetting state...");
+
+            // Reset the rematch request state so the form shows again
+            setRematchRequest({});
+            setShowNotification(false);
+          }
+        },
+      )
       .subscribe((status) => {
         console.log("games_pairing channel status:", status);
       });

@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import React, { useContext, useEffect, useRef } from "react";
+import { GlobalContext } from "~/context/globalcontext";
 import { EloEstimate, processIncomingPgn } from "~/utils/helper";
 import { playGameEndSound } from "~/utils/sounds";
 import { updateTablesOnGameOver } from "~/utils/supabase.gameplay";
@@ -16,6 +17,7 @@ export default function UpdateTablesGameEnd({
   const soundPlayedRef = useRef<boolean>(false);
   // Track the game ID to reset the ref if we navigate to a different game
   const gameIdRef = useRef<number | null>(null);
+  const ActiveGame = useContext(GlobalContext);
 
   useEffect(() => {
     if (finalGameData?.pgn_info?.result && orientation) {
@@ -82,7 +84,7 @@ export default function UpdateTablesGameEnd({
         ) {
           if (gameData.status == "end") {
             return;
-          }
+          };
           updateTablesOnGameOver(
             supabase,
             gameData.game_id,
@@ -101,6 +103,8 @@ export default function UpdateTablesGameEnd({
             gameData.id,
             currentOpening?.eco || "",
           );
+          //disable getting new incoming game requests, until rematch is resolved.
+          ActiveGame.setMemberRequestLock(true);
         };
       } catch (error) {
         console.error(error);

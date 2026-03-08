@@ -37,9 +37,7 @@ export default function Index() {
       console.error(error);
     } finally {
       localStorage.removeItem("auth");
-      UserContext.setMemberRequest({});
-      UserContext.setMemberRequestForm({});
-      UserContext.setMemberRequestLock(false);
+      UserContext.resetContext();
       navigate("/login");
     }
 

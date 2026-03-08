@@ -170,7 +170,6 @@ export default function Index() {
     clearCountdownTimer();
     await dropTablesGameNumberGameMoves(supabase, gameData.id, gameData);
     setAbortMessage("Game Aborted.");
-
     localStorage.removeItem("pgnInfo");
   }, [supabase, gameData, clearCountdownTimer]);
 
@@ -395,7 +394,7 @@ export default function Index() {
 
   // Websocket subscription
   useEffect(() => {
-    if (gameData?.is_analysis) {
+    if (gameData?.is_analysis || gameData?.status == "end") {
       return;
     }
     const channel = supabase2
@@ -513,6 +512,7 @@ export default function Index() {
                       white_username: gameData.white_username,
                       black_username: gameData.black_username,
                     });
+                    ActiveContext.setMemberRequestLock(true);
                     switch (endGameData.result) {
                       case "1-0": {
                         if (endGameData.termination.includes("resignation")) {
