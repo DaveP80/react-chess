@@ -16,7 +16,7 @@ import { GlobalContext } from "~/context/globalcontext";
 import { LobbyItem } from "~/types";
 import { gamesNewRequestOnUserColor } from "~/utils/action.server";
 import {
-  getNewGamePairing,
+  getNewGamePairingWithPolling,
   handleInsertedNewGame,
   updateActiveUserStatus,
 } from "~/utils/game.client";
@@ -115,14 +115,12 @@ export default function Index() {
   );
   const supabase3 = createBrowserClient(
     PlayContext?.VITE_SUPABASE_URL,
-    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
   );
   const supabase4 = createBrowserClient(
     PlayContext?.VITE_SUPABASE_URL,
-    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY
+    PlayContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
   );
-
-  
 
   // Clear countdown timer
   const clearCountdownTimer = useCallback(() => {
@@ -219,7 +217,6 @@ export default function Index() {
                 actionData?.data[0].is_rated,
               );
             }
-
           }
         },
       )
@@ -232,9 +229,13 @@ export default function Index() {
         { event: "*", schema: "public", table: "game_moves" },
         async (payload: { eventType: string }) => {
           if (payload.eventType === "INSERT") {
-
             if (actionData?.data && userId) {
-              let response = getNewGamePairing(actionData.data[0], payload);
+              //make sure game_moves and game_number_id is synced.
+              let response = await getNewGamePairingWithPolling(
+                actionData.data[0],
+                payload,
+                supabase3,
+              );
 
               if (response?.go) {
                 // Game found! Clear timer and stop searching

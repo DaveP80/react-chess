@@ -69,12 +69,17 @@ export default function RematchRequestMaker({
   const RematchRequestMemberData =
     generateRematchRequestFormObj(currentGameData);
 
-  if (currentGameData.gameData?.is_analysis) {
+  if (currentGameData.gameData?.status == "end") {
     return null;
   } else if (
     currentGameData?.finalGameData?.pgn_info?.result ||
     abortMessage.length > 0
   ) {
+    if (rematchRequest?.ref) {
+      username = rematchRequest.actionData.username;
+      timeControl = rematchRequest.actionData.timecontrol;
+      isRated = rematchRequest.actionData.is_rated;
+    };
     return (
       <div className="w-full max-w-sm">
         <div className="rounded-xl border border-slate-700 bg-slate-800/90 shadow-xl overflow-hidden">
@@ -122,23 +127,25 @@ export default function RematchRequestMaker({
             {/* Send rematch form - hide when notification is showing */}
             {!showNotification && !hasSentRequest && (
               <Form method="post">
-                <input name="timeControl" value={timeControl} required hidden />
+                <input name="timeControl" value={timeControl} hidden readOnly/>
                 <input
                   name="colorPreference"
                   value={colorPreference}
-                  required
                   hidden
+                  readOnly
                 />
                 <input
                   hidden
                   name="isRated"
                   value={isRated ? "true" : "false"}
+                  readOnly
                 />
-                <input hidden name="username" value={username} />
+                <input hidden name="username" value={username} readOnly/>
                 <input
                   hidden
                   name="requestGameData"
                   value={JSON.stringify(RematchRequestMemberData)}
+                  readOnly
                 />
 
                 <button
@@ -184,7 +191,7 @@ export default function RematchRequestMaker({
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-medium text-amber-400">
-                      Waiting for {username}...
+                      Waiting for {username || "opponent"}...
                     </p>
                     <p className="text-xs text-amber-400/70 mt-0.5">
                       Request expires in 3 minutes

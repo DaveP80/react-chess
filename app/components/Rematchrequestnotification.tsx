@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useContext } from "react";
 import { useNavigate, useRouteLoaderData } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import {
-  getNewGamePairing,
+  getNewGamePairingWithPolling,
   getNewMemberGamePairing,
   handleInsertStartRematchGame,
   updateActiveUserStatus,
@@ -297,6 +297,7 @@ export default function RematchRequestNotification({
             // Reset the rematch request state so the form shows again
             setRematchRequest({});
             setShowNotification(false);
+            ActiveContext.setMemberRequestLock(false);
           }
         },
       )
@@ -334,11 +335,11 @@ export default function RematchRequestNotification({
           try {
             if (rematchRequest?.ref && Root?.user?.id) {
               console.log("Looking up new game pairing...");
-              let response = getNewGamePairing(
+              let response = await getNewGamePairingWithPolling(
                 rematchRequest.actionData,
                 payload,
+                supabase,
               );
-              console.log("getNewGamePairing response:", response);
 
               if (response?.go) {
                 // Game found! Navigate to it

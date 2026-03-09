@@ -126,6 +126,7 @@ export default function Index() {
   // Store orientation in a ref so interval callback always has current value
   const isWhitePlayerRef = useRef<boolean>(false);
   const { data: gameData } = useLoaderData<typeof loader>();
+
   const navigate = useNavigate();
 
   const [initialTime, increment] = parseTimeControl(
@@ -185,7 +186,7 @@ export default function Index() {
 
   // Setup toggleUsers when gameData loads
   useEffect(() => {
-    if (gameData) {
+    if (gameData?.id) {
       const [game_length, timeControl] = timeControlReducer(
         gameData?.timecontrol || "",
       );
@@ -329,15 +330,14 @@ export default function Index() {
         setDraw("");
       }
     }
-
     return () => {};
   }, [gameData]);
 
   // Start countdown when toggleUsers is set and game hasn't started
   useEffect(() => {
     if (
-      gameData &&
-      !gameData.pgn_info.result &&
+      gameData?.pgn_info &&
+      !gameData?.pgn_info?.result &&
       activeGame.history().length === 0 &&
       toggleUsers.toggle &&
       toggleUsers.orientation &&
@@ -389,6 +389,35 @@ export default function Index() {
           setCountdown(currentCount);
         }
       }, 1000);
+
+      if (!isWhite) {
+        setTimeout(() => {}, 400);
+        const pollInterval = setInterval(async () => {
+          if (!countdownIntervalRef.current) {
+            clearInterval(pollInterval);
+            return;
+          }
+          const { data, error } = await supabase
+            .from(`game_number_${gameData.id}`)
+            .select("id")
+            .eq("id", gameData.id)
+            .single();
+
+          // If error or no data, white has aborted
+          if (error || !data) {
+            clearInterval(pollInterval);
+            clearInterval(countdownIntervalRef.current!);
+            countdownIntervalRef.current = null;
+            clearCountdownTimer();
+            setCountdown(0);
+            setAbortMessage("Game Aborted.");
+            localStorage.removeItem("pgnInfo");
+            ActiveContext.setMemberRequestLock(true);
+            return;
+            // ... cleanup
+          }
+        }, 400);
+      }
     }
   }, [gameData, activeGame, toggleUsers, abortMessage, supabase]);
 
@@ -402,162 +431,154 @@ export default function Index() {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "UPDATE",
           schema: "public",
           table: `game_number_${gameData?.id || "0"}`,
         },
         async (payload: { eventType: string }) => {
-          if (payload.eventType === "UPDATE") {
-            try {
-              const data = payload?.new;
-              if (data) {
-                const newMovePgn = data.pgn;
-                const arrayLength = newMovePgn.length;
+          try {
+            const data = payload?.new;
+            if (data) {
+              const newMovePgn = data.pgn;
+              const arrayLength = newMovePgn.length;
 
-                if (arrayLength > 0) {
-                  const lastEntry = parsePgnEntry(
-                    newMovePgn[newMovePgn.length - 1],
-                  );
+              if (arrayLength > 0) {
+                const lastEntry = parsePgnEntry(
+                  newMovePgn[newMovePgn.length - 1],
+                );
 
-                  if (newMovePgn.length > activeGame.history().length) {
-                    const newGame = new Chess();
-                    if (activeGame.history().length == 0) {
-                      clearCountdownTimer();
-                      setCountdown(null);
-                    }
-
-                    newMovePgn.forEach((pgnEntry: string) => {
-                      const parsedEntry = parsePgnEntry(pgnEntry);
-                      newGame.move({
-                        from: parsedEntry.from,
-                        to: parsedEntry.to,
-                        promotion: "q",
-                      });
-                    });
-
-                    setActiveGame(newGame);
-                    setCurrentMoveIndex(newGame.history().length - 1);
-                    setIsReplay(null);
-                    const lastMoveIndex = newGame.history().length - 1;
-                    if (lastMoveIndex >= 0) {
-                      const moveHistory = newGame.history({ verbose: true });
-                      const lastMove = moveHistory[lastMoveIndex];
-                      const isCheck = newGame.isCheck();
-                      playMoveSound(lastMove, isCheck);
-                    }
-
-                    // First move made - clear countdown for both players
-                    if (newGame.history().length >= 1) {
-                      clearCountdownTimer();
-                      setCountdown(null);
-                    }
-
-                    if (
-                      lastEntry.whiteTime !== null &&
-                      lastEntry.blackTime !== null &&
-                      lastEntry.timestamp
-                    ) {
-                      const lastMoveTime = new Date(
-                        lastEntry.timestamp,
-                      ).getTime();
-                      const now = Date.now();
-                      const elapsedSeconds = (now - lastMoveTime) / 1000;
-
-                      const currentTurn = newGame.turn();
-
-                      let adjustedWhiteTime = lastEntry.whiteTime;
-                      let adjustedBlackTime = lastEntry.blackTime;
-
-                      if (currentTurn === "w") {
-                        adjustedWhiteTime = Math.max(
-                          0,
-                          lastEntry.whiteTime - elapsedSeconds,
-                        );
-                        if (
-                          adjustedWhiteTime === 0 &&
-                          lastEntry.whiteTime > 0
-                        ) {
-                          handleTimeOut("white");
-                        }
-                      } else {
-                        adjustedBlackTime = Math.max(
-                          0,
-                          lastEntry.blackTime - elapsedSeconds,
-                        );
-                        if (
-                          adjustedBlackTime === 0 &&
-                          lastEntry.blackTime > 0
-                        ) {
-                          handleTimeOut("black");
-                        }
-                      }
-                      if (!data.pgn_info.result) {
-                        setLoadedWhiteTime(adjustedWhiteTime);
-                        setLoadedBlackTime(adjustedBlackTime);
-                      } else {
-                        setLoadedWhiteTime(lastEntry.whiteTime);
-                        setLoadedBlackTime(lastEntry.blackTime);
-                      }
-                    }
+                if (newMovePgn.length > activeGame.history().length) {
+                  const newGame = new Chess();
+                  if (activeGame.history().length == 0) {
+                    clearCountdownTimer();
+                    setCountdown(null);
                   }
-                  if (data.pgn_info.result) {
-                    const endGameData = data.pgn_info;
 
-                    //makePGNInfoString(data, setpgnInfoString);
-                    if (!endGameData.termination.includes("time")) {
-                      setTimeOut("game over");
-                    }
-                    setFinalGameData({
-                      ...data,
-                      white_username: gameData.white_username,
-                      black_username: gameData.black_username,
+                  newMovePgn.forEach((pgnEntry: string) => {
+                    const parsedEntry = parsePgnEntry(pgnEntry);
+                    newGame.move({
+                      from: parsedEntry.from,
+                      to: parsedEntry.to,
+                      promotion: "q",
                     });
-                    ActiveContext.setMemberRequestLock(true);
-                    switch (endGameData.result) {
-                      case "1-0": {
-                        if (endGameData.termination.includes("resignation")) {
-                          !resign && setResign("Black");
-                        }
-                        break;
-                      }
-                      case "0-1": {
-                        if (endGameData.termination.includes("resignation")) {
-                          !resign && setResign("White");
-                        }
-                        break;
-                      }
-                      case "1/2-1/2": {
-                        if (endGameData.termination.includes("Draw")) {
-                          setDraw("");
-                        }
-                        break;
-                      }
-                      case "0-0": {
-                        setAbortMessage("Game Aborted.");
-                        break;
-                      }
-                      default: {
-                        ("default case");
-                      }
-                    }
+                  });
+
+                  setActiveGame(newGame);
+                  setCurrentMoveIndex(newGame.history().length - 1);
+                  setIsReplay(null);
+                  const lastMoveIndex = newGame.history().length - 1;
+                  if (lastMoveIndex >= 0) {
+                    const moveHistory = newGame.history({ verbose: true });
+                    const lastMove = moveHistory[lastMoveIndex];
+                    const isCheck = newGame.isCheck();
+                    playMoveSound(lastMove, isCheck);
                   }
-                  if (data.draw_offer) {
-                    const drawAgreement = data.draw_offer
-                      ? data.draw_offer.split("$")
-                      : [];
-                    if (drawAgreement.length == 1) {
-                      setDraw(data.draw_offer);
-                    } else if (drawAgreement.length == 2) {
-                      setDraw("");
+
+                  // First move made - clear countdown for both players
+                  if (newGame.history().length >= 1) {
+                    clearCountdownTimer();
+                    setCountdown(null);
+                  }
+
+                  if (
+                    lastEntry.whiteTime !== null &&
+                    lastEntry.blackTime !== null &&
+                    lastEntry.timestamp
+                  ) {
+                    const lastMoveTime = new Date(
+                      lastEntry.timestamp,
+                    ).getTime();
+                    const now = Date.now();
+                    const elapsedSeconds = (now - lastMoveTime) / 1000;
+
+                    const currentTurn = newGame.turn();
+
+                    let adjustedWhiteTime = lastEntry.whiteTime;
+                    let adjustedBlackTime = lastEntry.blackTime;
+
+                    if (currentTurn === "w") {
+                      adjustedWhiteTime = Math.max(
+                        0,
+                        lastEntry.whiteTime - elapsedSeconds,
+                      );
+                      if (adjustedWhiteTime === 0 && lastEntry.whiteTime > 0) {
+                        handleTimeOut("white");
+                      }
+                    } else {
+                      adjustedBlackTime = Math.max(
+                        0,
+                        lastEntry.blackTime - elapsedSeconds,
+                      );
+                      if (adjustedBlackTime === 0 && lastEntry.blackTime > 0) {
+                        handleTimeOut("black");
+                      }
                     }
-                  } else if (!data.draw_offer) {
-                    setDraw("");
+                    if (!data.pgn_info.result) {
+                      setLoadedWhiteTime(adjustedWhiteTime);
+                      setLoadedBlackTime(adjustedBlackTime);
+                    } else {
+                      setLoadedWhiteTime(lastEntry.whiteTime);
+                      setLoadedBlackTime(lastEntry.blackTime);
+                    }
                   }
                 }
+                if (data.pgn_info.result) {
+                  const endGameData = data.pgn_info;
+
+                  //makePGNInfoString(data, setpgnInfoString);
+                  if (!endGameData.termination.includes("time")) {
+                    setTimeOut("game over");
+                  }
+                  setFinalGameData({
+                    ...data,
+                    white_username: gameData.white_username,
+                    black_username: gameData.black_username,
+                  });
+                  ActiveContext.setMemberRequestLock(true);
+                  switch (endGameData.result) {
+                    case "1-0": {
+                      if (endGameData.termination.includes("resignation")) {
+                        !resign && setResign("Black");
+                      }
+                      break;
+                    }
+                    case "0-1": {
+                      if (endGameData.termination.includes("resignation")) {
+                        !resign && setResign("White");
+                      }
+                      break;
+                    }
+                    case "1/2-1/2": {
+                      if (endGameData.termination.includes("Draw")) {
+                        setDraw("");
+                      }
+                      break;
+                    }
+                    case "0-0": {
+                      setAbortMessage("Game Aborted.");
+                      break;
+                    }
+                    default: {
+                      ("default case");
+                    }
+                  }
+                }
+                if (data.draw_offer) {
+                  const drawAgreement = data.draw_offer
+                    ? data.draw_offer.split("$")
+                    : [];
+                  if (drawAgreement.length == 1) {
+                    setDraw(data.draw_offer);
+                  } else if (drawAgreement.length == 2) {
+                    setDraw("");
+                  }
+                } else if (!data.draw_offer) {
+                  setDraw("");
+                }
               }
-            } catch (error) {
-              console.error(error);
             }
+          } catch (error) {
+            console.error(error);
           }
         },
       )
@@ -787,10 +808,7 @@ export default function Index() {
       return null;
     }
     if (!resign) {
-      const colorPreference =
-        gameData.white_username == UserContext?.rowData.username
-          ? "white"
-          : "black";
+      const colorPreference = toggleUsers.orientation;
       const [result, termination] = gameStartFinishReducer(
         activeGame,
         timeOut,
@@ -856,7 +874,10 @@ export default function Index() {
   const showCountdown = countdown !== null && countdown > 0 && !abortMessage;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" key={gameData?.id || 0}>
+    <div
+      className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
+      key={gameData?.id || 0}
+    >
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
@@ -896,22 +917,22 @@ export default function Index() {
                       Resign
                     </button>
                   )}
-                      <RematchRequestMaker
-                        currentGameData={{
-                          toggleUsers,
-                          finalGameData,
-                          gameData,
-                        }}
-                        username={toggleUsers.oppUsername}
-                        timeControl={gameData.timecontrol}
-                        isRated={gameData.pgn_info.is_rated == "rated"}
-                        colorPreference={
-                          gameData.pgn_info.gameid == 1
-                            ? "random"
-                            : toggleUsers.orientation
-                        }
-                        abortMessage={abortMessage}
-                      />
+                  <RematchRequestMaker
+                    currentGameData={{
+                      toggleUsers,
+                      finalGameData,
+                      gameData: gameData,
+                    }}
+                    username={toggleUsers.oppUsername}
+                    timeControl={gameData.timecontrol}
+                    isRated={gameData?.pgn_info?.is_rated == "rated"}
+                    colorPreference={
+                      gameData?.pgn_info?.gameid == 1
+                        ? "random"
+                        : toggleUsers.orientation
+                    }
+                    abortMessage={abortMessage}
+                  />
 
                   {!isGameOver && (
                     <OfferDraw

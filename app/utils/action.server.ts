@@ -162,6 +162,7 @@ export async function rematchRequestNewRequestPairing(
           message: `Invalid row data, timecontrol entered on games pairing table`,
         }
     } else {
+      data[0] = {...data[0], username}
       return { data, go: true, message: "new pairing insert on games_pairing table." };
     }
   } catch (error) {
