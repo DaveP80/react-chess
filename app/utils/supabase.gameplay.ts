@@ -118,13 +118,13 @@ export async function dropTablesGameNumberGameMoves(
   gameData: Record<string, any>,
 ) {
 
-  const sql_query = `DROP TABLE game_number_${id};`;
-  const sql_query_1 = `DELETE from game_moves where id = ${id};`;
-  const sql_query_2 = `DELETE from games${gameData.game_id == gameData.game_id_b ? "_pairing" : ""} where id = ${gameData.game_id};`;
-  const sql_query_3 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.white}';`;
-  const sql_query_4 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.black}';`;
+  const sql_query_1 = `DROP TABLE game_number_${id};`;
+  const sql_query_2 = `DELETE from game_moves where id = ${id};`;
+  const sql_query_3 = `DELETE from games${gameData.game_id == gameData.game_id_b ? "_pairing" : ""} where id = ${gameData.game_id};`;
+  const sql_query_4 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.white}';`;
+  const sql_query_5 = `UPDATE users set "isActive" = false WHERE u_id = '${gameData.pgn_info.black}';`;
   try {
-    await supabase.rpc(`execute_sql`, { sql_query: sql_query + sql_query_1 + sql_query_2 + sql_query_3 + sql_query_4 });
+    await supabase.rpc(`execute_sql`, { sql_query: sql_query_1 + sql_query_2 + sql_query_3 + sql_query_4 + sql_query_5 });
   } catch (error) {
     console.error(error);
   }
@@ -166,7 +166,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.game_number_${id};
   } catch (error) {
     return {data: null, error};
   }
-}
+};
 
 export async function lookup_userdata_on_active_status(
   supabase: any,

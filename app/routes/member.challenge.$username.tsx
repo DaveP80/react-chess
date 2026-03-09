@@ -348,19 +348,22 @@ export default function Index() {
                   hidden
                   name="isRated"
                   value={isRated ? "true" : "false"}
+                  readOnly
                 />
-                <input hidden name="username" value={username} />
+                <input hidden name="username" value={username} readOnly/>
                 <input
                   hidden
                   name="memberData"
                   value={JSON.stringify(
                     GameContext.memberRequestForm.memberData,
                   )}
+                  readOnly
                 />
                 <input
                   hidden
                   name="currentUserElo"
                   value={JSON.stringify(PlayContext.rowData.rating)}
+                  readOnly
                 />
           <fieldset
             className="space-y-3"

@@ -446,6 +446,7 @@ export function generateMemberRequestFormObj(actionData) {
 export function generateRematchRequestFormObj(actionData) {
   const { toggleUsers, finalGameData, gameData } = actionData;
   const tempObj = {};
+  if (!gameData?.id) return tempObj;
   const [player_w, player_b] = generatePgnRatingsInserts(
     finalGameData,
     gameData,
@@ -527,7 +528,7 @@ export function newUserGameDataReturnObject(newUserGameData, their_username) {
 };
 
 export function resolveRematchComponent(currentGameData, seconds_diff, abortMessage) {
-  if (abortMessage.length > 0) return;
+  if (abortMessage.length > 0 || !currentGameData.gameData?.pgn_info) return;
   const currGamePgn = currentGameData.finalGameData.pgn;
   const lastEntry = parsePgnEntry(currGamePgn[currGamePgn.length - 1]);
   const currentTime = new Date().toISOString();

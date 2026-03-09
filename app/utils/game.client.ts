@@ -118,6 +118,61 @@ export function getNewGamePairing(actionData: any, payload: any) {
       message: `no game found with reference id: ${+actionData.id}.`,
     };
   }
+};
+
+export async function getNewGamePairingWithPolling(
+  actionData: any,
+  payload: any,
+  supabase: any
+) {
+  const newRow = payload?.new;
+
+  if (
+    newRow &&
+    (newRow?.game_id == +actionData.id || newRow?.game_id_b == +actionData.id)
+  ) {
+    // Poll game_number_${id} table to ensure it's synced
+    const gameNumberId = newRow.id;
+    const maxAttempts = 10; // 10 attempts * 200ms = 2 seconds max
+    const pollInterval = 200; // 200ms between attempts
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from(`game_number_${gameNumberId}`)
+          .select("id")
+          .eq("id", gameNumberId)
+          .single();
+
+        if (data && !error) {
+          // Table exists and has data - tables are synced
+          return {
+            go: true,
+            message: `new game made with game_id: ${newRow.game_id}, ${newRow.game_id_b}.`,
+            data: { navigateId: newRow.id, newgame_data: newRow },
+          };
+        }
+      } catch (err) {
+        // Table doesn't exist yet, continue polling
+      }
+
+      // Wait before next attempt (skip wait on last attempt)
+      if (attempt < maxAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      }
+    }
+
+    // Polling timed out - table not ready
+    return {
+      go: false,
+      message: `game_number_${gameNumberId} table not ready after 2 seconds.`,
+    };
+  } else {
+    return {
+      go: false,
+      message: `no game found with reference id: ${+actionData.id}.`,
+    };
+  }
 }
 
 export async function getNewMemberGamePairing(actionData: any, supabase: any) {

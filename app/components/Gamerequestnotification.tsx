@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback, useContext } from "react";
 import { useLoaderData, useLocation, useNavigate } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
 import {
-  getNewGamePairing,
+  getNewGamePairingWithPolling,
   getNewMemberGamePairing,
   handleInsertStartMemberGame,
   updateActiveUserStatus,
@@ -56,7 +56,7 @@ export default function GameRequestNotification({
       setIsProcessing(false);
     }, 300);
     if (dismissTimerRef.current) {
-      clearTimeout(dismissTimerRef.current);
+      clearTimeout(dismissTimerRef.current!);
       dismissTimerRef.current = null;
     }
     //possibly add GameContext back to dependency array
@@ -289,6 +289,23 @@ export default function GameRequestNotification({
             GameContext?.setMemberRequest({});
           }
         },
+      ).on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "games_pairing" },
+        (payload: any) => {
+          // Check if the deleted row matches the current game request
+          const deletedId = payload.old?.id;
+          const currentRequestId = GameContext?.memberRequest?.actionData?.id;
+      
+          if (deletedId && currentRequestId && deletedId === currentRequestId) {
+            // Reset all notification state
+            clearTimeout(dismissTimerRef.current!);
+            setIsVisible(false);
+            setIsExiting(false);
+            setIsProcessing(false);
+            GameContext.setMemberRequest({});
+          }
+        },
       )
       .subscribe((status) => {
         console.log("games_pairing channel status:", status);
@@ -298,7 +315,7 @@ export default function GameRequestNotification({
       console.log("Cleaning up games_pairing channel");
       supabaseRealtimePairing.removeChannel(channelPairing);
       if (dismissTimerRef.current) {
-        clearTimeout(dismissTimerRef.current);
+        clearTimeout(dismissTimerRef.current!);
       }
     };
   }, [
@@ -327,11 +344,12 @@ export default function GameRequestNotification({
           try {
             if (GameContext?.memberRequest?.ref && userId) {
               console.log("Looking up new game pairing...");
-              let response = getNewGamePairing(
+              //make sure that game_moves and game_number_id tables are synced.
+              let response = await getNewGamePairingWithPolling(
                 GameContext.memberRequest.actionData,
                 payload,
+                supabase
               );
-              console.log("getNewGamePairing response:", response);
 
               if (response?.go) {
                 // Game found! Navigate to it
@@ -377,7 +395,7 @@ export default function GameRequestNotification({
 
       // Auto-dismiss after 60 seconds
       if (dismissTimerRef.current) {
-        clearTimeout(dismissTimerRef.current);
+        clearTimeout(dismissTimerRef.current!);
       }
       dismissTimerRef.current = setTimeout(() => {
         dismiss();
