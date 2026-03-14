@@ -2,9 +2,9 @@ import {
   useEffect,
   useState,
   useRef,
-  useCallback,
   useMemo,
   useContext,
+  useCallback,
 } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
@@ -38,7 +38,6 @@ import {
 } from "@remix-run/react";
 import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
 import {
-  dropTablesGameNumberGameMoves,
   insertNewMoves,
 } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
@@ -61,6 +60,8 @@ import UpdateTablesGameEnd from "~/components/UpdateTablesGameEnd";
 import RematchRequestMaker from "~/components/RematchRequestMaker";
 import { GlobalContext } from "~/context/globalcontext";
 import { action as gameActionFunction } from "~/actions/rematch_handler.server";
+import AbortCountdown from "~/components/AbortCountdown";
+import BlackAbortCountdown from "~/components/BlackAbortCountdown";
 
 export const meta: MetaFunction = () => {
   return [
@@ -117,14 +118,12 @@ export default function Index() {
   const [isReplay, setIsReplay] = useState<null | number>(null);
   const [replayFenHistory, setReplayFenHistory] = useState<any>();
   const [finalGameData, setFinalGameData] = useState({});
-  const [countdown, setCountdown] = useState<number | null>(null); // null = not started
   const [abortMessage, setAbortMessage] = useState("");
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [countdownBlack, setCountdownBlack] = useState<number | null>(null);
   const [currentOpening, setCurrentOpening] = useState<Opening | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const abortCalledRef = useRef<boolean>(false);
-  const countdownStartedRef = useRef<boolean>(false);
-  // Store orientation in a ref so interval callback always has current value
-  const isWhitePlayerRef = useRef<boolean>(false);
+  const countdownIntervalRefBlack = useRef<NodeJS.Timeout | null>(null);
   const { data: gameData } = useLoaderData<typeof loader>();
 
   const navigate = useNavigate();
@@ -153,37 +152,6 @@ export default function Index() {
     UserContext?.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
     { isSingleton: false },
   );
-
-  // Clear countdown timer
-  const clearCountdownTimer = useCallback(() => {
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-  }, []);
-
-  // Execute abort - only white player calls this
-  const executeAbort = useCallback(async () => {
-    if (abortCalledRef.current) {
-      return;
-    }
-    abortCalledRef.current = true;
-    clearCountdownTimer();
-    await dropTablesGameNumberGameMoves(supabase, gameData.id, gameData);
-    setAbortMessage("Game Aborted.");
-    localStorage.removeItem("pgnInfo");
-  }, [supabase, gameData, clearCountdownTimer]);
-
-  // Handle manual abort by white player
-  const handleAbortGame = useCallback(async () => {
-    if (abortCalledRef.current) {
-      return;
-    }
-    await executeAbort();
-    setCountdown(0);
-    ActiveContext.setMemberRequestLock(true);
-  }, [executeAbort]);
-
   // Setup toggleUsers when gameData loads
   useEffect(() => {
     if (gameData?.id) {
@@ -192,7 +160,6 @@ export default function Index() {
       );
 
       const isWhite = gameData.white_username === UserContext?.rowData.username;
-      isWhitePlayerRef.current = isWhite;
 
       setToggleUsers({
         ...toggleUsers,
@@ -206,8 +173,7 @@ export default function Index() {
         myAvatarURL: UserContext?.rowData.avatarURL,
         gameTimeLength: game_length,
         oppElo:
-          gameData.white_rating[timeControl] ==
-          UserContext?.rowData.rating[timeControl]
+          isWhite
             ? gameData.black_rating[timeControl]
             : gameData.white_rating[timeControl],
         myElo: UserContext?.rowData.rating[timeControl],
@@ -333,94 +299,6 @@ export default function Index() {
     return () => {};
   }, [gameData]);
 
-  // Start countdown when toggleUsers is set and game hasn't started
-  useEffect(() => {
-    if (
-      gameData?.pgn_info &&
-      !gameData?.pgn_info?.result &&
-      activeGame.history().length === 0 &&
-      toggleUsers.toggle &&
-      toggleUsers.orientation &&
-      !countdownStartedRef.current &&
-      !abortMessage
-    ) {
-      countdownStartedRef.current = true;
-      abortCalledRef.current = false;
-
-      const isWhite = toggleUsers.orientation === "white";
-      isWhitePlayerRef.current = isWhite;
-      const initialCountdown = isWhite ? 15 : 16;
-
-      console.log("Starting countdown timer", { isWhite, initialCountdown });
-      setCountdown(initialCountdown);
-
-      // Use a simple countdown approach
-      let currentCount = initialCountdown;
-
-      countdownIntervalRef.current = setInterval(() => {
-        currentCount -= 1;
-        console.log("Countdown tick:", currentCount);
-
-        if (currentCount <= 0) {
-          clearInterval(countdownIntervalRef.current!);
-          countdownIntervalRef.current = null;
-          setCountdown(0);
-
-          // Check ref for current player status
-          if (isWhitePlayerRef.current) {
-            // White player executes abort
-            if (!abortCalledRef.current) {
-              abortCalledRef.current = true;
-              dropTablesGameNumberGameMoves(supabase, gameData.id, gameData)
-                .then(() => {
-                  setAbortMessage("Game Aborted.");
-                  ActiveContext.setMemberRequestLock(true);
-                  localStorage.removeItem("pgnInfo");
-                })
-                .catch(console.error);
-            }
-          } else {
-            // Black player just shows message
-            setAbortMessage("Game Aborted.");
-            ActiveContext.setMemberRequestLock(true);
-            localStorage.removeItem("pgnInfo");
-          }
-        } else {
-          setCountdown(currentCount);
-        }
-      }, 1000);
-
-      if (!isWhite) {
-        setTimeout(() => {}, 400);
-        const pollInterval = setInterval(async () => {
-          if (!countdownIntervalRef.current) {
-            clearInterval(pollInterval);
-            return;
-          }
-          const { data, error } = await supabase
-            .from(`game_number_${gameData.id}`)
-            .select("id")
-            .eq("id", gameData.id)
-            .single();
-
-          // If error or no data, white has aborted
-          if (error || !data) {
-            clearInterval(pollInterval);
-            clearInterval(countdownIntervalRef.current!);
-            countdownIntervalRef.current = null;
-            clearCountdownTimer();
-            setCountdown(0);
-            setAbortMessage("Game Aborted.");
-            localStorage.removeItem("pgnInfo");
-            ActiveContext.setMemberRequestLock(true);
-            return;
-            // ... cleanup
-          }
-        }, 400);
-      }
-    }
-  }, [gameData, activeGame, toggleUsers, abortMessage, supabase]);
-
   // Websocket subscription
   useEffect(() => {
     if (gameData?.is_analysis || gameData?.status == "end") {
@@ -451,7 +329,6 @@ export default function Index() {
                   const newGame = new Chess();
                   if (activeGame.history().length == 0) {
                     clearCountdownTimer();
-                    setCountdown(null);
                   }
 
                   newMovePgn.forEach((pgnEntry: string) => {
@@ -473,13 +350,7 @@ export default function Index() {
                     const isCheck = newGame.isCheck();
                     playMoveSound(lastMove, isCheck);
                   }
-
-                  // First move made - clear countdown for both players
-                  if (newGame.history().length >= 1) {
-                    clearCountdownTimer();
-                    setCountdown(null);
-                  }
-
+                  
                   if (
                     lastEntry.whiteTime !== null &&
                     lastEntry.blackTime !== null &&
@@ -618,11 +489,34 @@ export default function Index() {
     updateGameResult();
   }, [timeOut]);
 
+
+  // Clear countdown timer
+  const clearCountdownTimer = useCallback(() => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  }, []);
+
+  const clearCountdownTimerBlack = useCallback(() => {
+    if (countdownIntervalRefBlack.current) {
+      clearInterval(countdownIntervalRefBlack.current);
+      countdownIntervalRefBlack.current = null;
+    }
+  }, []);
+
+
   useEffect(() => {
     return () => {
       clearCountdownTimer();
     };
   }, [clearCountdownTimer]);
+
+  useEffect(() => {
+    return () => {
+      clearCountdownTimerBlack();
+    };
+  }, [clearCountdownTimerBlack]);
 
   useEffect(() => {
     preloadSounds();
@@ -758,6 +652,9 @@ export default function Index() {
       if (updateGame.history().length === 1) {
         clearCountdownTimer();
         setCountdown(null);
+      } else if (updateGame.history().length === 2) {
+        clearCountdownTimerBlack();
+        setCountdownBlack(null);
       }
 
       setActiveGame(updateGame);
@@ -870,9 +767,6 @@ export default function Index() {
       ? true
       : false;
 
-  // Check if countdown should be visible
-  const showCountdown = countdown !== null && countdown > 0 && !abortMessage;
-
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
@@ -947,61 +841,8 @@ export default function Index() {
                       }}
                     />
                   )}
-                  {showCountdown && (
-                    <section className="mt-4 mb-4">
-                      <div className="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="relative">
-                              <div className="h-10 w-10 rounded-full border-4 border-indigo-200"></div>
-                              <div className="absolute inset-0 h-10 w-10 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent"></div>
-                            </div>
-                            <div>
-                              <p className="text-sm text-indigo-600">
-                                {toggleUsers.orientation === "white"
-                                  ? "You can abort the game"
-                                  : "Waiting for white to move"}
-                              </p>
-                              <p className="text-sm text-indigo-600">
-                                Countdown:{" "}
-                                <span className="font-mono font-semibold">
-                                  {countdown}s
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-                          {toggleUsers.orientation === "white" && (
-                            <button
-                              type="button"
-                              onClick={handleAbortGame}
-                              className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-indigo-600 shadow-sm transition hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                            >
-                              Abort
-                            </button>
-                          )}
-                        </div>
-                        <div className="mt-3">
-                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-200">
-                            <div
-                              className="h-full rounded-full bg-indigo-600 transition-all duration-1000 ease-linear"
-                              style={{
-                                width: `${
-                                  (((toggleUsers.orientation === "white"
-                                    ? 15
-                                    : 16) -
-                                    (countdown || 0)) /
-                                    (toggleUsers.orientation === "white"
-                                      ? 15
-                                      : 16)) *
-                                  100
-                                }%`,
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-                      </div>
-                    </section>
-                  )}
+                  <AbortCountdown gameData={gameData} activeGame={activeGame} toggleUsers={toggleUsers} abortMessage={abortMessage} supabase={supabase} countdownIntervalRef={countdownIntervalRef} countdown={countdown} setCountdown={setCountdown} clearCountdownTimer={clearCountdownTimer} setAbortMessage={setAbortMessage} />
+                  <BlackAbortCountdown gameData={gameData} activeGame={activeGame} toggleUsers={toggleUsers} abortMessage={abortMessage} supabase={supabase} countdownIntervalRefBlack={countdownIntervalRefBlack} countdownBlack={countdownBlack} setCountdownBlack={setCountdownBlack} clearCountdownTimerBlack={clearCountdownTimerBlack} setAbortMessage={setAbortMessage} />
                 </div>
                 <div className="mb-1 flex justify-start">
                   {toggleUsers.toggle && (
