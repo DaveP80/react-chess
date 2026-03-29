@@ -419,85 +419,39 @@ export default function RematchRequestNotification({
       ? rematchRequest.actionData.username_b
       : rematchRequest.actionData.username_a;
   return (
-    <div className="mb-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4 animate-in fade-in slide-in-from-top-2 duration-300">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <Swords className="text-emerald-400" size={18} />
-        <p className="text-sm font-semibold text-emerald-400">
-          Rematch Challenge!
-        </p>
-      </div>
-
-      {/* Challenger info */}
-      <div className="flex items-center gap-3 mb-4 rounded-lg bg-slate-700/50 p-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-bold text-white">
-          {opponentName?.charAt(0)?.toUpperCase() || "?"}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white truncate">
-            {opponentName}
-          </p>
-          <p className="text-xs text-slate-400">wants a rematch</p>
-        </div>
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex gap-2">
-        <button
-          onClick={handleAccept}
-          disabled={isProcessing}
-          className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 
-                     text-sm font-semibold text-white shadow-sm transition-all active:scale-[0.98]
-                         ${
-                           isProcessing
-                             ? "bg-emerald-800 cursor-wait"
-                             : "bg-emerald-600 hover:bg-emerald-500"
-                         }`}
-        >
-          {isProcessing ? (
-            <>
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              Starting...
-            </>
-          ) : (
-            <>
-              <Check size={16} />
-              Accept
-            </>
-          )}
-        </button>
-        <button
-          onClick={handleReject}
-          disabled={isProcessing}
-          className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-slate-600 
-                         px-4 py-2.5 text-sm font-semibold text-white shadow-sm 
-                     transition-all hover:bg-slate-500 active:scale-[0.98]
-                     disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <X size={16} />
-          Decline
-        </button>
-      </div>
-
-      {/* Timer indicator */}
-      <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-slate-700">
-        <div
-          className="h-full bg-emerald-500 rounded-full"
-          style={{
-            animation: "shrink-width 180s linear forwards",
-          }}
-        />
-      </div>
-      <p className="text-xs text-slate-500 text-center mt-1">
-        Expires in 3 minutes
-      </p>
-
-      <style>{`
-        @keyframes shrink-width {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-      `}</style>
-    </div>
+    <div className="flex items-center gap-2">
+    <span className="text-sm text-slate-300 truncate max-w-[100px]">
+      {opponentName}
+    </span>
+    <button
+      onClick={handleAccept}
+      disabled={isProcessing}
+      className={`flex items-center justify-center gap-1 rounded-lg px-3 py-2.5 
+                 text-sm font-semibold text-white shadow-sm transition-all
+                 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 active:scale-[0.98]
+                 ${
+                   isProcessing
+                     ? "bg-slate-600 cursor-wait opacity-60"
+                     : "bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400"
+                 }`}
+    >
+      {isProcessing ? (
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+      ) : (
+        <Check size={16} />
+      )}
+    </button>
+    <button
+      onClick={handleReject}
+      disabled={isProcessing}
+      className="flex items-center justify-center gap-1 rounded-lg px-3 py-2.5 
+                 text-sm font-semibold text-white shadow-sm transition-all bg-slate-600 
+                 hover:bg-slate-500 active:scale-[0.98]
+                 focus:outline-none focus:ring-2 focus:ring-slate-500/40
+                 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <X size={16} />
+    </button>
+  </div>
   );
 }

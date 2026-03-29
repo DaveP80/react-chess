@@ -37,9 +37,7 @@ import {
   useRouteLoaderData,
 } from "@remix-run/react";
 import { ChessClock, ChessClockHandle } from "~/components/ChessClock";
-import {
-  insertNewMoves,
-} from "~/utils/supabase.gameplay";
+import { insertNewMoves } from "~/utils/supabase.gameplay";
 import { createBrowserClient } from "@supabase/ssr";
 import {
   lookup_userdata_on_gameid,
@@ -62,6 +60,7 @@ import { GlobalContext } from "~/context/globalcontext";
 import { action as gameActionFunction } from "~/actions/rematch_handler.server";
 import AbortCountdown from "~/components/AbortCountdown";
 import BlackAbortCountdown from "~/components/BlackAbortCountdown";
+import NewPairingMaker from "~/components/NewPairingMaker";
 
 export const meta: MetaFunction = () => {
   return [
@@ -172,10 +171,9 @@ export default function Index() {
         oppAvatarURL: isWhite ? gameData.black_avatar : gameData.white_avatar,
         myAvatarURL: UserContext?.rowData.avatarURL,
         gameTimeLength: game_length,
-        oppElo:
-          isWhite
-            ? gameData.black_rating[timeControl]
-            : gameData.white_rating[timeControl],
+        oppElo: isWhite
+          ? gameData.black_rating[timeControl]
+          : gameData.white_rating[timeControl],
         myElo: UserContext?.rowData.rating[timeControl],
       });
 
@@ -350,7 +348,7 @@ export default function Index() {
                     const isCheck = newGame.isCheck();
                     playMoveSound(lastMove, isCheck);
                   }
-                  
+
                   if (
                     lastEntry.whiteTime !== null &&
                     lastEntry.blackTime !== null &&
@@ -489,7 +487,6 @@ export default function Index() {
     updateGameResult();
   }, [timeOut]);
 
-
   // Clear countdown timer
   const clearCountdownTimer = useCallback(() => {
     if (countdownIntervalRef.current) {
@@ -504,7 +501,6 @@ export default function Index() {
       countdownIntervalRefBlack.current = null;
     }
   }, []);
-
 
   useEffect(() => {
     return () => {
@@ -753,6 +749,11 @@ export default function Index() {
       finalGameData?.pgn_info?.result,
   );
 
+  const showResign =
+  activeGame.isGameOver() ||
+  timeOut !== null ||
+  Boolean(finalGameData?.pgn_info?.result) || abortMessage;
+
   const isCheckmate = activeGame.isCheckmate();
   const isDraw = activeGame.isDraw();
   const isCheck = activeGame.isCheck();
@@ -802,7 +803,7 @@ export default function Index() {
                       </span>
                     )}
                   </div>
-                  {!isGameOver && (
+                  {!showResign && (
                     <button
                       onClick={resignGame}
                       className="flex items-center gap-2 bg-red-900 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition-colors"
@@ -827,6 +828,18 @@ export default function Index() {
                     }
                     abortMessage={abortMessage}
                   />
+                  {(abortMessage ||
+                    finalGameData?.pgn_info?.result) && (
+                      <NewPairingMaker
+                        timeControl={gameData.timecontrol}
+                        isRated={gameData?.pgn_info?.is_rated == "rated"}
+                        colorPreference={
+                          gameData?.pgn_info?.gameid == 1
+                            ? "random"
+                            : toggleUsers.orientation
+                        }
+                      />
+                    )}
 
                   {!isGameOver && (
                     <OfferDraw
@@ -841,8 +854,30 @@ export default function Index() {
                       }}
                     />
                   )}
-                  <AbortCountdown gameData={gameData} activeGame={activeGame} toggleUsers={toggleUsers} abortMessage={abortMessage} supabase={supabase} countdownIntervalRef={countdownIntervalRef} countdown={countdown} setCountdown={setCountdown} clearCountdownTimer={clearCountdownTimer} setAbortMessage={setAbortMessage} />
-                  <BlackAbortCountdown gameData={gameData} activeGame={activeGame} toggleUsers={toggleUsers} abortMessage={abortMessage} supabase={supabase} countdownIntervalRefBlack={countdownIntervalRefBlack} countdownBlack={countdownBlack} setCountdownBlack={setCountdownBlack} clearCountdownTimerBlack={clearCountdownTimerBlack} setAbortMessage={setAbortMessage} />
+                  <AbortCountdown
+                    gameData={gameData}
+                    activeGame={activeGame}
+                    toggleUsers={toggleUsers}
+                    abortMessage={abortMessage}
+                    supabase={supabase}
+                    countdownIntervalRef={countdownIntervalRef}
+                    countdown={countdown}
+                    setCountdown={setCountdown}
+                    clearCountdownTimer={clearCountdownTimer}
+                    setAbortMessage={setAbortMessage}
+                  />
+                  <BlackAbortCountdown
+                    gameData={gameData}
+                    activeGame={activeGame}
+                    toggleUsers={toggleUsers}
+                    abortMessage={abortMessage}
+                    supabase={supabase}
+                    countdownIntervalRefBlack={countdownIntervalRefBlack}
+                    countdownBlack={countdownBlack}
+                    setCountdownBlack={setCountdownBlack}
+                    clearCountdownTimerBlack={clearCountdownTimerBlack}
+                    setAbortMessage={setAbortMessage}
+                  />
                 </div>
                 <div className="mb-1 flex justify-start">
                   {toggleUsers.toggle && (
@@ -1009,7 +1044,7 @@ export default function Index() {
                     </button>
                   </div>
                 </div>
-                {(isGameOver || isThreeFoldRepit || resign) &&
+                {isGameOver &&
                   !abortMessage && (
                     <div className="mt-4 p-4 bg-slate-800 text-white rounded-lg text-center">
                       <p className="font-bold text-lg mb-2">Game Over!</p>

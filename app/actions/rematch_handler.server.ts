@@ -1,6 +1,6 @@
 // app/actions/game.server.ts
 import type { ActionFunctionArgs } from "@remix-run/node";
-import { rematchRequestNewRequestPairing } from "~/utils/action.server";
+import { gamesNewRequestOnUserColor, rematchRequestNewRequestPairing } from "~/utils/action.server";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -26,15 +26,28 @@ export async function action({ request }: ActionFunctionArgs) {
   
     if (userId) {
       //look up pairing games on current user id.
-      const response = await rematchRequestNewRequestPairing(
-        supabase,
-        userId,
-        String(formData?.username),
-        JSON.parse(String(formData?.requestGameData)),
-        String(formData?.colorPreference),
-        String(formData?.timeControl),
-        String(formData?.isRated),
-      );
+      let response;
+      //check if a rematch request or a quick pairing
+      if (String(formData?.isPairingMaker) == "false") {
+        response = await rematchRequestNewRequestPairing(
+          supabase,
+          userId,
+          String(formData?.username),
+          JSON.parse(String(formData?.requestGameData)),
+          String(formData?.colorPreference),
+          String(formData?.timeControl),
+          String(formData?.isRated),
+        );
+
+      } else if (String(formData?.isPairingMaker) == "true") {
+        response = await gamesNewRequestOnUserColor(
+          supabase,
+          userId,
+          String(formData?.colorPreference),
+          String(formData?.timeControl),
+          String(formData?.isRated),
+        );
+      }
       return Response.json(response);
     }
     const timeControl = String(formData.timeControl);
