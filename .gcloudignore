@@ -6,3 +6,5 @@ ReadMe.md
 cron.sql
 schema.sql
 supabase
+node_modules
+.git

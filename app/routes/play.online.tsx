@@ -21,7 +21,6 @@ import {
   updateActiveUserStatus,
 } from "~/utils/game.client";
 import { timeAndColorPreferenceReducer } from "~/utils/helper";
-import { getSupabaseBrowserClient } from "~/utils/supabase.client";
 import { get_similar_game_requests_lobby } from "~/utils/supabase.gameplay";
 import { createSupabaseServerClient } from "~/utils/supabase.server";
 
@@ -86,7 +85,6 @@ const COUNTDOWN_SECONDS = 30;
 
 export default function Index() {
   const actionData = useActionData<typeof action>();
-  const [loading, setIsLoading] = useState(false);
   const [isRated, setIsRated] = useState(false);
   const [requestAlert, setRequestAlert] = useState<{
     [key: string]: any;
@@ -100,7 +98,6 @@ export default function Index() {
   const [isSearching, setIsSearching] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [countdownExpired, setCountdownExpired] = useState(false);
-  const ActiveContext = useContext(GlobalContext);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const supabase = createBrowserClient(
@@ -268,19 +265,6 @@ export default function Index() {
       supabase2.removeChannel(channel2);
     };
   }, [actionData]);
-
-  // Handle navigation state changes
-  useEffect(() => {
-    if (navigation.state === "submitting") {
-      setIsLoading(true);
-    } else if (navigation.state === "idle") {
-      setIsLoading(false);
-    }
-
-    return () => {
-      true;
-    };
-  }, [navigation]);
 
   // Cleanup timer on unmount
   useEffect(() => {
@@ -519,7 +503,7 @@ export default function Index() {
         >
           <span
             className={
-              loading
+              navigation.state === "submitting"
                 ? `inline-block
         h-4 w-4
         animate-spin
@@ -530,7 +514,7 @@ export default function Index() {
                 : ``
             }
           >
-            {loading
+            {navigation.state === "submitting"
               ? ""
               : isSearching && !countdownExpired
               ? "Searching..."
