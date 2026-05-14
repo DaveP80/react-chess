@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "remix vite:dev",
     "dev:staging": "dotenv -e .env.staging -- remix vite:dev",
+    "dev:local": "dotenv -e .env.local -- remix vite:dev",
     "build": "remix vite:build",
     "start": "remix-serve ./build/server/index.js",
     "start:dev": "dotenv -e .env.dev remix vite:dev",
