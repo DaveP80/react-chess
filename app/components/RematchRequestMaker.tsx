@@ -6,7 +6,7 @@ import {
   generateRematchRequestFormObj,
   resolveRematchComponent,
 } from "~/utils/helper";
-import { RotateCcw, Clock, Trophy, User, CircleEllipsis } from "lucide-react";
+import { CircleEllipsis } from "lucide-react";
 import RematchRequestNotification from "./RematchRequestNotification";
 
 export default function RematchRequestMaker({

@@ -61,6 +61,7 @@ import { action as gameActionFunction } from "~/actions/rematch_handler.server";
 import AbortCountdown from "~/components/AbortCountdown";
 import BlackAbortCountdown from "~/components/BlackAbortCountdown";
 import NewPairingMaker from "~/components/NewPairingMaker";
+import FlipBoard from "~/components/FlipBoard";
 
 export const meta: MetaFunction = () => {
   return [
@@ -121,6 +122,7 @@ export default function Index() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [countdownBlack, setCountdownBlack] = useState<number | null>(null);
   const [currentOpening, setCurrentOpening] = useState<Opening | null>(null);
+  const [boardOrientation, setboardOrientation] = useState("white")
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRefBlack = useRef<NodeJS.Timeout | null>(null);
   const { data: gameData } = useLoaderData<typeof loader>();
@@ -159,6 +161,7 @@ export default function Index() {
       );
 
       const isWhite = gameData.white_username === UserContext?.rowData.username;
+      setboardOrientation(isWhite ? "white" : "black");
 
       setToggleUsers({
         ...toggleUsers,
@@ -737,7 +740,7 @@ export default function Index() {
       setCurrentMoveIndex(activeGame.history().length - 1);
     }
   };
-
+  
   const isThreeFoldRepit = activeGame.isThreefoldRepetition();
 
   const isGameOver = Boolean(
@@ -905,8 +908,9 @@ export default function Index() {
                       ? window.innerWidth - 48
                       : 600,
                   )}
-                  boardOrientation={toggleUsers.orientation || "white"}
+                  boardOrientation={boardOrientation}
                 />
+                <FlipBoard setBoardOrientation={setboardOrientation} />
                 <div className="mb-1 flex justify-start">
                   {toggleUsers.toggle && (
                     <section>

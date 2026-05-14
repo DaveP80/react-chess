@@ -1,7 +1,6 @@
 import {
   Form,
   useActionData,
-  useNavigate,
   useRouteLoaderData,
 } from "@remix-run/react";
 import { createBrowserClient } from "@supabase/ssr";
