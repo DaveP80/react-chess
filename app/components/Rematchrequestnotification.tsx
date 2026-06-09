@@ -454,4 +454,4 @@ export default function RematchRequestNotification({
     </button>
   </div>
   );
-}
+};
