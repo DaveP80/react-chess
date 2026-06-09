@@ -97,6 +97,29 @@ export async function action(args: ActionFunctionArgs) {
   return gameActionFunction(args);
 }
 
+// Convert a FEN string into a react-chessboard v4 position object, e.g. { e4: "wP" }.
+// Used to render a queued premove with the piece sitting on its target square.
+function fenToPositionObject(fen: string): Record<string, string> {
+  const board = fen.split(" ")[0];
+  const rows = board.split("/");
+  const files = "abcdefgh";
+  const position: Record<string, string> = {};
+  for (let r = 0; r < rows.length; r++) {
+    let fileIndex = 0;
+    for (const ch of rows[r]) {
+      if (/\d/.test(ch)) {
+        fileIndex += parseInt(ch, 10);
+      } else {
+        const square = files[fileIndex] + (8 - r);
+        const color = ch === ch.toUpperCase() ? "w" : "b";
+        position[square] = color + ch.toUpperCase();
+        fileIndex += 1;
+      }
+    }
+  }
+  return position;
+}
+
 export default function Index() {
   const [currentMoveIndex, setCurrentMoveIndex] = useState<number>(-1);
   const [resign, setResign] = useState<boolean | string>(false);
@@ -123,6 +146,10 @@ export default function Index() {
   const [countdownBlack, setCountdownBlack] = useState<number | null>(null);
   const [currentOpening, setCurrentOpening] = useState<Opening | null>(null);
   const [boardOrientation, setboardOrientation] = useState("white")
+  // a single queued premove: the move to auto-attempt once it becomes our turn
+  const [premove, setPremove] = useState<{ from: string; to: string } | null>(
+    null,
+  );
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRefBlack = useRef<NodeJS.Timeout | null>(null);
   const { data: gameData } = useLoaderData<typeof loader>();
@@ -620,16 +647,37 @@ export default function Index() {
     try {
       const actualTurn = activeGame.turn();
 
+      // Hard stops: the game is not in a live, playable state -> no move, no premove
       if (
         isReplay ||
         resign ||
         activeGame.isThreefoldRepetition() ||
-        !processIncomingPgn(actualTurn, toggleUsers.orientation) ||
         timeOut !== null ||
         resultGame?.result ||
         abortMessage
       ) {
         return false;
+      }
+
+      const myColor = toggleUsers.orientation === "white" ? "w" : "b";
+
+      // Not my turn -> register (or replace) a premove instead of moving now
+      if (!processIncomingPgn(actualTurn, toggleUsers.orientation)) {
+        const pieceOnSource: any = activeGame.get(sourceSquare as any);
+        if (
+          pieceOnSource &&
+          pieceOnSource.color === myColor &&
+          sourceSquare !== targetSquare
+        ) {
+          setPremove({ from: sourceSquare, to: targetSquare });
+        }
+        // return false so the piece snaps back; the premove is shown via square highlight
+        return false;
+      }
+
+      // My turn: if the user is moving manually, drop any queued premove
+      if (premove) {
+        setPremove(null);
       }
 
       const updateGame = activeGame;
@@ -771,6 +819,68 @@ export default function Index() {
       ? true
       : false;
 
+  // styles to highlight the queued premove's from/to squares on the board
+  const premoveSquareStyles = useMemo(() => {
+    if (!premove) return {};
+    const style = { background: "rgba(255, 0, 0, 0.4)" };
+    return { [premove.from]: style, [premove.to]: style } as Record<
+      string,
+      { background: string }
+    >;
+  }, [premove]);
+
+  // When it becomes our turn (i.e. the opponent's move just arrived over the
+  // Supabase realtime channel and updated activeGame), try to play the premove.
+  useEffect(() => {
+    if (!premove) return;
+
+    // discard the premove if the game is no longer live
+    if (isGameOver || isReplay || resign || abortMessage || timeOut !== null) {
+      setPremove(null);
+      return;
+    }
+
+    // still the opponent's turn -> keep waiting
+    if (!processIncomingPgn(activeGame.turn(), toggleUsers.orientation)) {
+      return;
+    }
+
+    // Our turn now: attempt the premove through the normal move path. onDrop
+    // validates legality (illegal premoves are silently discarded) and handles
+    // the Supabase insert / clock / sounds exactly like a manual move.
+    const { from, to } = premove;
+    setPremove(null);
+    void onDrop(from, to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeGame]);
+
+  // The position handed to the board. Normally the display FEN string (with the
+  // existing replay logic). When a premove is queued and we're not reviewing
+  // history, hand the board a position OBJECT with the premoved piece moved onto
+  // its target square so it visually sits there (chess.com style) until the
+  // premove resolves on our next turn.
+  const displayFen = (
+    replayFenHistory ? replayFenHistory == activeGame.fen() : true
+  )
+    ? activeGame.fen()
+    : replayFenHistory;
+
+  const boardPosition: string | Record<string, string> = (() => {
+    if (!premove || isReplay) return displayFen;
+    const position = fenToPositionObject(displayFen);
+    const movingPiece = position[premove.from];
+    if (!movingPiece) return displayFen; // piece isn't there anymore -> plain board
+    delete position[premove.from];
+    // preview a pawn promotion as a queen (onDrop promotes to 'q' on execution)
+    const toRank = premove.to[1];
+    const isPromotion =
+      movingPiece[1] === "P" &&
+      ((movingPiece[0] === "w" && toRank === "8") ||
+        (movingPiece[0] === "b" && toRank === "1"));
+    position[premove.to] = isPromotion ? movingPiece[0] + "Q" : movingPiece;
+    return position;
+  })();
+
   return (
     <div
       className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900"
@@ -891,16 +1001,21 @@ export default function Index() {
                     </section>
                   )}
                 </div>
+                {premove && (
+                  <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                    <span className="text-sm font-semibold text-red-700">
+                      Premove queued: {premove.from} → {premove.to}
+                    </span>
+                    <button
+                      onClick={() => setPremove(null)}
+                      className="text-sm font-semibold text-red-700 underline hover:text-red-900"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 <Chessboard
-                  position={
-                    (
-                      replayFenHistory
-                        ? replayFenHistory == activeGame.fen()
-                        : true
-                    )
-                      ? activeGame.fen()
-                      : replayFenHistory
-                  }
+                  position={boardPosition}
                   onPieceDrop={onDrop}
                   boardWidth={Math.min(
                     600,
@@ -909,6 +1024,9 @@ export default function Index() {
                       : 600,
                   )}
                   boardOrientation={boardOrientation}
+                  customSquareStyles={premoveSquareStyles}
+                  onSquareRightClick={() => setPremove(null)}
+                  arePremovesAllowed={false}
                 />
                 <FlipBoard setBoardOrientation={setboardOrientation} />
                 <div className="mb-1 flex justify-start">
