@@ -393,6 +393,9 @@ export function getTimeControlCategory(timeControl) {
   if (timeControl.startsWith("10")) {
     return "Rapid";
   }
+  if (timeControl.startsWith("1+")) {
+    return "Bullet";
+  }
   return "Unlimited";
 }
 
