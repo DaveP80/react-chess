@@ -8,6 +8,7 @@ function LobbyCard({ item }: { item: LobbyItem }) {
     
     function formatTimeControl(timeControl: string): string {
         const timeMap: Record<string, string> = {
+            "1+0": "1 min",
             "3+0": "3 min",
             "3+2": "3+2",
             "5+0": "5 min",

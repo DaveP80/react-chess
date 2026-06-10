@@ -12,7 +12,6 @@ import { createBrowserClient } from "@supabase/ssr";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import LobbySection from "~/components/LobbySection";
 import { RatedGameSwitch } from "~/components/RatedGameSwitch";
-import { GlobalContext } from "~/context/globalcontext";
 import { LobbyItem } from "~/types";
 import { gamesNewRequestOnUserColor } from "~/utils/action.server";
 import {

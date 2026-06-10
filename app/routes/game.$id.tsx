@@ -651,7 +651,7 @@ export default function Index() {
       if (
         isReplay ||
         resign ||
-        activeGame.isThreefoldRepetition() ||
+        activeGame.isGameOver() ||
         timeOut !== null ||
         resultGame?.result ||
         abortMessage
@@ -835,7 +835,7 @@ export default function Index() {
     if (!premove) return;
 
     // discard the premove if the game is no longer live
-    if (isGameOver || isReplay || resign || abortMessage || timeOut !== null) {
+    if (isGameOver || isReplay || resign || abortMessage || timeOut !== null || finalGameData?.pgn_info?.result) {
       setPremove(null);
       return;
     }
@@ -995,25 +995,12 @@ export default function Index() {
                 <div className="mb-1 flex justify-start">
                   {toggleUsers.toggle && (
                     <section>
-                      <p>{toggleUsers.oppUsername}</p>
-                      <img src={toggleUsers.oppAvatarURL}></img>
-                      <p>{toggleUsers.oppElo}</p>
+                      <p>{boardOrientation !== toggleUsers.orientation ? toggleUsers.myUsername : toggleUsers.oppUsername}</p>
+                      <img src={boardOrientation !== toggleUsers.orientation ? toggleUsers.myAvatarURL : toggleUsers.oppAvatarURL}></img>
+                      <p>{boardOrientation !== toggleUsers.orientation ? toggleUsers.myElo : toggleUsers.oppElo}</p>
                     </section>
                   )}
                 </div>
-                {premove && (
-                  <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-                    <span className="text-sm font-semibold text-red-700">
-                      Premove queued: {premove.from} → {premove.to}
-                    </span>
-                    <button
-                      onClick={() => setPremove(null)}
-                      className="text-sm font-semibold text-red-700 underline hover:text-red-900"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
                 <Chessboard
                   position={boardPosition}
                   onPieceDrop={onDrop}
@@ -1032,9 +1019,9 @@ export default function Index() {
                 <div className="mb-1 flex justify-start">
                   {toggleUsers.toggle && (
                     <section>
-                      <p>{toggleUsers.myUsername}</p>
-                      <img src={toggleUsers.myAvatarURL}></img>
-                      <p>{toggleUsers.myElo}</p>
+                      <p>{boardOrientation !== toggleUsers.orientation ? toggleUsers.oppUsername : toggleUsers.myUsername}</p>
+                      <img src={boardOrientation !== toggleUsers.orientation ? toggleUsers.oppAvatarURL : toggleUsers.myAvatarURL}></img>
+                      <p>{boardOrientation !== toggleUsers.orientation ? toggleUsers.oppElo : toggleUsers.myElo}</p>
                     </section>
                   )}
                 </div>
